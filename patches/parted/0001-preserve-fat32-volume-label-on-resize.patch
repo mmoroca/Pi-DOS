@@ -1,0 +1,20 @@
+Pi-DOS: Preserve the FAT32 volume label while resizing.
+
+The upstream boot-sector generator resets the BPB label to NO NAME while
+retaining the root-directory volume entry. Keep the original FAT32 label
+in both the primary and backup boot sectors to avoid that inconsistency.
+
+--- a/libparted/fs/r/fat/resize.c
++++ b/libparted/fs/r/fat/resize.c
+@@ -856,6 +856,11 @@
+ 
+ 	_copy_hidden_sectors (ctx);
+ 	fat_boot_sector_generate (&new_fs_info->boot_sector, new_fs);
++	/* Resizing an existing FAT32 volume must retain its DOS/Windows label. */
++	if (fs_info->fat_type == FAT_TYPE_FAT32
++	    && new_fs_info->fat_type == FAT_TYPE_FAT32)
++		memcpy (new_fs_info->boot_sector->u.fat32.volume_name,
++			fs_info->boot_sector->u.fat32.volume_name, 11);
+ 	fat_boot_sector_write (new_fs_info->boot_sector, new_fs);
+ 	if (new_fs_info->fat_type == FAT_TYPE_FAT32) {
+ 		fat_info_sector_generate (&new_fs_info->info_sector, new_fs);

@@ -1,0 +1,7 @@
+[all]
+arm_64bit=1
+kernel=Image
+dtoverlay=vc4-kms-v3d-pi5
+disable_overscan=1
+disable_splash=1
+enable_uart=1

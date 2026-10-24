@@ -1,0 +1,55 @@
+Pi-DOS: Include the project version in VER output and help.
+
+VER /R prepends a Pi-DOS version line to the complete upstream output.
+Build helpers generate pi_dos_version.h from the shared root VERSION file.
+Keep DOS version controls and upstream engine diagnostics available.
+
+--- a/src/shell/shell.cpp
++++ b/src/shell/shell.cpp
+@@ -1923,16 +1923,17 @@
+ 	MSG_Add("SHELL_CMD_POPD_HELP_LONG","POPD\n");
+ 	MSG_Add("SHELL_CMD_VERIFY_HELP","Controls whether to verify files are written correctly to a disk.\n");
+ 	MSG_Add("SHELL_CMD_VERIFY_HELP_LONG","VERIFY [ON | OFF]\n\nType VERIFY without a parameter to display the current VERIFY setting.\n");
+-	MSG_Add("SHELL_CMD_VER_HELP","Displays or sets DOSBox-X's reported DOS version.\n");
++	MSG_Add("SHELL_CMD_VER_HELP","Displays Pi-DOS information or sets the reported DOS version.\n");
+ 	MSG_Add("SHELL_CMD_VER_HELP_LONG","VER [/R]\n"
+ 			"VER [SET] number or VER SET [major minor]\n\n"
+-			"  /R                 Display DOSBox-X's Git commit version and build date.\n"
++			"  /R                 Display Pi-DOS version and engine build details.\n"
+ 			"  [SET] number       Set the specified number as the reported DOS version.\n"
+ 			"  SET [major minor]  Set the reported DOS version in major and minor format.\n\n"
+ 			"  \033[0mE.g., \033[37;1mVER 6.0\033[0m or \033[37;1mVER 7.1\033[0m sets the DOS version to 6.0 and 7.1, respectively.\n"
+ 			"  On the other hand, \033[37;1mVER SET 7 1\033[0m sets the DOS version to 7.01 instead of 7.1.\n\n"
+-			"Type VER without parameters to display DOSBox-X and the reported DOS version.\n");
++			"Type VER without parameters to display the Pi-DOS and reported DOS versions.\n");
+ 	MSG_Add("SHELL_CMD_VER_VER","DOSBox-X version %s (%s). Reported DOS version %d.%02d.\n");
++	MSG_Add("SHELL_CMD_VER_PI_DOS","Pi-DOS version %s. Reported DOS version %d.%02d.\n");
+ 	MSG_Add("SHELL_CMD_VER_INVALID","The specified DOS version is not correct.\n");
+ 	MSG_Add("SHELL_CMD_VOL_HELP","Displays the disk volume label and serial number, if they exist.\n");
+ 	MSG_Add("SHELL_CMD_VOL_HELP_LONG","VOL [drive]\n");
+--- a/src/shell/shell_cmds.cpp
++++ b/src/shell/shell_cmds.cpp
+@@ -52,6 +52,7 @@
+ #include "menudef.h"
+ #include "build_timestamp.h"
+ #include "version_string.h"
++#include "pi_dos_version.h"
+ 
+ #include <output/output_ttf.h>
+ 
+@@ -3904,8 +3905,13 @@
+ 		}
+ 		dos_ver_menu(false);
+ 	} else {
+-		WriteOut(MSG_Get("SHELL_CMD_VER_VER"),VERSION,SDL_STRING,dos.version.major,dos.version.minor);
+-		if (optR) WriteOut("DOSBox-X Git commit %s, built on %s\nPlatform: %s %d-bit", GIT_COMMIT_HASH, UPDATED_STR, OS_PLATFORM_LONG, OS_BIT_INT);
++		if (optR) {
++			WriteOut("Pi-DOS version %s.\n",PI_DOS_VERSION);
++			WriteOut(MSG_Get("SHELL_CMD_VER_VER"),VERSION,SDL_STRING,dos.version.major,dos.version.minor);
++			WriteOut("DOSBox-X Git commit %s, built on %s\nPlatform: %s %d-bit", GIT_COMMIT_HASH, UPDATED_STR, OS_PLATFORM_LONG, OS_BIT_INT);
++		} else {
++			WriteOut(MSG_Get("SHELL_CMD_VER_PI_DOS"),PI_DOS_VERSION,dos.version.major,dos.version.minor);
++		}
+ 	}
+ }
+ #endif

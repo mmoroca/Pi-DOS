@@ -1,0 +1,28 @@
+Pi-DOS: Initialize the Atari label locale in non-debug builds.
+
+PED_ASSERT is compiled out without DEBUG, so its assignment never runs.
+The library destructor then calls freelocale(NULL), crashing even a simple
+parted --version or a successful resize client on exit. Keep initialization
+outside the assertion and guard cleanup on allocation failure.
+
+--- a/libparted/labels/atari.c
++++ b/libparted/labels/atari.c
+@@ -1962,7 +1962,8 @@
+ 	PED_ASSERT (sizeof (AtariRawPartition) == 12);
+ 	PED_ASSERT (sizeof (AtariRawTable) == 512);
+ 	/* GNU Libc doesn't support NULL instead of the locale name */
+-	PED_ASSERT ((atr_c_locale = newlocale(LC_ALL_MASK, "C", NULL)) != NULL);
++	atr_c_locale = newlocale (LC_ALL_MASK, "C", NULL);
++	PED_ASSERT (atr_c_locale != NULL);
+ 
+ 	ped_disk_type_register (&atari_disk_type);
+ }
+@@ -1971,5 +1972,6 @@
+ ped_disk_atari_done ()
+ {
+ 	ped_disk_type_unregister (&atari_disk_type);
+-	freelocale(atr_c_locale);
+-}
++	if (atr_c_locale)
++		freelocale (atr_c_locale);
++}

@@ -1,0 +1,12 @@
+config BR2_PACKAGE_ARMDOS_INIT
+	bool "armdos-init"
+	depends on BR2_USE_MMU
+	depends on BR2_ENABLE_LOCALE && BR2_USE_WCHAR
+	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_5
+	select BR2_PACKAGE_UTIL_LINUX
+	select BR2_PACKAGE_UTIL_LINUX_LIBFDISK
+	select BR2_PACKAGE_PARTED
+	select BR2_PACKAGE_DOSFSTOOLS
+	select BR2_PACKAGE_DOSFSTOOLS_FSCK_FAT
+	help
+	  Root PID 1 supervisor for the Pi-DOS appliance.

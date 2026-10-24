@@ -1,0 +1,46 @@
+Pi-DOS: Keep fullscreen and the host pointer hidden during KMS/DRM teardown.
+
+There is no desktop to restore on KMS/DRM. Releasing capture or leaving
+fullscreen shows the host cursor briefly before PID 1 powers off or reboots.
+Retain normal desktop teardown for other SDL backends.
+
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -10598,11 +10598,14 @@
+ #endif
+ 
+-        //Force visible mouse to end user. Somehow this sometimes doesn't happen
++        // A direct-display appliance has no desktop cursor to restore.
+ #if defined(C_SDL2)
++        const char *shutdown_driver = SDL_GetCurrentVideoDriver();
++        SDL_ShowCursor(shutdown_driver && !strcmp(shutdown_driver, "kmsdrm")
++                       ? SDL_DISABLE : SDL_ENABLE);
+         SDL_SetRelativeMouseMode(SDL_FALSE);
+ #else
+         SDL_WM_GrabInput(SDL_GRAB_OFF);
++        SDL_ShowCursor(SDL_ENABLE);
+ #endif
+-        SDL_ShowCursor(SDL_ENABLE);
+ 
+         /* Exit functions */
+@@ -10687,7 +10690,20 @@
+ void GFX_ShutDown(void) {
+     LOG(LOG_MISC,LOG_DEBUG)("Shutting down GFX renderer");
++#if defined(C_SDL2)
++    const char *driver = SDL_GetCurrentVideoDriver();
++    const bool direct_display = driver && !strcmp(driver, "kmsdrm");
++    if (direct_display) SDL_ShowCursor(SDL_DISABLE);
++#endif
+     GFX_Stop();
+     if (sdl.draw.callback) (sdl.draw.callback)( GFX_CallBackStop );
++#if defined(C_SDL2)
++    if (direct_display) {
++        SDL_SetRelativeMouseMode(SDL_FALSE);
++        sdl.mouse.locked = false;
++        mouselocked = false;
++        return;
++    }
++#endif
+     if (sdl.mouse.locked) GFX_CaptureMouse();
+     if (sdl.desktop.fullscreen) GFX_SwitchFullScreen();
+ }

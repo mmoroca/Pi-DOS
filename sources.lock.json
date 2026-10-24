@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "buildroot": {
+    "revision": "2026.08",
+    "description": "Official Buildroot 2026.08 release; initial Pi 5 image baseline",
+    "url": "https://buildroot.org/downloads/buildroot-2026.08.tar.gz",
+    "archive": "buildroot-2026.08.tar.gz",
+    "directory": "buildroot-2026.08",
+    "sha256": "d678e810abf877d04513e03ca2c99f992dd49118b9c2e18d6e25f5f58fa8c5cd"
+  },
+  "dosbox-x": {
+    "revision": "4f19017c5f565dc40d01fede0f1382892e7243d7",
+    "description": "dosbox-x-v2026.08.31; Phase 0 candidate, not hardware validated",
+    "url": "https://codeload.github.com/joncampbell123/dosbox-x/tar.gz/4f19017c5f565dc40d01fede0f1382892e7243d7",
+    "archive": "dosbox-x-4f19017c5f565dc40d01fede0f1382892e7243d7.tar.gz",
+    "directory": "dosbox-x-4f19017c5f565dc40d01fede0f1382892e7243d7",
+    "sha256": "c786c74515b9fcb48d757c9c81537658238d68aca971ddc86227bdec6c17117a"
+  },
+  "sdl2": {
+    "revision": "5d249570393f7a37e037abf22cd6012a4cc56a71",
+    "description": "Native SDL2 release-2.32.10; not sdl2-compat; hardware validation pending",
+    "url": "https://codeload.github.com/libsdl-org/SDL/tar.gz/5d249570393f7a37e037abf22cd6012a4cc56a71",
+    "archive": "SDL-5d249570393f7a37e037abf22cd6012a4cc56a71.tar.gz",
+    "directory": "SDL-5d249570393f7a37e037abf22cd6012a4cc56a71",
+    "sha256": "10f1194f8d2e4a73ca1c7c553b3189d0b68ab9ef3544e8d2a268e4429456b373"
+  }
+}

@@ -1,0 +1,29 @@
+Pi-DOS: Do not restore a desktop pointer on KMS/DRM at SDL shutdown.
+
+The KMS/DRM display has no desktop underneath it. SDL_MouseQuit otherwise
+shows the default hardware cursor immediately before the video backend exits.
+
+--- a/src/events/SDL_mouse.c
++++ b/src/events/SDL_mouse.c
+@@ -936,13 +936,19 @@
+ {
+     SDL_Cursor *cursor, *next;
+     SDL_Mouse *mouse = SDL_GetMouse();
++    const char *driver = SDL_GetCurrentVideoDriver();
+ 
+     if (mouse->CaptureMouse) {
+         SDL_CaptureMouse(SDL_FALSE);
+         SDL_UpdateMouseCapture(SDL_TRUE);
+     }
+-    SDL_SetRelativeMouseMode(SDL_FALSE);
+-    SDL_ShowCursor(1);
++    if (driver && SDL_strcmp(driver, "kmsdrm") == 0) {
++        SDL_ShowCursor(SDL_DISABLE);
++        SDL_SetRelativeMouseMode(SDL_FALSE);
++    } else {
++        SDL_SetRelativeMouseMode(SDL_FALSE);
++        SDL_ShowCursor(SDL_ENABLE);
++    }
+ 
+     cursor = mouse->cursors;
+     while (cursor) {

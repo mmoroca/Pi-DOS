@@ -1,0 +1,59 @@
+Pi-DOS: Keep the KMS/DRM hardware cursor disabled for the appliance.
+
+SDL_KMSDRM_HIDE_CURSOR is an opt-in local hint, enabled by Pi-DOS PID 1.
+Enforce it in the backend so mouse focus, capture and teardown cannot show
+SDL's desktop arrow. DOS guest cursors are rendered in the framebuffer.
+Also detach the cursor plane before destroying its GBM scanout buffer.
+
+--- a/src/video/kmsdrm/SDL_kmsdrmmouse.c
++++ b/src/video/kmsdrm/SDL_kmsdrmmouse.c
+@@ -23,6 +23,7 @@
+ 
+ #ifdef SDL_VIDEO_DRIVER_KMSDRM
+ 
++#include "SDL_hints.h"
+ #include "SDL_kmsdrmvideo.h"
+ #include "SDL_kmsdrmmouse.h"
+ #include "SDL_kmsdrmdyn.h"
+@@ -37,6 +38,7 @@
+ static int KMSDRM_ShowCursor(SDL_Cursor *cursor);
+ static void KMSDRM_MoveCursor(SDL_Cursor *cursor);
+ static void KMSDRM_FreeCursor(SDL_Cursor *cursor);
++static int KMSDRM_RemoveCursorFromBO(SDL_VideoDisplay *display);
+ static void KMSDRM_WarpMouse(SDL_Window *window, int x, int y);
+ static int KMSDRM_WarpMouseGlobal(int x, int y);
+ 
+@@ -67,8 +69,9 @@
+ {
+     SDL_DisplayData *dispdata = (SDL_DisplayData *)display->driverdata;
+ 
+-    /* Destroy the curso GBM BO. */
++    /* Detach the hardware cursor before freeing its scanout buffer. */
+     if (dispdata->cursor_bo) {
++        KMSDRM_RemoveCursorFromBO(display);
+         KMSDRM_gbm_bo_destroy(dispdata->cursor_bo);
+         dispdata->cursor_bo = NULL;
+         dispdata->cursor_bo_drm_fd = -1;
+@@ -115,6 +118,9 @@
+     }
+ 
+     dispdata->cursor_bo_drm_fd = viddata->drm_fd;
++    if (SDL_GetHintBoolean("SDL_KMSDRM_HIDE_CURSOR", SDL_FALSE)) {
++        KMSDRM_RemoveCursorFromBO(display);
++    }
+ }
+ 
+ /* Remove a cursor buffer from a display's DRM cursor BO. */
+@@ -316,6 +322,12 @@
+ 
+     window = mouse->focus;
+ 
++    /* Pi-DOS draws the DOS cursor in its framebuffer. Focus changes and
++       shutdown callbacks must not attach SDL's desktop arrow to the CRTC. */
++    if (SDL_GetHintBoolean("SDL_KMSDRM_HIDE_CURSOR", SDL_FALSE)) {
++        cursor = NULL;
++    }
++
+     if (!window || !cursor) {
+ 
+         /* If no window is focused by mouse or cursor is NULL,
