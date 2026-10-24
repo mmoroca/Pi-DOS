@@ -1,0 +1,133 @@
+Pi-DOS: Match KMS surface modes to the rendered raster and guest refresh.
+
+Keep pixel duplication in the renderer, prefer exact-size host modes at the
+closest guest refresh, and log requested/presented sizes for CRT diagnosis.
+Other SDL video backends retain their existing selection behavior.
+
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -1785,6 +1785,7 @@
+ 
+ #if defined(C_SDL2)
+ static bool SDL2_resize_enable = false;
++static bool pi_dos_video_audit_pending = false;
+ 
+ SDL_Window* GFX_GetSDLWindow(void) {
+     return sdl.window;
+@@ -1805,6 +1806,10 @@
+         SDL_DestroyTexture(sdl.texture.texture);
+         sdl.texture.texture = nullptr;
+     }
++    const char *video_driver = SDL_GetCurrentVideoDriver();
++    const bool kms_modeswitch = vga.draw.modeswitch_set && GFX_IsFullscreen() &&
++        screenType == SCREEN_SURFACE && video_driver &&
++        SDL_strcasecmp(video_driver, "KMSDRM") == 0;
+     sdl.window_desired_width = width;
+     sdl.window_desired_height = height;
+     int currWidth, currHeight;
+@@ -1877,6 +1882,7 @@
+             }
+         }
+         sdl.surface = SDL_GetWindowSurface(sdl.window);
++        pi_dos_video_audit_pending = kms_modeswitch;
+         SDL_GetWindowSize(sdl.window, &currWidth, &currHeight);
+         sdl.update_display_contents = ((width == currWidth) && (height == currHeight));
+ 
+@@ -1912,20 +1918,65 @@
+ 
+ 	if(isModeSwicthSet) {
+ 		flags = SDL_WINDOW_FULLSCREEN;
+-		width = vga.draw.width;
+-		height = vga.draw.height;
++        // Surface dimensions already include the renderer's pixel duplication.
++        if (!kms_modeswitch) {
++            width = vga.draw.width;
++            height = vga.draw.height;
++        }
+ 	}
+ #endif
+ 
+     if (GFX_IsFullscreen()) {
+-        SDL_DisplayMode displayMode;
+-        SDL_GetWindowDisplayMode(sdl.window, &displayMode);
+-
+-        displayMode.w = width;
+-        displayMode.h = height;
+-        SDL_SetWindowDisplayMode(sdl.window, &displayMode);
+-
+-        SDL_SetWindowFullscreen(sdl.window, flags);
++        SDL_DisplayMode displayMode = {};
++        if (kms_modeswitch) {
++            const int display = SDL_GetWindowDisplayIndex(sdl.window);
++            SDL_DisplayMode target = {};
++            target.w = width;
++            target.h = height;
++            target.refresh_rate = render.src.fps > 0 ?
++                (int)floor(render.src.fps + 0.5) : 0;
++            const int count = SDL_GetNumDisplayModes(display);
++            static bool logged_modes = false;
++            bool matched = false;
++            double best_distance = 1e9;
++            for (int i = 0; i < count; ++i) {
++                SDL_DisplayMode candidate = {};
++                if (SDL_GetDisplayMode(display, i, &candidate) != 0)
++                    continue;
++                if (!logged_modes)
++                    LOG_MSG("Pi-DOS video available: %dx%d@%d",
++                            candidate.w, candidate.h, candidate.refresh_rate);
++                if (candidate.w != target.w || candidate.h != target.h)
++                    continue;
++                const double distance = candidate.refresh_rate > 0 ?
++                    fabs(candidate.refresh_rate - render.src.fps) : 1e8;
++                if (!matched || distance < best_distance) {
++                    displayMode = candidate;
++                    best_distance = distance;
++                    matched = true;
++                }
++            }
++            logged_modes = true;
++            if (!matched && !SDL_GetClosestDisplayMode(display, &target, &displayMode)) {
++                LOG_MSG("Pi-DOS video: no host mode for %dx%d@%d: %s",
++                        target.w, target.h, target.refresh_rate, SDL_GetError());
++                return sdl.window;
++            }
++            LOG_MSG("Pi-DOS video request: guest=%ux%u@%.3f rendered=%ux%u selected=%dx%d@%d%s",
++                    (unsigned)vga.draw.width, (unsigned)vga.draw.height,
++                    (double)render.src.fps, (unsigned)width, (unsigned)height,
++                    displayMode.w, displayMode.h, displayMode.refresh_rate,
++                    matched ? "" : " (resolution fallback)");
++            pi_dos_video_audit_pending = true;
++        } else {
++            SDL_GetWindowDisplayMode(sdl.window, &displayMode);
++            displayMode.w = width;
++            displayMode.h = height;
++        }
++        if (SDL_SetWindowDisplayMode(sdl.window, &displayMode) != 0)
++            LOG_MSG("SDL: failed to set display mode: %s", SDL_GetError());
++        if (SDL_SetWindowFullscreen(sdl.window, flags) != 0)
++            LOG_MSG("SDL: failed to enter fullscreen: %s", SDL_GetError());
+     } else {
+         SDL_SetWindowFullscreen(sdl.window, 0);
+ 
+@@ -3348,6 +3399,21 @@
+     {
+         case SCREEN_SURFACE:
+             OUTPUT_SURFACE_EndUpdate(changedLines);
++#if defined(C_SDL2)
++            if (pi_dos_video_audit_pending && sdl.window && sdl.surface && changedLines) {
++                SDL_DisplayMode mode = {};
++                SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(sdl.window), &mode);
++                SDL_Renderer *renderer = SDL_GetRenderer(sdl.window);
++                int output_w = 0, output_h = 0;
++                if (renderer)
++                    SDL_GetRendererOutputSize(renderer, &output_w, &output_h);
++                LOG_MSG("Pi-DOS video presented: surface=%dx%d renderer=%dx%d display=%dx%d@%d clip=%d,%d,%d,%d",
++                        sdl.surface->w, sdl.surface->h, output_w, output_h,
++                        mode.w, mode.h, mode.refresh_rate,
++                        sdl.clip.x, sdl.clip.y, sdl.clip.w, sdl.clip.h);
++                pi_dos_video_audit_pending = false;
++            }
++#endif
+             break;
+ 
+ #if C_OPENGL

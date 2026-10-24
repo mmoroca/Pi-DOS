@@ -83,6 +83,38 @@ There is no separate Linux root partition.
 
 The first partition starts at 1 MiB. The fixed MBR signature is `a4d05001`.
 The image targets Pi 5 only; Pi 3 and Pi 4 images are not implemented here.
+
+### Custom DAC EDID
+
+The image embeds `dac-crt.bin` at `/lib/firmware/edid/dac-crt.bin` in its
+initramfs. `cmdline.txt` assigns it to HDMI-A-1 and HDMI-A-2 using
+`drm.edid_firmware`; the kernel fragment explicitly enables EDID firmware
+loading. The existing 720x400 at 70 Hz initial-mode requests remain in place.
+
+The EDID preserves every timing and capability from `dac-original.bin` and
+adds progressive 640x400 and 640x350 at approximately 70.100 Hz, plus a custom
+VGA-compatible 720x348 at approximately 70.082 Hz and 640x350 at 60.000 Hz.
+The 60 Hz mode retains a VGA-compatible 31.5 kHz horizontal scan with a
+525-line total; it has a larger vertical blanking interval. The 720x348 mode adapts a
+Hercules-sized image to VGA scan timing; it is not original Hercules timing.
+The source EDID's existing metadata/conformity issues are retained; see
+`dac-crt.txt`. Recreate the binary with:
+
+```sh
+python3 tools/image/create-crt-edid.py dac-original.bin dac-crt.bin
+```
+
+Run `make image` after changing the EDID. Static image verification checks
+the packed EDID against the project binary, its checksums, the kernel EDID
+loader setting and the override parameter read back from the SD image.
+Physical CRT lock and DOSBox-X mode selection still require hardware checks.
+
+For an existing FAT32 Pi-DOS card, copy `output/buildroot-pi5/images/Image`
+to BOOT as `Image` and `br2-external/board/pi5/cmdline.txt` to BOOT as
+`cmdline.txt`, then safely eject and boot. Both files are needed for this
+update; DOSDATA can be retained. The full regenerated SD image is also
+available for a fresh flash. Placing the EDID binary on BOOT alone does not
+make it available to the kernel's firmware loader.
 Pi 5's EEPROM supplies its boot firmware; this image does not update EEPROM.
 
 The DOS prompt starts in VGA 80x25 text mode with 9x16 character cells, giving
@@ -91,7 +123,10 @@ a native 720x400 raster at 70 Hz. BOOT's single-line `cmdline.txt` requests
 The runtime uses `fullresolution=original`, `char9=true`,
 `aspect=false`, `scaler=none` and SDL2 `modeswitch=true` to request that video
 mode without software scaling or aspect correction, retaining the boot display's
-70 Hz refresh rate. DOS applications can still
+70 Hz refresh rate for the prompt. The KMS surface patch requests the rendered
+raster, including any horizontal pixel duplication, and selects an exact-size
+HDMI mode at the advertised refresh nearest to the emulated video's rate.
+DOS applications can still
 select other video modes. The physical HDMI resolution depends on the modes
 advertised by the connected display; a monitor without 720x400 at 70 Hz support may use
 a different mode selected by SDL. Early kernel diagnostics remain on serial.
@@ -99,6 +134,37 @@ The runtime defaults are embedded in `Image`. To update an existing FAT32
 installation, copy the rebuilt `output/buildroot-pi5/images/Image` and
 `br2-external/board/pi5/cmdline.txt` onto BOOT. Physical 720x400 at 70 Hz output
 still needs confirmation on the Pi and connected display.
+
+Video diagnostics are disabled by default with `videodiagnostics=false` in
+the `[sdl]` section of `configs/armdos.conf`. To enable them, set:
+
+```ini
+[sdl]
+videodiagnostics=true
+```
+
+This is a startup setting. Rebuild `Image` after changing the embedded
+configuration and restart the emulator. With diagnostics enabled, the log is
+saved in `C:\SYSTEM\VIDEO.LOG` on writable DOSDATA and replaced at each
+emulator start. An explicit `[log] logfile` setting overrides that path.
+With diagnostics disabled and no explicit logfile, the video log is neither
+created nor updated; verbose mode tracing and presentation queries are skipped.
+Mode selection works identically with diagnostics enabled or disabled.
+Look for `Pi-DOS video request`
+and `Pi-DOS video presented`: these include guest raster/refresh, rendered
+dimensions, the selected host mode, surface size and renderer output size.
+The available host modes are also listed, making an EDID override that did
+not load visible without a Linux shell. If the file cannot be written, the
+emulator still starts and serial diagnostics remain available.
+
+A headless check of the freely distributed Pinball Fantasies demo's High
+mode measured a 320x350 VGA raster at approximately 70.399 Hz and a 640x350
+rendered surface with `doublescan=true`, `aspect=false` and `scaler=none`.
+That version did not generate 700 active lines. This does not establish the
+mode used by every release or confirm CRT geometry on the Pi. Retest the
+gameplay screen and inspect `VIDEO.LOG` before adding speculative modes.
+The user subsequently confirmed that the native output looks correct on a PC
+CRT; the LCD test monitor introduced a separate scaling/sampling concern.
 
 The first kernel is Raspberry Pi Linux 6.12.61 at the upstream board's pinned
 revision `21b410140c47ffab5668399f6f143c7d7b935c8b`, using the `bcm2712` baseline
@@ -345,7 +411,7 @@ configuration also requests 720x400 at 70 Hz. To restore an existing card,
 copy `br2-external/board/pi5/cmdline.txt` to BOOT, or use this single line:
 
 ```text
-console=serial0,115200 rdinit=/init loglevel=4 vt.global_cursor_default=0 armdos.data=/dev/mmcblk0p2 video=HDMI-A-1:720x400@70 video=HDMI-A-2:720x400@70
+console=serial0,115200 rdinit=/init loglevel=4 vt.global_cursor_default=0 armdos.data=/dev/mmcblk0p2 video=HDMI-A-1:720x400@70 video=HDMI-A-2:720x400@70 drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin
 ```
 
 This needs no rebuild or reflash. Keep the corrected `Image` and D0 overlay.

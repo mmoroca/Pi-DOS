@@ -33,11 +33,19 @@ def main():
         names = subprocess.check_output(['cpio', '-it', '--quiet'], stdin=stream, text=True).splitlines()
     names = {name.removeprefix('./') for name in names}
     for name in ('init', 'armdos/armdos', 'armdos/armdos.conf', 'dev/console',
-                 'sbin/fsck.fat'):
+                 'sbin/fsck.fat', 'lib/firmware/edid/dac-crt.bin'):
         require(name in names, f'Missing initramfs file: {name}')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_init = subprocess.check_output(['cpio', '-i', '--to-stdout', '--quiet', 'init'], stdin=stream)
     require(packed_init == (target / 'init').read_bytes(), 'Stale PID 1 in initramfs')
+    with (images / 'rootfs.cpio').open('rb') as stream:
+        packed_edid = subprocess.check_output([
+            'cpio', '-i', '--to-stdout', '--quiet', 'lib/firmware/edid/dac-crt.bin'], stdin=stream)
+    require(packed_edid == (ROOT / 'dac-crt.bin').read_bytes(), 'Missing/stale CRT EDID in initramfs')
+    require(len(packed_edid) >= 128 and len(packed_edid) == (packed_edid[126] + 1) * 128
+            and packed_edid[:8] == bytes.fromhex('00 ff ff ff ff ff ff 00')
+            and all(sum(packed_edid[i:i + 128]) % 256 == 0
+                    for i in range(0, len(packed_edid), 128)), 'Invalid packed CRT EDID')
     default_path = r'C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS'
     require(('SET PATH=' + default_path).encode() in packed_init, 'Default DOS PATH is incomplete')
     for name in ('bin/sh', 'bin/busybox', 'sbin/init', 'usr/bin/bash', 'usr/sbin/sshd',
@@ -81,7 +89,7 @@ def main():
     for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'INPUT_EVDEV',
                     'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS',
                     'USB_HID', 'USB_DWC3', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
-                    'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'SND_SOC'):
+                    'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC'):
         require(f'CONFIG_{setting}=y\n' in kernel, f'Required kernel option not built in: {setting}')
     for setting in ('INET', 'IPV6', 'MODULES', 'MEDIA_SUPPORT', 'STAGING', 'BTRFS_FS', 'BCACHEFS_FS'):
         require(f'CONFIG_{setting}=y\n' not in kernel, f'Unexpected kernel option: {setting}')
@@ -136,6 +144,9 @@ def main():
             'DOSDATA missing directory d')
     # Check the actual SD image, not only loose build outputs: a missing D0
     # overlay can panic older EEPROM bootloaders during UART pinctrl setup.
+    packed_kernel = subprocess.check_output([
+        str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', '::Image', '-'])
+    require(packed_kernel == (images / 'Image').read_bytes(), 'BOOT kernel Image missing/stale')
     for name in trees:
         boot_path = f'overlays/{name}' if name.endswith('.dtbo') else name
         packed = subprocess.check_output([
@@ -147,6 +158,10 @@ def main():
             str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{name}', '-'])
         require(packed == (ROOT / 'br2-external/board/pi5' / name).read_bytes(),
                 f'BOOT configuration missing/stale: {name}')
+        if name == 'cmdline.txt':
+            require(len(packed.decode().splitlines()) == 1, 'BOOT cmdline.txt must be a single line')
+            require('drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin'
+                    in packed.decode().split(), 'BOOT command line lacks the CRT EDID override')
     evidence = {'scope': 'Static image validation only; this rebuilt image requires hardware validation',
                 'image': str(disk.relative_to(ROOT)), 'image_bytes': disk.stat().st_size,
                 'image_sha256': digest(disk), 'partitions': partitions,
@@ -160,6 +175,7 @@ def main():
                 'init_source_sha256': digest(ROOT / 'src/init/init.c'),
                 'storage_source_sha256': digest(ROOT / 'src/init/storage.c'),
                 'editor_sha256': digest(editor),
+                'crt_edid_sha256': digest(ROOT / 'dac-crt.bin'),
                 'patch_sha256': {str(p.relative_to(ROOT)): digest(p)
                                  for p in sorted((ROOT / 'patches').rglob('*.patch'))},
                 'deferred': ['audio teardown underrun', 'mouse validation']}

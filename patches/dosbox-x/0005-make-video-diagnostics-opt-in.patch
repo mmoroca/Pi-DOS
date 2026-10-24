@@ -1,0 +1,103 @@
+Pi-DOS: Make CRT video diagnostics an opt-in startup setting.
+
+[sdl] videodiagnostics=false skips mode tracing and presentation queries.
+Enabling it selects VIDEO.LOG when no explicit general logfile is configured.
+The mode selection correction remains active independently of diagnostics.
+
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -1786,6 +1786,7 @@
+ #if defined(C_SDL2)
+ static bool SDL2_resize_enable = false;
+ static bool pi_dos_video_audit_pending = false;
++static bool pi_dos_video_diagnostics = false;
+ 
+ SDL_Window* GFX_GetSDLWindow(void) {
+     return sdl.window;
+@@ -1810,6 +1811,7 @@
+     const bool kms_modeswitch = vga.draw.modeswitch_set && GFX_IsFullscreen() &&
+         screenType == SCREEN_SURFACE && video_driver &&
+         SDL_strcasecmp(video_driver, "KMSDRM") == 0;
++    const bool video_diagnostics = kms_modeswitch && pi_dos_video_diagnostics;
+     sdl.window_desired_width = width;
+     sdl.window_desired_height = height;
+     int currWidth, currHeight;
+@@ -1882,7 +1884,7 @@
+             }
+         }
+         sdl.surface = SDL_GetWindowSurface(sdl.window);
+-        pi_dos_video_audit_pending = kms_modeswitch;
++        pi_dos_video_audit_pending = video_diagnostics;
+         SDL_GetWindowSize(sdl.window, &currWidth, &currHeight);
+         sdl.update_display_contents = ((width == currWidth) && (height == currHeight));
+ 
+@@ -1943,7 +1945,7 @@
+                 SDL_DisplayMode candidate = {};
+                 if (SDL_GetDisplayMode(display, i, &candidate) != 0)
+                     continue;
+-                if (!logged_modes)
++                if (video_diagnostics && !logged_modes)
+                     LOG_MSG("Pi-DOS video available: %dx%d@%d",
+                             candidate.w, candidate.h, candidate.refresh_rate);
+                 if (candidate.w != target.w || candidate.h != target.h)
+@@ -1956,18 +1958,19 @@
+                     matched = true;
+                 }
+             }
+-            logged_modes = true;
++            logged_modes = video_diagnostics;
+             if (!matched && !SDL_GetClosestDisplayMode(display, &target, &displayMode)) {
+                 LOG_MSG("Pi-DOS video: no host mode for %dx%d@%d: %s",
+                         target.w, target.h, target.refresh_rate, SDL_GetError());
+                 return sdl.window;
+             }
+-            LOG_MSG("Pi-DOS video request: guest=%ux%u@%.3f rendered=%ux%u selected=%dx%d@%d%s",
++            if (video_diagnostics)
++                LOG_MSG("Pi-DOS video request: guest=%ux%u@%.3f rendered=%ux%u selected=%dx%d@%d%s",
+                     (unsigned)vga.draw.width, (unsigned)vga.draw.height,
+                     (double)render.src.fps, (unsigned)width, (unsigned)height,
+                     displayMode.w, displayMode.h, displayMode.refresh_rate,
+                     matched ? "" : " (resolution fallback)");
+-            pi_dos_video_audit_pending = true;
++            pi_dos_video_audit_pending = video_diagnostics;
+         } else {
+             SDL_GetWindowDisplayMode(sdl.window, &displayMode);
+             displayMode.w = width;
+@@ -3822,6 +3825,9 @@
+ 
+     Section_prop * section=static_cast<Section_prop *>(control->GetSection("sdl"));
+     assert(section != NULL);
++#if defined(C_SDL2)
++    pi_dos_video_diagnostics = section->Get_bool("videodiagnostics") && !control->opt_nolog;
++#endif
+ 
+     maximize = section->Get_bool("maximize");
+ 
+@@ -6938,6 +6944,12 @@
+     Pstring = sdl_sec->Add_string("videodriver",Property::Changeable::OnlyAtStart, "");
+     Pstring->Set_help("Forces a video driver (e.g. windib/windows, directx, x11, fbcon, dummy, etc) for the SDL library to use.");
+     Pstring->SetBasic(true);
++#if defined(C_SDL2)
++    Pbool = sdl_sec->Add_bool("videodiagnostics",Property::Changeable::OnlyAtStart,false);
++    Pbool->Set_help("Log KMS mode requests and presented sizes for CRT diagnosis. Disabled by default.\n"
++                   "Uses [log] logfile if specified, otherwise /dosdata/c/SYSTEM/VIDEO.LOG.\n"
++                   "This startup option requires restarting the emulator.");
++#endif
+ 
+     Pint = sdl_sec->Add_int("transparency", Property::Changeable::WhenIdle, 0);
+     Pint->Set_help("Set the transparency of the DOSBox-X screen (both windowed and full-screen modes, on SDL2 and Windows SDL1 builds).\n"
+--- a/src/debug/debug_gui.cpp
++++ b/src/debug/debug_gui.cpp
+@@ -916,6 +916,12 @@
+ 
+ 	/* do we write to a logfile, or not? */
+ 	std::string logfile = sect->Get_string("logfile");
++#if defined(C_SDL2)
++    const Section_prop *sdl_section = static_cast<Section_prop *>(control->GetSection("sdl"));
++    if (logfile.empty() && !control->opt_nolog && sdl_section &&
++        sdl_section->Get_bool("videodiagnostics"))
++        logfile = "/dosdata/c/SYSTEM/VIDEO.LOG";
++#endif
+ 	if (logfile.size()) {
+ 		ResolvePath(logfile);
+ 		if ((debuglog=fopen(logfile.c_str(),"wt+")) != NULL) {

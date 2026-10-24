@@ -1,6 +1,7 @@
 - [ ] what if I want to change config.sys and autoexec.bat?
 - [ ] defrag fails on both c and d with "Divide error"
 - [ ] move dos commands to c (edit.com)?
+- [ ] command to display available video modes
 
 -----------------------------------
 

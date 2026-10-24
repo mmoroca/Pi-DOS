@@ -20,6 +20,7 @@ if 'BR2_PACKAGE_E2FSPROGS=y\n' not in (target.parent / '.config').read_text():
                 installed.unlink()
 PY
 install -D -m 0644 "$project/configs/armdos.conf" "$target/armdos/armdos.conf"
+install -D -m 0644 "$project/dac-crt.bin" "$target/lib/firmware/edid/dac-crt.bin"
 mkdir -p "$target/dosdata" "$target/run" "$target/tmp" "$target/proc" "$target/sys"
 # No system shell, getty, login or init scripts are needed by the C supervisor.
 test -x "$target/init"
