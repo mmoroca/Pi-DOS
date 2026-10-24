@@ -3,7 +3,8 @@
 
 Usage: python3 tools/image/create-crt-edid.py dac-original.bin dac-crt.bin
 The input must have a CTA extension with enough unused trailing DTD space.
-Existing EDID conformity problems are deliberately preserved, not repaired.
+Promote old digital EDIDs to 1.3 so Linux parses HDMI/audio capabilities.
+Other existing EDID conformity problems are preserved.
 """
 
 import argparse
@@ -62,6 +63,8 @@ def extend_edid(original):
     validate(original)
     if original[18] != 1:
         raise ValueError("Only EDID version 1 is supported")
+    if not original[20] & 0x80:
+        raise ValueError("The HDMI DAC EDID must describe a digital input")
     descriptors = b"".join(encode_dtd(mode, original[21] * 10, original[22] * 10)
                            for mode in MODES)
     for block_offset in range(128, len(original), 128):
@@ -75,14 +78,21 @@ def extend_edid(original):
                 continue
             offset = block_offset + slot
             result = bytearray(original)
+            # Linux update_display_info() skips CTA HDMI/audio parsing for
+            # revisions below 1.3; VC4 then treats the sink as DVI and refuses
+            # audio. Clear input bits reserved for digital displays in 1.3.
+            if result[19] < 3:
+                result[19] = 3
+                result[20] &= 0x81
+                result[127] = (-sum(result[:127])) & 255
             result[offset:offset + len(descriptors)] = descriptors
             checksum = block_offset + 127
             result[checksum] = (-sum(result[block_offset:checksum])) & 255
             validate(result)
-            allowed = set(range(offset, offset + len(descriptors))) | {checksum}
+            allowed = set(range(offset, offset + len(descriptors))) | {19, 20, 127, checksum}
             if any(a != b and i not in allowed
                    for i, (a, b) in enumerate(zip(original, result))):
-                raise ValueError("Unexpected modification outside the new timings")
+                raise ValueError("Unexpected modification outside timings and HDMI metadata")
             return bytes(result), offset
     raise ValueError(f"No CTA extension has {len(descriptors)} bytes of unused trailing DTD space")
 
@@ -100,6 +110,7 @@ def main():
         parser.exit(1, f"Error: {error}\n")
     args.output.write_bytes(result)
     print(f"Wrote {args.output}: {len(result)} bytes, all block checksums valid")
+    print(f"Digital EDID version: {result[18]}.{result[19]} (HDMI/audio parsing requires 1.3+)")
     print(f"Added {len(MODES)} DTDs at offset 0x{offset:02x}; original capabilities preserved")
     for clock, h, v, hp, vp in MODES:
         print(f"  {h[0]}x{v[0]}: {clock * 1000 / h[3] / v[3]:.6f} Hz, "

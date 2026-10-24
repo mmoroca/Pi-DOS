@@ -217,32 +217,10 @@ static bool make_config(enum storage storage)
 
 static void select_audio(void)
 {
-    glob_t paths = {0};
-    if (glob("/proc/asound/card[0-9]*/eld*", 0, NULL, &paths)) {
-        globfree(&paths);
-        return; /* SDL/ALSA default; absence of audio need not hide the DOS prompt. */
-    }
-    for (size_t i = 0; i < paths.gl_pathc; ++i) {
-        FILE *eld = fopen(paths.gl_pathv[i], "r");
-        if (!eld) continue;
-        char line[512];
-        int descriptors = 0;
-        while (fgets(line, sizeof(line), eld)) {
-            if (sscanf(line, "sad_count %d", &descriptors) == 1) break;
-        }
-        fclose(eld);
-        if (descriptors <= 0) continue;
-        char id_path[PATH_MAX], id[128], pcm[192];
-        snprintf(id_path, sizeof(id_path), "%s", paths.gl_pathv[i]);
-        char *end = strrchr(id_path, '/');
-        if (!end) continue;
-        snprintf(end, sizeof(id_path) - (size_t)(end - id_path), "/id");
-        if (!read_line(id_path, id, sizeof(id))) continue;
-        snprintf(pcm, sizeof(pcm), "plughw:CARD=%s,DEV=0", id);
-        setenv("AUDIODEV", pcm, 1);
-        break;
-    }
-    globfree(&paths);
+    /* HDMI0 (HDMI-A-1): use the stable ALSA ID, not its enumeration index.
+     * Do not route to HDMI1 or the default card when ELD is unavailable. */
+    setenv("AUDIODEV", "plughw:CARD=vc4hdmi0,DEV=0", 1);
+    dprintf(2, "Pi-DOS: audio output fixed to HDMI0 (vc4hdmi0)\n");
 }
 
 static void select_video(void)

@@ -46,6 +46,8 @@ def main():
             and packed_edid[:8] == bytes.fromhex('00 ff ff ff ff ff ff 00')
             and all(sum(packed_edid[i:i + 128]) % 256 == 0
                     for i in range(0, len(packed_edid), 128)), 'Invalid packed CRT EDID')
+    require(packed_edid[18] == 1 and packed_edid[19] >= 3 and packed_edid[20] & 0x80,
+            'CRT EDID must be digital EDID 1.3+ for Linux HDMI/audio capability parsing')
     default_path = r'C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS'
     require(('SET PATH=' + default_path).encode() in packed_init, 'Default DOS PATH is incomplete')
     for name in ('bin/sh', 'bin/busybox', 'sbin/init', 'usr/bin/bash', 'usr/sbin/sshd',

@@ -4,14 +4,16 @@ Pi-DOS custom DAC EDID
 Input: dac-original.bin (256 bytes)
 Input SHA-256: 39d97989ccbdb46feba881f215da3ce3aa0d351f69387af64b68f0d949101e43
 Output: dac-crt.bin (256 bytes)
-Output SHA-256: d70abab0ffddad814923c1d08c51c15ec01455b44b92283340b399b16e093857
+Output SHA-256: 8b6197c0317f1e522ca9c256d85e9adeac39355984e0ccbaeeab2b6a4694cc7f
 
 Verified:
 - Every original advertised timing is retained (including preferred timing).
-- Base EDID, audio, HDMI capabilities and existing CTA DTD are byte-identical.
-- Only 72 previously empty bytes at 0xad..0xf4 and CTA checksum 0xff changed.
-- Base checksum 0x8f and CTA checksum 0xba both validate.
-- Exactly four unique timings added; no new edid-decode conformity failures.
+- Audio, HDMI capabilities and existing CTA DTD are byte-identical.
+- Base EDID promoted from 1.2 to 1.3; reserved digital-input bits cleared.
+- Base checksum updated; 72 empty DTD bytes at 0xad..0xf4 filled and CTA checksum updated.
+- Both 128-byte checksums validate; exactly four unique timings added.
+- Linux requires digital EDID 1.3+ to parse HDMI/audio capabilities.
+- EDID version/input conformity failures removed; unrelated original failures remain.
 
 Added modelines (normal progressive scan, no hardware doublescan):
   640x400_70 25.180 640 656 752 800 400 412 414 449 -HSync +VSync
@@ -40,8 +42,9 @@ The file cannot simply be placed next to cmdline.txt on the BOOT partition.
 The existing video=HDMI-A-1:720x400@70 boot request can remain.
 
 Limitations:
-The source identifies itself as NEC LCD1530V and already contains invalid
-or inconsistent metadata. Those fields are deliberately preserved. The
+The source identifies itself as NEC LCD1530V and contains invalid or
+inconsistent metadata. Only the digital EDID version/input fields are repaired
+for Linux HDMI/audio detection; other metadata is preserved. The
 full conformance check still reports the original failures below; this is
 not a claim of strict EDID conformity or physical DAC/CRT validation.
 See docs/buildroot-pi5.md for image build and BOOT update instructions.
@@ -51,8 +54,30 @@ EDID availability alone does not guarantee DOSBox-X selects each new mode.
 Full edid-decode output
 ======================
 
+edid-decode (hex):
+
+00 ff ff ff ff ff ff 00 38 a3 a8 65 01 01 01 01
+30 0a 01 03 80 1f 17 78 e2 4e e0 a1 57 4c 99 23
+19 52 57 bf ee 00 01 01 01 01 01 01 01 01 01 01
+01 01 01 01 01 01 c3 1e 00 20 41 00 20 30 10 60
+13 00 33 e6 10 00 00 1e 00 00 00 fd 00 38 4b 1f
+3c 08 00 0a 20 20 20 20 20 20 00 00 00 fc 00 4e
+45 43 20 4c 43 44 31 35 33 30 56 0a 00 00 00 ff
+00 30 59 30 32 33 31 36 49 42 0a 20 20 20 01 ae
+
+02 03 1b 41 23 09 07 07 83 01 00 00 67 03 0c 00
+20 00 00 21 43 10 04 03 e2 00 0f 8c 0a d0 8a 20
+e0 2d 10 10 3e 96 00 a0 5a 00 00 00 00 d6 09 80
+a0 20 90 31 10 10 60 c2 00 36 e6 10 00 00 1c d6
+09 80 a0 20 5e 63 10 10 60 52 08 36 e6 10 00 00
+1a 10 0b d0 b4 20 5c 65 10 12 6c 62 08 36 e6 10
+00 00 1a d8 09 80 a0 20 5e af 10 10 60 f2 0c 36
+e6 10 00 00 1a 00 00 00 00 00 00 00 00 00 00 ba
+
+----------------
+
 Block 0, Base EDID:
-  EDID Structure Version & Revision: 1.2
+  EDID Structure Version & Revision: 1.3
   Vendor & Product Identification:
     Manufacturer: NEC
     Model: 26024
@@ -94,7 +119,7 @@ Block 0, Base EDID:
     Display Product Name: 'NEC LCD1530V'
     Display Product Serial Number: '0Y02316IB'
   Extension blocks: 1
-Checksum: 0x8f
+Checksum: 0xae
 
 ----------------
 
@@ -146,8 +171,6 @@ edid-decode SHA: cb74358c2896 2025-12-10 22:39:09
 
 Warnings:
 
-Block 0, Base EDID:
-  EDID Structure Version & Revision: EDID 1.2 is deprecated, do not use.
 Block 1, CTA-861 Extension Block:
   IT Video Formats are overscanned by default, but normally this should be underscanned.
   Display Product Serial Number is set, so the Serial Number in the Base EDID should be 0.
@@ -156,10 +179,7 @@ EDID:
 
 Failures:
 
-Block 0, Base EDID:
-  Basic Display Parameters & Features: Digital Video Interface Standard set to reserved value 0x20.
 Block 1, CTA-861 Extension Block:
-  Vendor-Specific Data Block (HDMI), OUI 00-0C-03: The HDMI Specification requires EDID 1.3 instead of 1.2.
   Video Capability Data Block: Set Selectable RGB Quantization to avoid interop issues.
   Detailed Timing Descriptor #2: Mismatch of image size 160x90 mm vs display size 310x230 mm.
 EDID:

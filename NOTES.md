@@ -2,6 +2,8 @@
 - [ ] defrag fails on both c and d with "Divide error"
 - [ ] move dos commands to c (edit.com)?
 - [ ] command to display available video modes
+- [ ] dos utility to select hdmi, jack or external dac audio output. Also enable the dosbox mixer controls.
+- [ ] check if vsync is enabled or disabled
 
 -----------------------------------
 

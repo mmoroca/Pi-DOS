@@ -94,10 +94,14 @@ loading. The existing 720x400 at 70 Hz initial-mode requests remain in place.
 The EDID preserves every timing and capability from `dac-original.bin` and
 adds progressive 640x400 and 640x350 at approximately 70.100 Hz, plus a custom
 VGA-compatible 720x348 at approximately 70.082 Hz and 640x350 at 60.000 Hz.
+The original stereo LPCM audio block is retained. The generator promotes the
+digital base EDID from 1.2 to 1.3 and clears reserved digital-input bits:
+Linux skips HDMI/audio capability parsing below 1.3, causing VC4 to treat the
+adapter as DVI and refuse audio even though its CTA audio block is present.
 The 60 Hz mode retains a VGA-compatible 31.5 kHz horizontal scan with a
 525-line total; it has a larger vertical blanking interval. The 720x348 mode adapts a
 Hercules-sized image to VGA scan timing; it is not original Hercules timing.
-The source EDID's existing metadata/conformity issues are retained; see
+The source EDID's remaining metadata/conformity issues are retained; see
 `dac-crt.txt`. Recreate the binary with:
 
 ```sh
@@ -286,8 +290,12 @@ convert ext4 into FAT32. No physical card is flashed by the build tools.
 Allow first boot extra time to finish expansion before the DOS prompt.
 
 Init generates runtime startup commands under `/run`, selects a connected HDMI
-DRM card (up to five seconds for discovery) and, where available, the HDMI ALSA
-card advertising audio. It requests native KMS/DRM, GLES and ALSA, attempts a
+DRM card (up to five seconds for discovery) and fixes audio to the primary HDMI0
+port (HDMI-A-1, the micro-HDMI connector nearest USB-C power). SDL uses
+`AUDIODEV=plughw:CARD=vc4hdmi0,DEV=0`, independent of ALSA card enumeration or
+EDID audio detection. Audio does not fall back to HDMI1 or another sound card;
+connect the HDMI-to-VGA adapter with its audio jack to HDMI0.
+It requests native KMS/DRM, GLES and ALSA, attempts a
 read-only remount of the volatile system root, then launches the DOS runtime as
 a supervised child. A failed read-only remount is logged; the system image on
 the SD card is not used as a writable Linux root filesystem.
