@@ -139,6 +139,20 @@ installation, copy the rebuilt `output/buildroot-pi5/images/Image` and
 `br2-external/board/pi5/cmdline.txt` onto BOOT. Physical 720x400 at 70 Hz output
 still needs confirmation on the Pi and connected display.
 
+PID 1 sets `SDL_RENDER_VSYNC=1` so the SDL2 GLES renderer requests a swap
+interval of 1 for surface presentation. This is a scrolling experiment for
+Pinball Fantasies; improvement still needs confirmation on the Pi. DOSBox-X's
+separate emulated VGA `vsyncmode` retains its default `off`. Matching the HDMI
+refresh to the guest refresh and synchronizing page flips are separate steps;
+a refresh mismatch can still cause periodic repeated or skipped frames.
+To compare without presentation VSync, change this environment value to `0`
+in `src/init/init.c`, rebuild `armdos-init`, then rebuild the image:
+
+```sh
+make -C output/buildroot-pi5 armdos-init-rebuild
+make image
+```
+
 Video diagnostics are disabled by default with `videodiagnostics=false` in
 the `[sdl]` section of `configs/armdos.conf`. To enable them, set:
 

@@ -311,6 +311,8 @@ int main(void)
     setenv("SDL_AUDIODRIVER", "alsa", 1);
     setenv("SDL_RENDER_DRIVER", "opengles2", 1);
     setenv("SDL_FRAMEBUFFER_ACCELERATION", "opengles2", 1);
+    /* Synchronize surface presentation to the physical display's vblank. */
+    setenv("SDL_RENDER_VSYNC", "1", 1);
     select_video();
     select_audio();
     if (mount(NULL, "/", NULL, MS_REMOUNT | MS_RDONLY, NULL))
