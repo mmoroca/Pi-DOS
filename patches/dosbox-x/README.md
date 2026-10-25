@@ -24,6 +24,12 @@ applied patches, and rejects mismatches. Upstream source archives retain their
 original hashes; this patch set is a separate input to the resulting runtime.
 Preserve the upstream component's license and notices when distributing changes.
 
+`0007-preserve-overlapping-fpu-register-bits.patch` marks `RegBit` views as
+aliasing types. GCC 14 on AArch64 otherwise loses the x87 stack push when
+`FPTAN` or `FSINCOS` subsequently clears C2. Wolfenstein 3D builds incorrect
+trigonometric tables with both the interpreter and dynrec cores. See the
+[investigation and regression](../../docs/wolf3d-corruption.md).
+
 The KMS raster/refresh patch requests the surface renderer's final dimensions
 instead of its intermediate VGA dimensions. Exact-size HDMI modes are selected
 at the advertised refresh closest to the guest's rate. This avoids carrying

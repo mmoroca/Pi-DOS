@@ -1,0 +1,25 @@
+Pi-DOS: Preserve overlapping FPU register views under strict aliasing.
+
+RegBit specializations all access the same underlying control/status word.
+GCC 14 on AArch64 can otherwise cache one specialization's data across a
+write through another. In FPTAN, clearing C2 after pushing 1.0 restores the
+old TOP bits, leaving the guest with an incorrect x87 stack. FSINCOS has
+the same ordering. This corrupts trig tables in Wolfenstein 3D with both
+the normal and dynrec cores.
+
+Mark the register views as aliasing types instead of changing instruction
+semantics or disabling strict aliasing for the entire emulator.
+
+--- a/include/fpu.h
++++ b/include/fpu.h
+@@ -328,7 +328,9 @@
+ };
+ 
+ template<class T, unsigned bitno, unsigned nbits=1>
+-struct RegBit
++// Different specializations are overlapping views of the same register.
++// A write through one view must invalidate cached data in every other view.
++struct GCC_ATTRIBUTE(may_alias) RegBit
+ {
+ 	enum { basemask = (1 << nbits) - 1 };
+ 	enum { mask = basemask << bitno };
