@@ -1,12 +1,12 @@
 # Pi-DOS
 
-Pi-DOS is a proposed dedicated DOS-compatible environment for Raspberry Pi
-3B/3B+, 4B and 5B using AArch64. A minimal Linux system supplies hardware services;
+Pi-DOS is a dedicated DOS-compatible environment targeting Raspberry Pi models
+with 64-bit Arm processors. A minimal Linux system supplies hardware services;
 the DOSBox-X-derived DOS environment is the only intended user interface.
 
 The architecture is Buildroot, an embedded initramfs, a small C PID 1 supervisor,
 native SDL2 KMS/DRM video, ALSA audio, USB input and persistent DOS storage. The
-runtime will run as root. Pi 5 is the first target.
+runtime runs as root. Pi 5 supplied the first hardware validation baseline.
 
 **Status: the previous Pi 5 image passed boot, keyboard/reconnection, persistence, reboot and poweroff checks. The new FAT32 image awaits hardware retesting.**
 The SDL2 baseline builds and runs the small DOS fixtures on x86-64 and Pi 5.
@@ -19,7 +19,7 @@ speaker output and broader compatibility validation remain open.
 See the [technical plan](docs/technical-plan.md) and
 [baseline findings and acceptance checklist](docs/phase0.md).
 
-## Build the Pi 5 image
+## Build the shared Raspberry Pi ARM64 image
 
 ```sh
 make image-config
@@ -27,11 +27,22 @@ JOBS=4 make image
 ```
 
 The initial 769 MiB development image is
-`output/buildroot-pi5/images/armdos-pi5-sdcard.img`. It contains an ARM64 kernel
+`output/buildroot-arm64/images/armdos-arm64-sdcard.img`. It contains an ARM64 kernel
 with embedded initramfs, custom C PID 1, the SDL2 DOS runtime, FAT32 BOOT and
 FAT32 PI-DOS partitions for direct access from modern Windows. The generated image passed static checks for its
 partitions, required kernel/SDL backends, runtime dependencies and absence of
 a Linux shell or conventional init system.
+
+The shared image targets Pi 2B revision 1.2, Pi 3B/3B+/3A+, Zero 2 W,
+Pi 4B/400, Pi 5/500/500+, and the corresponding 64-bit Compute Modules
+(CM0, CM3/3+, CM4/4S and CM5/Lite with suitable carrier hardware). Original
+Pi 1, Zero/Zero W and Pi 2B revision 1.1 are 32-bit and cannot run it.
+The build uses a Cortex-A53 baseline, a common 4 KiB-page kernel, per-model
+device trees and boot firmware. Hardware validation of this shared image is
+still required; the earlier Pi 5 results do not establish other-model support.
+Use the HDMI output and wired USB input; Zero/Compute Modules need suitable
+USB host adapters/carriers. Multi-model builds use a fresh `output/buildroot-arm64`
+directory, without reusing Cortex-A76 binaries from `output/buildroot-pi5`.
 
 The `PI-DOS` data partition automatically expands to the remaining SD-card space before DOS starts
 on first boot. Subsequent boots skip expansion once the partition and filesystem

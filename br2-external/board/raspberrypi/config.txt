@@ -1,0 +1,24 @@
+[all]
+arm_64bit=1
+kernel=Image
+disable_overscan=1
+disable_splash=1
+enable_uart=1
+
+# Explicit model sections avoid relying on a firmware overlay remapping table.
+[pi2]
+dtoverlay=vc4-kms-v3d
+[pi3]
+dtoverlay=vc4-kms-v3d
+[pi02]
+dtoverlay=vc4-kms-v3d
+dtoverlay=dwc2,dr_mode=host
+[pi4]
+dtoverlay=vc4-kms-v3d-pi4
+[cm4]
+otg_mode=1
+[pi5]
+dtoverlay=vc4-kms-v3d-pi5
+[cm5]
+dtoverlay=dwc2,dr_mode=host
+[all]

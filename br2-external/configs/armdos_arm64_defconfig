@@ -1,5 +1,5 @@
 BR2_aarch64=y
-BR2_cortex_a76=y
+BR2_cortex_a53=y
 BR2_TOOLCHAIN_EXTERNAL=y
 BR2_TOOLCHAIN_EXTERNAL_BOOTLIN=y
 BR2_TOOLCHAIN_EXTERNAL_BOOTLIN_AARCH64_GLIBC_STABLE=y
@@ -15,17 +15,23 @@ BR2_SYSTEM_BIN_SH_NONE=y
 # BR2_TARGET_ENABLE_ROOT_LOGIN is not set
 # BR2_PACKAGE_BUSYBOX is not set
 BR2_ROOTFS_POST_BUILD_SCRIPT="$(BR2_EXTERNAL_ARMDOS_PATH)/board/common/post-build.sh"
-BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_ARMDOS_PATH)/board/pi5/post-image.sh"
+BR2_ROOTFS_POST_IMAGE_SCRIPT="$(BR2_EXTERNAL_ARMDOS_PATH)/board/raspberrypi/post-image.sh"
 BR2_LINUX_KERNEL=y
 BR2_LINUX_KERNEL_CUSTOM_TARBALL=y
 BR2_LINUX_KERNEL_CUSTOM_TARBALL_LOCATION="$(call github,raspberrypi,linux,21b410140c47ffab5668399f6f143c7d7b935c8b)/linux-21b410140c47ffab5668399f6f143c7d7b935c8b.tar.gz"
-BR2_LINUX_KERNEL_DEFCONFIG="bcm2712"
-BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="board/raspberrypi/linux-4k-page-size.fragment $(BR2_EXTERNAL_ARMDOS_PATH)/board/pi5/linux.fragment"
+BR2_LINUX_KERNEL_DEFCONFIG="bcm2711"
+BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES="board/raspberrypi/linux-4k-page-size.fragment $(BR2_EXTERNAL_ARMDOS_PATH)/board/raspberrypi/linux.fragment"
 BR2_LINUX_KERNEL_DTS_SUPPORT=y
-BR2_LINUX_KERNEL_INTREE_DTS_NAME="broadcom/bcm2712-rpi-5-b broadcom/bcm2712d0-rpi-5-b"
-BR2_LINUX_KERNEL_INTREE_DTSO_NAMES="overlays/vc4-kms-v3d-pi5 overlays/bcm2712d0"
+BR2_LINUX_KERNEL_INTREE_DTS_NAME="broadcom/bcm2710-rpi-2-b broadcom/bcm2710-rpi-3-b broadcom/bcm2710-rpi-3-b-plus broadcom/bcm2710-rpi-cm0 broadcom/bcm2710-rpi-cm3 broadcom/bcm2710-rpi-zero-2 broadcom/bcm2710-rpi-zero-2-w broadcom/bcm2711-rpi-4-b broadcom/bcm2711-rpi-400 broadcom/bcm2711-rpi-cm4 broadcom/bcm2711-rpi-cm4s broadcom/bcm2712-rpi-5-b broadcom/bcm2712d0-rpi-5-b broadcom/bcm2712-rpi-500 broadcom/bcm2712-rpi-cm5-cm5io broadcom/bcm2712-rpi-cm5-cm4io broadcom/bcm2712-rpi-cm5l-cm5io broadcom/bcm2712-rpi-cm5l-cm4io"
+BR2_LINUX_KERNEL_INTREE_DTSO_NAMES="overlays/vc4-kms-v3d overlays/vc4-kms-v3d-pi4 overlays/vc4-kms-v3d-pi5 overlays/bcm2712d0 overlays/dwc2"
 BR2_LINUX_KERNEL_DTB_OVERLAY_SUPPORT=y
 BR2_LINUX_KERNEL_NEEDS_HOST_OPENSSL=y
+BR2_PACKAGE_RPI_FIRMWARE=y
+BR2_PACKAGE_RPI_FIRMWARE_BOOTCODE_BIN=y
+BR2_PACKAGE_RPI_FIRMWARE_VARIANT_PI=y
+BR2_PACKAGE_RPI_FIRMWARE_VARIANT_PI4=y
+# BR2_PACKAGE_RPI_FIRMWARE_INSTALL_DTB_OVERLAYS is not set
+BR2_PACKAGE_RPI_FIRMWARE_CMDLINE_FILE=""
 BR2_PACKAGE_LIBUDEV_ZERO=y
 BR2_PACKAGE_ALSA_LIB=y
 # BR2_PACKAGE_ALSA_LIB_ALOAD is not set

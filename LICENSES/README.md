@@ -23,9 +23,14 @@ code is marked `unknown` in Buildroot metadata until a project license is
 selected. The generated development image is not a completed release license
 or corresponding-source bundle.
 
+The shared ARM64 image also includes Raspberry Pi boot firmware from Buildroot's
+pinned `rpi-firmware` package (`063bcab6c8a90efb0d19f69d88cbbc7ec79cab68`).
+Its archive and BSD-3-Clause notice are hash-checked by Buildroot; the image
+retains `LICENCE.broadcom` on BOOT beside the firmware files.
+
 Doszip Commander DOS 2.68 is vendored under
-`br2-external/board/pi5/dos/doszip/` using its GNU GPL v2-or-later license.
+`br2-external/board/raspberrypi/dos/doszip/` using its GNU GPL v2-or-later license.
 The image includes the upstream license notice, the GPL v2 text, and the matching
 unmodified source archive (`SOURCE.ZIP`) in `C:\PROGRAMS\DOSZIP`. Archive URLs
 and SHA-256 hashes are recorded in the adjacent `SOURCE.TXT` and
-[DOS payload documentation](../br2-external/board/pi5/dos/README.md).
+[DOS payload documentation](../br2-external/board/raspberrypi/dos/README.md).

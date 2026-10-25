@@ -14,7 +14,7 @@ import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-HOST = ROOT / 'output/buildroot-pi5/host'
+HOST = ROOT / 'output/buildroot-arm64/host'
 START = 526336 * 512
 KEEP = b'Pi-DOS persistence during first-boot expansion\n'
 

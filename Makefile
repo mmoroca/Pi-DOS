@@ -1,8 +1,8 @@
 .PHONY: help fetch sdl2 phase0 smoke smoke-programs smoke-graphics smoke-keyboard smoke-audio
 
 help:
-	@echo 'make image-config - configure the Pi 5 Buildroot external tree'
-	@echo 'make image - build the Pi 5 SD image locally (JOBS=4 by default)'
+	@echo 'make image-config - configure the shared Raspberry Pi ARM64 image'
+	@echo 'make image - build the Raspberry Pi ARM64 SD image (JOBS=4 by default)'
 	@echo 'make fetch   - fetch and verify pinned Phase 0 sources'
 	@echo 'make sdl2    - build private native SDL2 with required backends'
 	@echo 'make phase0  - build native SDL2 and DOSBox-X (JOBS=4 by default)'

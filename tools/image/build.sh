@@ -8,18 +8,18 @@ mode=${1:-build}
 case "$mode" in configure|build|source) ;; *) echo 'Use configure, build or source' >&2; exit 2;; esac
 python3 tools/phase0/fetch.py --component buildroot
 source_dir=$(python3 -c 'import json;print("output/src/"+json.load(open("sources.lock.json"))["buildroot"]["directory"])')
-out="$root/output/buildroot-pi5"
+out="$root/output/buildroot-arm64"
 mkdir -p "$out" "$root/output/logs"
 args=(-C "$source_dir" "O=$out" "BR2_EXTERNAL=$root/br2-external" "BR2_DL_DIR=$root/dl/buildroot" "BR2_JLEVEL=$jobs")
 if [[ "$mode" == configure || ! -f "$out/.config" ]]; then
-    make "${args[@]}" armdos_pi5_defconfig
+    make "${args[@]}" armdos_arm64_defconfig
 fi
 if [[ "$mode" == configure ]]; then
     echo "Configured: $out/.config"
     exit 0
 fi
 # Preserve local configuration while incorporating updated package selections.
-make "${args[@]}" olddefconfig > "$root/output/logs/buildroot-pi5-config.log" 2>&1
+make "${args[@]}" olddefconfig > "$root/output/logs/buildroot-arm64-config.log" 2>&1
 # Reuse the exact locked DOSBox-X archive rather than downloading it twice.
 archive=$(python3 -c 'import json;print(json.load(open("sources.lock.json"))["dosbox-x"]["archive"])')
 if [[ -f "$root/dl/$archive" ]]; then
@@ -28,7 +28,7 @@ if [[ -f "$root/dl/$archive" ]]; then
         cp "$root/dl/$archive" "$root/dl/buildroot/armdos-runtime/$archive"
     fi
 fi
-log="$root/output/logs/buildroot-pi5.log"
+log="$root/output/logs/buildroot-arm64.log"
 echo "Buildroot $mode; log: $log"
 if [[ "$mode" == source ]]; then
     make "${args[@]}" source > "$log" 2>&1

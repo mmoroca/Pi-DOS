@@ -12,7 +12,9 @@ belongs in [phase0.md](phase0.md).
 
 ## Objective and scope
 
-Boot Raspberry Pi 3B/3B+, 4B and 5B in AArch64 directly to a DOS prompt. Execute
+Boot Raspberry Pi models with 64-bit Arm processors directly to a DOS prompt,
+including Pi 2B rev 1.2, Pi 3/4/5 families, Zero 2 W and their 64-bit Compute
+Modules. Use one Cortex-A53-baseline image with model-specific boot assets. Execute
 x86 COM and EXE applications and BAT scripts using DOSBox-X CPU, DOS, BIOS,
 memory and virtual hardware services. Provide persistent DOS drives, VGA,
 keyboard, mouse, PC speaker, AdLib and Sound Blaster audio.
@@ -59,11 +61,12 @@ VC4/V3D as required, ALSA and Pi 5 PCIe/RP1. Disable unused hardware, filesystem
 network protocols, Wi-Fi, Bluetooth and virtualization. Do not weaken essential
 memory protection, scheduling, interrupts or timers to reduce size.
 
-Start Pi 5 with a working 4 KiB kernel page size. Validate 16 KiB separately,
-including JIT cache and protection behavior.
+Use a common 4 KiB kernel page size across all supported boards. Validate 16 KiB
+separately before any model-specific optimization, including JIT cache and
+protection behavior.
 
 The system image is immutable during normal operation. Writable DOS data lives
-on a separate ext4 partition; temporary state is memory-backed where possible.
+on a separate FAT32 partition; temporary state is memory-backed where possible.
 There is no writable conventional Linux root filesystem, BusyBox requirement,
 shell, service manager, login manager or SSH daemon.
 
@@ -161,6 +164,7 @@ separately over repeated cold boots before assigning time/RAM targets.
 | 1 | Pi 5B | Cortex-A76 | VideoCore VII / V3D |
 | 2 | Pi 4B | Cortex-A72 | VideoCore VI / V3D |
 | 3 | Pi 3B/B+ | Cortex-A53 | VideoCore IV / VC4 |
+| 4 | Other supported 64-bit models and Compute Modules | ARMv8-A or later | Per-model VC4/V3D |
 
 ## Delivery gates
 
@@ -170,7 +174,7 @@ separately over repeated cold boots before assigning time/RAM targets.
 | 1 | KMS/DRM, GLES, ALSA, USB keyboard/mouse | Direct HDMI prompt, VGA program, sound and input without a desktop; timing measured |
 | 2 | Buildroot external tree, kernel, C init, image and storage | Power-on to DOS, persistent C:, root-only runtime, clean reboot/shutdown without shell/login/services |
 | 3 | DOS compatibility and interpreter fallback | Representative commands/BAT, real/protected-mode, DPMI, TSR, VGA, audio and mouse software; documented limitations |
-| 4 | Pi 4 and Pi 3 support | All boards boot and run common programs; board quirks isolated; CPU/boot/RAM measured |
+| 4 | Shared ARM64 image and multi-board validation | Targeted boards boot and run common programs; board quirks isolated; CPU/boot/RAM measured |
 | 5 | Trim, optimize and prepare release | Repeatable builds, stable lifecycle/storage, source/notices and hardware regression results |
 
 Do not begin OS-specific customization until Phase 0 integration problems are

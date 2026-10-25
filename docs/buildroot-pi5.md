@@ -1,4 +1,30 @@
-# Pi 5 Buildroot image
+# Shared Raspberry Pi ARM64 Buildroot image
+
+The default profile is now `br2-external/configs/armdos_arm64_defconfig`.
+It builds one image for the BCM2837, BCM2711 and BCM2712 families using a
+Cortex-A53/ARMv8-A instruction baseline and a 4 KiB-page `bcm2711` kernel.
+Board assets live in `br2-external/board/raspberrypi`; this guide retains its
+historical filename. The earlier Pi 5-only build directory is not reused.
+
+| Models targeted by the shared image | Boot assets |
+| --- | --- |
+| Pi 2B rev 1.2; Pi 3B, 3B+, 3A+; Zero 2 W; CM0, CM3 and CM3+ | BCM2710 DTBs, `bootcode.bin`, `start.elf`, `fixup.dat`, VC4 KMS |
+| Pi 4B, 400; CM4 and CM4S | BCM2711 DTBs, `start4.elf`, `fixup4.dat`, Pi 4 KMS |
+| Pi 5, 500/500+; CM5 and CM5 Lite | BCM2712 DTBs, D0 compatibility overlay, Pi 5 KMS, EEPROM firmware |
+
+The firmware chooses the board DTB; `config.txt` uses documented model filters
+to select its KMS overlay. Pi 3A+ shares the Pi 3B+ firmware DTB selection;
+500+ shares the Pi 500 family. Compute Modules require suitable carrier hardware
+and SD/eMMC provisioning; Zero 2 W needs a USB host adapter for input. Networking,
+DSI and composite display support are outside this HDMI/USB appliance profile.
+Pi 1, original Zero/Zero W and Pi 2B rev 1.1 cannot run this AArch64 image.
+
+This is the intended board coverage, not a record of successful boots on every
+board. The new shared image requires hardware testing across these families.
+Model filters and 64-bit eligibility follow the
+[official Raspberry Pi configuration documentation](https://www.raspberrypi.com/documentation/computers/config_txt.html).
+
+## Earlier Pi 5 validation
 
 The image work starts from the official Buildroot 2026.08 Pi 5 board
 configuration. Mouse validation and the known audio teardown XRUN are deferred
@@ -20,10 +46,11 @@ The ReplayOS Pi was not modified.
 | Kernel with embedded initramfs | 49,637,888 bytes |
 | Uncompressed root filesystem CPIO | 45,184,000 bytes |
 | Kernel release | `6.12.61-armdos-pi5`, 4 KiB pages |
-| Current FAT32 image SHA-256 | `43a2bdf4b2ea4399f1e10c58f24a5ec51930d1f9dfb83089cd9e6ec4ac5d92ee` |
+| Earlier Pi 5 FAT32 image SHA-256 | `43a2bdf4b2ea4399f1e10c58f24a5ec51930d1f9dfb83089cd9e6ec4ac5d92ee` |
 
-The actual FAT image contains the kernel, both Pi 5 DTBs, KMS and D0 overlays, and boot
-configuration. PI-DOS is now FAT32 for direct file access from modern Windows
+The shared FAT image contains the kernel, the device trees listed in
+`br2-external/board/raspberrypi/device-trees.txt`, KMS/USB overlays, boot firmware
+and configuration. PI-DOS is FAT32 for direct file access from modern Windows
 systems. Readback checks confirm the `c` directory and system batch
 files, including the reboot request followed by `EXIT`.
 
@@ -39,7 +66,7 @@ Bash, Perl, Python 3.12+, patch, file, cpio, rsync, unzip, wget, bc, and the hos
 development tools required by Buildroot's dependency check. Downloads and build
 outputs stay inside the project. The build must run as an ordinary user.
 
-`make image-config` applies the tracked Pi 5 defconfig. `make image` configures
+`make image-config` applies the tracked shared ARM64 defconfig. `make image` configures
 it automatically if missing, then resumes the existing build. It downloads the
 pinned external AArch64 cross-toolchain and package archives as needed; first
 builds take substantially longer than subsequent builds.
@@ -53,10 +80,10 @@ dependencies are incorporated without resetting local selections.
 | `configs/armdos.conf` | Appliance DOS runtime defaults |
 | `output/src/buildroot-2026.08/` | Verified, extracted upstream Buildroot |
 | `dl/buildroot/` | Buildroot-managed package download cache |
-| `output/buildroot-pi5/` | Isolated AArch64 cross-build output |
-| `output/logs/buildroot-pi5.log` | Current build log |
-| `output/buildroot-pi5/images/armdos-pi5-sdcard.img` | Generated SD card image |
-| `output/buildroot-pi5/images/armdos-image-validation.json` | Static image checks and identity |
+| `output/buildroot-arm64/` | Isolated AArch64 cross-build output |
+| `output/logs/buildroot-arm64.log` | Current build log |
+| `output/buildroot-arm64/images/armdos-arm64-sdcard.img` | Generated SD card image |
+| `output/buildroot-arm64/images/armdos-image-validation.json` | Static image checks and identity |
 
 Buildroot's selected release is pinned by SHA-256 in `sources.lock.json`.
 Its package hashes and the upstream Pi board kernel hash are enforced with
@@ -71,8 +98,8 @@ bit-for-bit reproducibility or completed distribution-license compliance.
 
 ## System layout
 
-The Pi 5 EEPROM bootloader loads a FAT32 BOOT partition containing `Image`,
-Pi 5 device trees, the KMS overlay, `config.txt` and `cmdline.txt`. The kernel
+The board's firmware loads a FAT32 BOOT partition containing `Image`,
+model device trees, KMS/USB overlays, `config.txt` and `cmdline.txt`. The kernel
 contains the entire Buildroot root filesystem as an embedded initramfs.
 There is no separate Linux root partition.
 
@@ -82,7 +109,7 @@ There is no separate Linux root partition.
 | 2, PI-DOS | FAT32 / initially 512 MiB | Expands on first boot; `c/`, DOS system batch files and user data |
 
 The first partition starts at 1 MiB. The fixed MBR signature is `a4d05001`.
-The image targets Pi 5 only; Pi 3 and Pi 4 images are not implemented here.
+All targeted models use this same partition layout and data volume.
 
 ### Custom DAC EDID
 
@@ -113,8 +140,8 @@ the packed EDID against the project binary, its checksums, the kernel EDID
 loader setting and the override parameter read back from the SD image.
 Physical CRT lock and DOSBox-X mode selection still require hardware checks.
 
-For an existing FAT32 Pi-DOS card, copy `output/buildroot-pi5/images/Image`
-to BOOT as `Image` and `br2-external/board/pi5/cmdline.txt` to BOOT as
+For an existing FAT32 Pi-DOS card, copy `output/buildroot-arm64/images/Image`
+to BOOT as `Image` and `br2-external/board/raspberrypi/cmdline.txt` to BOOT as
 `cmdline.txt`, then safely eject and boot. Both files are needed for this
 update; PI-DOS can be retained. The full regenerated SD image is also
 available for a fresh flash. Placing the EDID binary on BOOT alone does not
@@ -135,8 +162,8 @@ select other video modes. The physical HDMI resolution depends on the modes
 advertised by the connected display; a monitor without 720x400 at 70 Hz support may use
 a different mode selected by SDL. Early kernel diagnostics remain on serial.
 The runtime defaults are embedded in `Image`. To update an existing FAT32
-installation, copy the rebuilt `output/buildroot-pi5/images/Image` and
-`br2-external/board/pi5/cmdline.txt` onto BOOT. Physical 720x400 at 70 Hz output
+installation, copy the rebuilt `output/buildroot-arm64/images/Image` and
+`br2-external/board/raspberrypi/cmdline.txt` onto BOOT. Physical 720x400 at 70 Hz output
 still needs confirmation on the Pi and connected display.
 
 PID 1 sets `SDL_RENDER_VSYNC=1` so the SDL2 GLES renderer requests a swap
@@ -149,7 +176,7 @@ To compare without presentation VSync, change this environment value to `0`
 in `src/init/init.c`, rebuild `armdos-init`, then rebuild the image:
 
 ```sh
-make -C output/buildroot-pi5 armdos-init-rebuild
+make -C output/buildroot-arm64 armdos-init-rebuild
 make image
 ```
 
@@ -184,9 +211,9 @@ gameplay screen and inspect `VIDEO.LOG` before adding speculative modes.
 The user subsequently confirmed that the native output looks correct on a PC
 CRT; the LCD test monitor introduced a separate scaling/sampling concern.
 
-The first kernel is Raspberry Pi Linux 6.12.61 at the upstream board's pinned
-revision `21b410140c47ffab5668399f6f143c7d7b935c8b`, using the `bcm2712` baseline
-plus 4 KiB pages and an Pi-DOS fragment. The release suffix is `-armdos-pi5`;
+The shared kernel is Raspberry Pi Linux 6.12.61 at the upstream board's pinned
+revision `21b410140c47ffab5668399f6f143c7d7b935c8b`, using the `bcm2711` baseline
+plus 4 KiB pages and the Pi-DOS fragment. The release suffix is `-armdos-arm64`;
 static validation checks `CONFIG_ARM64_4K_PAGES=y` directly.
 Display, storage, USB, input and sound drivers are built in,
 with no module loader. The IP stacks, network interfaces, Wi-Fi, Bluetooth and
@@ -250,7 +277,7 @@ prompt, with no temporary replacement C: drive and no infinite device wait.
 That prompt does not include a filesystem-repair utility.
 
 The image seeds `C:\PROGRAMS\TOOLS\EDIT.COM` with the personalized PEDIT Light binary
-from `br2-external/board/pi5/dos/EDIT.COM`. The default PATH selects this copy
+from `br2-external/board/raspberrypi/dos/EDIT.COM`. The default PATH selects this copy
 before `Z:\DOS\EDIT.COM`. PEDIT stores its settings inside the executable, so
 further preferences saved through Alt+F1 persist on writable PI-DOS. Rebuilding
 the image restores the seed preferences; updating only BOOT does not replace an
@@ -388,11 +415,13 @@ convert ext4 into FAT32. No physical card is flashed by the build tools.
 Allow first boot extra time to finish expansion before the DOS prompt.
 
 Init generates runtime startup commands under `/run`, selects a connected HDMI
-DRM card (up to five seconds for discovery) and fixes audio to the primary HDMI0
-port (HDMI-A-1, the micro-HDMI connector nearest USB-C power). SDL uses
-`AUDIODEV=plughw:CARD=vc4hdmi0,DEV=0`, independent of ALSA card enumeration or
-EDID audio detection. Audio does not fall back to HDMI1 or another sound card;
-connect the HDMI-to-VGA adapter with its audio jack to HDMI0.
+DRM card (up to five seconds for discovery) and fixes audio to primary HDMI.
+SDL uses `plughw:CARD=vc4hdmi,DEV=0` on single-HDMI boards, or
+`plughw:CARD=vc4hdmi0,DEV=0` on dual-HDMI boards, independent of ALSA card
+enumeration or EDID audio detection. The stable ID is discovered from sysfs,
+with up to five seconds for driver registration. Audio does not fall back to
+HDMI1 or another sound card. On dual-HDMI boards, use HDMI0 (HDMI-A-1, the
+micro-HDMI connector nearest USB-C power) for the HDMI-to-VGA/audio adapter.
 It requests native KMS/DRM, GLES and ALSA, attempts a
 read-only remount of the volatile system root, then launches the DOS runtime as
 a supervised child. A failed read-only remount is logged; the system image on
@@ -435,7 +464,7 @@ upstream `usesystemcursor` setting defaults to false and should remain false
 on this appliance. The hint is an Pi-DOS extension, not an upstream SDL2 API.
 
 For this retest, replace only `Image` on the card's BOOT partition with
-`output/buildroot-pi5/images/Image`, then safely eject, boot and execute
+`output/buildroot-arm64/images/Image`, then safely eject, boot and execute
 `POWEROFF`. Also check `REBOOT`. Both SDL2 and PID 1 are embedded in the kernel;
 PI-DOS does not need to be rewritten. Visual confirmation on the test board
 is still required.
@@ -515,7 +544,7 @@ to separate an early boot failure from a display-console failure.
 After boot and keyboard operation were confirmed, the tracked `cmdline.txt`
 was restored to serial-only diagnostics at the user's request. The current
 configuration also requests 720x400 at 70 Hz. To restore an existing card,
-copy `br2-external/board/pi5/cmdline.txt` to BOOT, or use this single line:
+copy `br2-external/board/raspberrypi/cmdline.txt` to BOOT, or use this single line:
 
 ```text
 console=serial0,115200 rdinit=/init loglevel=4 vt.global_cursor_default=0 armdos.data=/dev/mmcblk0p2 video=HDMI-A-1:720x400@70 video=HDMI-A-2:720x400@70 drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin
@@ -531,7 +560,7 @@ The original panic ends with `Asynchronous SError Interrupt` and includes
 The pinned kernel includes the overlay source; the image packaging omitted it.
 
 For the immediate retest, copy the newly generated
-`output/buildroot-pi5/images/bcm2712d0.dtbo` into the existing SD card's
+`output/buildroot-arm64/images/bcm2712d0.dtbo` into the existing SD card's
 `overlays/` directory on its FAT32 BOOT partition. Keep the diagnostic
 `cmdline.txt` above. Safely eject the card and boot again.
 No full reflash, kernel replacement or PI-DOS modification is needed.
@@ -570,7 +599,7 @@ services were changed. This check establishes late device discovery; it does
 not establish physical USB keyboard operation in the appliance.
 
 For the immediate hardware retest, replace only `Image` on the card's BOOT
-partition with `output/buildroot-pi5/images/Image`. The initramfs and updated
+partition with `output/buildroot-arm64/images/Image`. The initramfs and updated
 PID 1 are embedded in that kernel. Keep the D0 overlay and diagnostic boot
 configuration already on the card. Safely eject, boot with the keyboard
 connected, and try `DIR` followed by Enter; also check reconnecting the keyboard.

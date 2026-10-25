@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-board="$BR2_EXTERNAL_ARMDOS_PATH/board/pi5"
+board="$BR2_EXTERNAL_ARMDOS_PATH/board/raspberrypi"
 boot="$BINARIES_DIR/armdos-boot"
 data="$BINARIES_DIR/armdos-data"
 mkdir -p "$boot/overlays" "$data/c/SYSTEM" "$BINARIES_DIR/armdos-empty"
@@ -8,12 +8,17 @@ mkdir -p "$boot/overlays" "$data/c/SYSTEM" "$BINARIES_DIR/armdos-empty"
 if [[ -d "$data/d" ]]; then rmdir "$data/d"; fi
 mkdir -p "$data/c/PROGRAMS/TOOLS" "$data/c/GAMES" "$data/c/DOCS" "$data/c/TEMP"
 install -m 0644 "$BINARIES_DIR/Image" "$boot/Image"
-install -m 0644 "$BINARIES_DIR/bcm2712-rpi-5-b.dtb" "$boot/"
-install -m 0644 "$BINARIES_DIR/bcm2712d0-rpi-5-b.dtb" "$boot/"
-install -m 0644 "$BINARIES_DIR/vc4-kms-v3d-pi5.dtbo" "$boot/overlays/"
-# Older EEPROM firmware applies this overlay to the base DTB on D0 boards.
-# Shipping the newer, complete D0 DTB alone does not cover those bootloaders.
-install -m 0644 "$BINARIES_DIR/bcm2712d0.dtbo" "$boot/overlays/"
+# Refresh generated device trees so incremental builds cannot retain a removed
+# board variant or an overlay from a different kernel profile.
+rm -f "$boot/"*.dtb "$boot/overlays/"*.dtbo
+while IFS= read -r tree; do
+    install -m 0644 "$BINARIES_DIR/${tree##*/}" "$boot/$tree"
+done < "$board/device-trees.txt"
+# Pi 2/3/Zero 2 need VideoCore boot firmware; Pi 4 uses the start4/fixup4 pair.
+# Pi 5-family boards supply their firmware through EEPROM.
+for firmware in bootcode.bin start.elf fixup.dat start4.elf fixup4.dat LICENCE.broadcom; do
+    install -m 0644 "$BINARIES_DIR/rpi-firmware/$firmware" "$boot/"
+done
 install -m 0644 "$board/config.txt" "$boot/config.txt"
 install -m 0644 "$board/cmdline.txt" "$boot/cmdline.txt"
 printf '@ECHO OFF\r\nECHO reboot>C:\\SYSTEM\\CONTROL.REQ\r\nEXIT\r\n' > "$data/c/SYSTEM/REBOOT.BAT"
@@ -62,7 +67,7 @@ image dosdata.vfat {
     srcpath = "$data"
     size = 512M
 }
-image armdos-pi5-sdcard.img {
+image armdos-arm64-sdcard.img {
     hdimage { partition-table-type = "mbr" disk-signature = 0xa4d05001 }
     partition boot { partition-type = 0x0c bootable = "true" image = "boot.vfat" offset = 1M }
     partition dosdata { partition-type = 0x0c image = "dosdata.vfat" }
@@ -71,4 +76,4 @@ EOF
 "$HOST_DIR/bin/genimage" --rootpath "$BINARIES_DIR/armdos-empty" \
     --tmppath "$BUILD_DIR/armdos-genimage.tmp" --inputpath "$BINARIES_DIR" \
     --outputpath "$BINARIES_DIR" --config "$BINARIES_DIR/genimage.cfg"
-sha256sum "$BINARIES_DIR/armdos-pi5-sdcard.img" > "$BINARIES_DIR/armdos-pi5-sdcard.img.sha256"
+sha256sum "$BINARIES_DIR/armdos-arm64-sdcard.img" > "$BINARIES_DIR/armdos-arm64-sdcard.img.sha256"

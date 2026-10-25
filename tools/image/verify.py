@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check generated Pi 5 image structure; this is not a hardware boot test."""
+"""Check the shared Raspberry Pi ARM64 image; this is not a hardware boot test."""
 import hashlib
 import json
 from pathlib import Path
@@ -7,9 +7,10 @@ import re
 import struct
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'output/buildroot-pi5'
+OUT = ROOT / 'output/buildroot-arm64'
 
 
 def require(condition, message):
@@ -25,6 +26,9 @@ def digest(path):
 def main():
     images = OUT / 'images'
     target = OUT / 'target'
+    buildroot = (OUT / '.config').read_text()
+    require('BR2_cortex_a53=y\n' in buildroot and 'BR2_cortex_a76=y\n' not in buildroot,
+            'Userspace must use the common Cortex-A53 instruction baseline')
     for name in ('init', 'armdos/armdos'):
         data = (target / name).read_bytes()[:20]
         require(data[:5] == b'\x7fELF\x02' and struct.unpack_from('<H', data, 18)[0] == 183,
@@ -102,7 +106,8 @@ def main():
     kernel = linux_dirs[0].read_text()
     for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'INPUT_EVDEV',
                     'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS',
-                    'USB_HID', 'USB_DWC3', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
+                    'USB_HID', 'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
+                    'MMC_BCM2835_MMC', 'MMC_SDHCI_IPROC', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
                     'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC'):
         require(f'CONFIG_{setting}=y\n' in kernel, f'Required kernel option not built in: {setting}')
     for setting in ('INET', 'IPV6', 'MODULES', 'MEDIA_SUPPORT', 'STAGING', 'BTRFS_FS', 'BCACHEFS_FS'):
@@ -120,11 +125,21 @@ def main():
         header = stream.read(64)
     require(header[56:60] == b'ARMd', 'Missing ARM64 kernel Image header')
     require('rootfs.cpio' in kernel, 'Kernel is not configured for the embedded initramfs')
-    trees = ('bcm2712-rpi-5-b.dtb', 'bcm2712d0-rpi-5-b.dtb',
-             'vc4-kms-v3d-pi5.dtbo', 'bcm2712d0.dtbo')
+    trees = (ROOT / 'br2-external/board/raspberrypi/device-trees.txt').read_text().splitlines()
     for name in trees:
-        require((images / name).read_bytes()[:4] == b'\xd0\x0d\xfe\xed', f'Invalid device tree: {name}')
-    disk = images / 'armdos-pi5-sdcard.img'
+        require((images / Path(name).name).read_bytes()[:4] == b'\xd0\x0d\xfe\xed', f'Invalid device tree: {name}')
+    # Firmware applies a different KMS overlay for each SoC family. Check that
+    # every shipped base tree exports the symbols its selected overlay needs.
+    with tempfile.TemporaryDirectory(prefix='pi-dos-dtb-check.') as temporary:
+        for name in trees:
+            if not name.endswith('.dtb'):
+                continue
+            family = 'pi5' if name.startswith('bcm2712') else 'pi4' if name.startswith('bcm2711') else None
+            overlay = f'vc4-kms-v3d-{family}.dtbo' if family else 'vc4-kms-v3d.dtbo'
+            subprocess.check_call([
+                str(linux_dirs[0].parent / 'scripts/dtc/fdtoverlay'),
+                '-i', str(images / name), '-o', str(Path(temporary) / name), str(images / overlay)])
+    disk = images / 'armdos-arm64-sdcard.img'
     with disk.open('rb') as stream:
         mbr = stream.read(512)
         require(mbr[510:] == b'\x55\xaa', 'Invalid MBR signature')
@@ -154,7 +169,7 @@ def main():
     # Existing user startup files are preserved, including intentionally empty ones.
     subprocess.check_call([str(mcopy), '-i', data_volume, '::c/AUTOEXEC.BAT', '-'],
                           stdout=subprocess.DEVNULL)
-    editor = ROOT / 'br2-external/board/pi5/dos/EDIT.COM'
+    editor = ROOT / 'br2-external/board/raspberrypi/dos/EDIT.COM'
     packed_editor = subprocess.check_output([
         str(mcopy), '-i', data_volume, '::c/PROGRAMS/TOOLS/EDIT.COM', '-'])
     require(packed_editor == editor.read_bytes(), 'Personalized EDIT.COM missing/stale in PI-DOS')
@@ -172,19 +187,19 @@ def main():
     require(packed_config == default_config, 'Editable DOSBOX.CONF missing/stale in PI-DOS')
     require(b'lfn=true\r\n' in packed_config and
             b'\n' not in packed_config.replace(b'\r\n', b''), 'Invalid DOSBOX.CONF defaults/line endings')
-    autoexec = (ROOT / 'br2-external/board/pi5/dos/AUTOEXEC.BAT').read_text().replace('\n', '\r\n').encode('ascii')
+    autoexec = (ROOT / 'br2-external/board/raspberrypi/dos/AUTOEXEC.BAT').read_text().replace('\n', '\r\n').encode('ascii')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_autoexec = subprocess.check_output([
             'cpio', '-i', '--to-stdout', '--quiet', 'armdos/AUTOEXEC.BAT'], stdin=stream)
     require(packed_autoexec == autoexec, 'AUTOEXEC.BAT template missing/stale in initramfs')
-    arj = ROOT / 'br2-external/board/pi5/dos/ARJ.EXE'
+    arj = ROOT / 'br2-external/board/raspberrypi/dos/ARJ.EXE'
     require((target / 'armdos/drivez/BIN/ARJ.EXE').read_bytes() == arj.read_bytes(),
             'ARJ missing/stale in the Z: extension')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_arj = subprocess.check_output([
             'cpio', '-i', '--to-stdout', '--quiet', 'armdos/drivez/BIN/ARJ.EXE'], stdin=stream)
     require(packed_arj == arj.read_bytes(), 'ARJ missing/stale in initramfs')
-    doszip = ROOT / 'br2-external/board/pi5/dos/doszip'
+    doszip = ROOT / 'br2-external/board/raspberrypi/dos/doszip'
     for path in sorted(doszip.iterdir()):
         require(path.is_file(), f'Unexpected Doszip payload entry: {path.name}')
         packed = subprocess.check_output([
@@ -205,21 +220,28 @@ def main():
         str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', '::Image', '-'])
     require(packed_kernel == (images / 'Image').read_bytes(), 'BOOT kernel Image missing/stale')
     for name in trees:
-        boot_path = f'overlays/{name}' if name.endswith('.dtbo') else name
+        boot_path = name
         packed = subprocess.check_output([
             str(OUT / 'host/bin/mcopy'), '-i',
             f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{boot_path}', '-'])
-        require(packed == (images / name).read_bytes(), f'BOOT device tree missing/stale: {boot_path}')
+        require(packed == (images / Path(name).name).read_bytes(), f'BOOT device tree missing/stale: {boot_path}')
+    for name in ('bootcode.bin', 'start.elf', 'fixup.dat', 'start4.elf', 'fixup4.dat', 'LICENCE.broadcom'):
+        packed = subprocess.check_output([
+            str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{name}', '-'])
+        require(packed == (images / 'rpi-firmware' / name).read_bytes(),
+                f'BOOT firmware missing/stale: {name}')
     for name in ('cmdline.txt', 'config.txt'):
         packed = subprocess.check_output([
             str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{name}', '-'])
-        require(packed == (ROOT / 'br2-external/board/pi5' / name).read_bytes(),
+        require(packed == (ROOT / 'br2-external/board/raspberrypi' / name).read_bytes(),
                 f'BOOT configuration missing/stale: {name}')
         if name == 'cmdline.txt':
             require(len(packed.decode().splitlines()) == 1, 'BOOT cmdline.txt must be a single line')
             require('drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin'
                     in packed.decode().split(), 'BOOT command line lacks the CRT EDID override')
     evidence = {'scope': 'Static image validation only; this rebuilt image requires hardware validation',
+                'cpu_baseline': 'Cortex-A53 / ARMv8-A',
+                'device_trees': trees,
                 'image': str(disk.relative_to(ROOT)), 'image_bytes': disk.stat().st_size,
                 'image_sha256': digest(disk), 'partitions': partitions,
                 'initramfs_bytes': (images / 'rootfs.cpio').stat().st_size,
