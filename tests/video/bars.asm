@@ -105,6 +105,6 @@ ready db 'READY.OK', 0
 acknowledged db 'CAPTURE.OK', 0
 acked db 0
 ack_tick dw 0
-success db 'ARMDOS_GRAPHICS_OK', 13, 10, '$'
+success db 'PI_DOS_GRAPHICS_OK', 13, 10, '$'
 palette db 63,0,0, 0,63,0, 0,0,63, 63,63,0
         db 63,0,63, 0,63,63, 63,63,63, 32,32,32

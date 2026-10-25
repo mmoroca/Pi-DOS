@@ -45,7 +45,7 @@ patch. The report metadata now includes that patch identity.
 | `make smoke` | Passed: shell startup, mounted C:, file write, clean exit |
 | `CPU_CORE=normal make smoke-programs` | Passed: COM, relocated MZ EXE, exit codes, BAT variables, DIR/CD/COPY |
 | `CPU_CORE=dynamic_rec VERIFY_DYNREC=1 make smoke-programs` | Passed: same fixtures; debugger confirmed selection and execution of dynrec |
-| SSH-launched KMS/DRM startup | Passed: SDL reported `Video KMSDRM`, DOS wrote `ARMDOS_KMS_OK`, process exited with status 0 |
+| SSH-launched KMS/DRM startup | Passed: SDL reported `Video KMSDRM`, DOS wrote `PI_DOS_KMS_OK`, process exited with status 0 |
 | GLES VGA pattern and KMS presentation | Passed after the dimension fix: V3D / GLES 3.1, correct colors and 4:3 geometry, 62 completed flips |
 | Virtual keyboard → SDL2 → DOS | Passed: BIOS scan codes, DOS characters and Shift press/release |
 | DOS tones → SDL2 ALSA → HDMI playback | Short check passed: PC speaker, OPL2 and SB16 DMA, advancing hardware pointer; one teardown XRUN observation |
@@ -61,9 +61,9 @@ recorded separately from the successful runtime checks.
 The optional debugger check in [dynrec.gdb](../tools/phase0/dynrec.gdb) observed:
 
 ```text
-ARMDOS_DYNREC_ENTRY_REACHED
-ARMDOS_DYNREC_DECODER_MATCH=1
-ARMDOS_DYNREC_BLOCK_RETURN_REACHED
+PI_DOS_DYNREC_ENTRY_REACHED
+PI_DOS_DYNREC_DECODER_MATCH=1
+PI_DOS_DYNREC_BLOCK_RETURN_REACHED
 #0 CPU_Core_Dynrec_Run() at core_dynrec.cpp:325
 ```
 

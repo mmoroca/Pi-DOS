@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-board="$BR2_EXTERNAL_ARMDOS_PATH/board/raspberrypi"
-boot="$BINARIES_DIR/armdos-boot"
-data="$BINARIES_DIR/armdos-data"
-image_name=armdos-arm64-sdcard.img
-if [[ "${ARMDOS_DIAGNOSTIC:-0}" == 1 ]]; then image_name=armdos-arm64-diagnostic-sdcard.img; fi
-mkdir -p "$boot/overlays" "$data/c/SYSTEM" "$BINARIES_DIR/armdos-empty"
+board="$BR2_EXTERNAL_PI_DOS_PATH/board/raspberrypi"
+boot="$BINARIES_DIR/pi-dos-boot"
+data="$BINARIES_DIR/pi-dos-data"
+image_name=pi-dos-arm64-sdcard.img
+if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then image_name=pi-dos-arm64-diagnostic-sdcard.img; fi
+mkdir -p "$boot/overlays" "$data/c/SYSTEM" "$BINARIES_DIR/pi-dos-empty"
 # Remove the obsolete empty directory left by earlier image builds.
 if [[ -d "$data/d" ]]; then rmdir "$data/d"; fi
 mkdir -p "$data/c/PROGRAMS/TOOLS" "$data/c/GAMES" "$data/c/DOCS" "$data/c/TEMP"
@@ -23,13 +23,13 @@ for firmware in bootcode.bin start.elf fixup.dat start4.elf fixup4.dat LICENCE.b
 done
 install -m 0644 "$board/config.txt" "$boot/config.txt"
 install -m 0644 "$board/cmdline.txt" "$boot/cmdline.txt"
-if [[ "${ARMDOS_DIAGNOSTIC:-0}" == 1 ]]; then
+if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
     python3 - "$boot/cmdline.txt" <<'PY'
 from pathlib import Path
 import sys
 path = Path(sys.argv[1])
-words = [word for word in path.read_text().split() if not word.startswith(('loglevel=', 'armdos.diagnostics='))]
-words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M', 'armdos.diagnostics=1']
+words = [word for word in path.read_text().split() if not word.startswith(('loglevel=', 'pi-dos.diagnostics='))]
+words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M', 'pi-dos.diagnostics=1']
 path.write_text(' '.join(words) + '\n')
 PY
 fi
@@ -38,10 +38,10 @@ printf '@ECHO OFF\r\nEXIT\r\n' > "$data/c/SYSTEM/POWEROFF.BAT"
 # Keep the personalized editor writable: PEDIT saves settings in its executable.
 install -m 0644 "$board/dos/EDIT.COM" "$data/c/PROGRAMS/TOOLS/EDIT.COM"
 # Remove the old generated copy from an incremental image staging tree only.
-rm -f "$data/c/SYSTEM/EDIT.COM"
-install -m 0644 "$TARGET_DIR/armdos/DOSBOX.CONF" "$data/c/SYSTEM/DOSBOX.CONF"
+rm -f "$data/c/SYSTEM/EDIT.COM" "$data/c/SYSTEM/DOSBOX.CONF"
+install -m 0644 "$TARGET_DIR/pi-dos/DOSBOX.CFG" "$data/c/SYSTEM/DOSBOX.CFG"
 if [[ ! -e "$data/c/AUTOEXEC.BAT" && ! -L "$data/c/AUTOEXEC.BAT" ]]; then
-    install -m 0644 "$TARGET_DIR/armdos/AUTOEXEC.BAT" "$data/c/AUTOEXEC.BAT"
+    install -m 0644 "$TARGET_DIR/pi-dos/AUTOEXEC.BAT" "$data/c/AUTOEXEC.BAT"
 fi
 mkdir -p "$data/c/PROGRAMS/DOSZIP"
 cp -a "$board/dos/doszip/." "$data/c/PROGRAMS/DOSZIP/"
@@ -65,10 +65,10 @@ printf '%s\r\n' \
     'a minimal template is created only when the file is missing.' \
     'PATH, TEMP, TMP and BLASTER defaults need no entries in this file.' \
     '' 'Emulated hardware settings:' \
-    'Edit C:\SYSTEM\DOSBOX.CONF and reboot to change emulator settings,' \
+    'Edit C:\SYSTEM\DOSBOX.CFG and reboot to change emulator settings,' \
     'including Sound Blaster hardware. SET BLASTER alone does not change it.' \
     > "$data/c/README.TXT"
-if [[ "${ARMDOS_DIAGNOSTIC:-0}" == 1 ]]; then
+if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
     printf '%s\r\n' '' 'Diagnostic image:' \
         'SYSTEM\BOOT.LOG captures kernel messages and input-device snapshots.' \
         'SYSTEM\RUNTIME.LOG captures SDL/DOSBox standard output and errors.' \
@@ -93,7 +93,7 @@ image $image_name {
     partition dosdata { partition-type = 0x0c image = "dosdata.vfat" }
 }
 EOF
-"$HOST_DIR/bin/genimage" --rootpath "$BINARIES_DIR/armdos-empty" \
-    --tmppath "$BUILD_DIR/armdos-genimage.tmp" --inputpath "$BINARIES_DIR" \
+"$HOST_DIR/bin/genimage" --rootpath "$BINARIES_DIR/pi-dos-empty" \
+    --tmppath "$BUILD_DIR/pi-dos-genimage.tmp" --inputpath "$BINARIES_DIR" \
     --outputpath "$BINARIES_DIR" --config "$BINARIES_DIR/genimage.cfg"
 sha256sum "$BINARIES_DIR/$image_name" > "$BINARIES_DIR/$image_name.sha256"

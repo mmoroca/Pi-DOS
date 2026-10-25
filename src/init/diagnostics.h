@@ -1,5 +1,5 @@
-#ifndef ARMDOS_DIAGNOSTICS_H
-#define ARMDOS_DIAGNOSTICS_H
+#ifndef PI_DOS_DIAGNOSTICS_H
+#define PI_DOS_DIAGNOSTICS_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <time.h>
 
-struct armdos_diagnostics {
+struct pi_dos_diagnostics {
     int kernel_fd, boot_fd, runtime_fd;
     size_t bytes;
     time_t next_sync, next_snapshot;
@@ -15,9 +15,9 @@ struct armdos_diagnostics {
     bool have_snapshot, dirty;
 };
 
-void armdos_diagnostics_start(struct armdos_diagnostics *log, bool writable);
-void armdos_diagnostics_poll(struct armdos_diagnostics *log, pid_t runtime);
-void armdos_diagnostics_redirect(const struct armdos_diagnostics *log);
-void armdos_diagnostics_stop(struct armdos_diagnostics *log);
+void pi_dos_diagnostics_start(struct pi_dos_diagnostics *log, bool writable);
+void pi_dos_diagnostics_poll(struct pi_dos_diagnostics *log, pid_t runtime);
+void pi_dos_diagnostics_redirect(const struct pi_dos_diagnostics *log);
+void pi_dos_diagnostics_stop(struct pi_dos_diagnostics *log);
 
 #endif

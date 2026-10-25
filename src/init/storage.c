@@ -21,8 +21,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#ifndef ARMDOS_FSCK_FAT
-#define ARMDOS_FSCK_FAT "/sbin/fsck.fat"
+#ifndef PI_DOS_FSCK_FAT
+#define PI_DOS_FSCK_FAT "/sbin/fsck.fat"
 #endif
 
 static uint16_t le16(const unsigned char *p)
@@ -59,7 +59,7 @@ static bool fat32_info(const char *device, uint64_t *sectors, unsigned *cluster)
     return true;
 }
 
-bool armdos_is_fat32_data(const char *device)
+bool pi_dos_is_fat32_data(const char *device)
 {
     uint64_t sectors;
     unsigned cluster;
@@ -106,7 +106,7 @@ static int check_fat(const char *device)
     if (child < 0) return -1;
     if (!child) {
         child_setup();
-        execl(ARMDOS_FSCK_FAT, ARMDOS_FSCK_FAT, "-n", device, (char *)NULL);
+        execl(PI_DOS_FSCK_FAT, PI_DOS_FSCK_FAT, "-n", device, (char *)NULL);
         _exit(127);
     }
     return wait_operation(child, "FAT32 check");
@@ -172,7 +172,7 @@ static bool partition_bytes(const char *device, uint64_t *bytes)
     return ok;
 }
 
-int armdos_expand_data(const char *device)
+int pi_dos_expand_data(const char *device)
 {
     struct stat part_stat, disk_stat;
     char link[128], sys_part[PATH_MAX], disk[PATH_MAX];

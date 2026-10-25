@@ -61,5 +61,5 @@ int 0x21
 
 ready_name db 'READY.OK', 0
 output_name db 'KEYS.BIN', 0
-success db 'ARMDOS_KEYBOARD_OK', 13, 10, '$'
+success db 'PI_DOS_KEYBOARD_OK', 13, 10, '$'
 keys times 21 db 0

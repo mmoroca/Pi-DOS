@@ -20,7 +20,7 @@ location, preserving saved preferences. An existing destination is kept.
 
 `AUTOEXEC.BAT` contains comments for user startup commands, without duplicating
 the system's environment defaults. The build packages a CRLF copy as
-`/armdos/AUTOEXEC.BAT`. Fresh images and writable boots create `C:\AUTOEXEC.BAT`
+`/pi-dos/AUTOEXEC.BAT`. Fresh images and writable boots create `C:\AUTOEXEC.BAT`
 only when missing, preserving existing files and customizations.
 
 ## ARJ
@@ -31,7 +31,7 @@ copyright 1990-93 Robert K Jung. Its original notices are preserved.
 
 SHA-256: `bf37548e55ea0fed2520e5f91449b2566292b2437165dc27db8e599e2d539010`.
 
-The post-build hook installs it in `/armdos/drivez/BIN/ARJ.EXE`. DOSBox-X's
+The post-build hook installs it in `/pi-dos/drivez/BIN/ARJ.EXE`. DOSBox-X's
 existing drivez extension exposes it as `Z:\BIN\ARJ.EXE`; the original Z: layout
 and built-in utilities are retained.
 

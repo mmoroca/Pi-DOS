@@ -106,7 +106,7 @@ def main():
     probe, filesystem, mbr = (Path(value).resolve() for value in sys.argv[1:])
     original = mbr.read_bytes()
     assert len(original) == 512 and original[510:] == b'\x55\xaa'
-    with tempfile.TemporaryDirectory(prefix='armdos-expand-test.') as temporary:
+    with tempfile.TemporaryDirectory(prefix='pi-dos-expand-test.') as temporary:
         root = Path(temporary)
         for mode in ('first-boot', 'resume', 'large-card', 'extra-partition', 'foreign-signature'):
             check(probe, filesystem, original, mode, root)

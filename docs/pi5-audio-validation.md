@@ -36,7 +36,7 @@ process through `ALSA_CONFIG_PATH` and `AUDIODEV`.
 | Kernel playback | 199 `RUNNING` observations owned by DOSBox-X, 199 distinct advancing hardware pointers |
 | Hardware parameters | 48 kHz, stereo, `IEC958_SUBFRAME_LE`; period 1024, buffer 2048 frames |
 | Sampled underruns | None before fixture completion; one XRUN observation during teardown |
-| DOS completion / process exit | `ARMDOS_AUDIO_OK` / status 0 |
+| DOS completion / process exit | `PI_DOS_AUDIO_OK` / status 0 |
 | Device release | No remaining PCM or DRM card owners |
 
 The capture is taken before ALSA's conversion to HDMI IEC958 subframes. Its WAV

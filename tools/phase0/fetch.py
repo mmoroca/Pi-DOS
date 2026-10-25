@@ -17,6 +17,26 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def extract_sources(package, sources, members):
+    # Buildroot includes absolute links in its target filesystem skeleton.
+    # Create these last so archive extraction can never follow them on the host.
+    absolute_links = []
+
+    def source_filter(member, destination):
+        if member.issym() and Path(member.linkname).is_absolute():
+            safe = tarfile.data_filter(member.replace(linkname="."), destination)
+            absolute_links.append(safe.replace(linkname=member.linkname))
+            return None
+        return tarfile.data_filter(member, destination)
+
+    package.extractall(sources, members=members, filter=source_filter)
+    for member in absolute_links:
+        path = sources / member.name
+        if not path.parent.resolve().is_relative_to(sources.resolve()):
+            raise tarfile.FilterError(f"symlink outside source directory: {member.name}")
+        path.symlink_to(member.linkname)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--offline", action="store_true", help="use cached archives only")
@@ -51,7 +71,7 @@ def main():
         if digest(archive) != entry["sha256"]:
             raise RuntimeError(f"SHA-256 mismatch: {archive}; remove it and fetch again")
         destination = sources / entry["directory"]
-        marker = destination / ".armdos-source-sha256"
+        marker = destination / ".pi-dos-source-sha256"
         if not marker.exists():
             # Never overwrite an unknown source tree or local source changes.
             if destination.exists():
@@ -60,7 +80,7 @@ def main():
                 members = package.getmembers()
                 if any(Path(m.name).parts[0] != entry["directory"] for m in members):
                     raise RuntimeError(f"unexpected archive root for {name}")
-                package.extractall(sources, members=members, filter="data")
+                extract_sources(package, sources, members)
             marker.write_text(entry["sha256"] + "\n")
         elif marker.read_text().strip() != entry["sha256"]:
             raise RuntimeError(f"source stamp mismatch: {destination}")

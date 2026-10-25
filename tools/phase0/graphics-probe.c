@@ -18,9 +18,9 @@ static void json_string(FILE *f, const char *s)
     fputc('"', f);
 }
 
-int armdos_capture_frame(void *window)
+int pi_dos_capture_frame(void *window)
 {
-    const char *directory = getenv("ARMDOS_CAPTURE_DIR");
+    const char *directory = getenv("PI_DOS_CAPTURE_DIR");
     SDL_Renderer *renderer = SDL_GetRenderer((SDL_Window *)window);
     SDL_RendererInfo info;
     GLint viewport[4], alignment, row_length = 0, skip_rows = 0, skip_pixels = 0;

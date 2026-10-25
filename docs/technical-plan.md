@@ -83,7 +83,7 @@ initramfs when the data partition is unavailable. Define the discovery timeout,
 read-only recovery behavior and runtime-to-supervisor shutdown protocol before
 implementing the image. Avoid automatic repair delays during normal boot.
 
-Logical runtime paths are `/init`, `/armdos/armdos`, `/armdos/armdos.conf`,
+Logical runtime paths are `/init`, `/pi-dos/pi-dos`, `/pi-dos/pi-dos.conf`,
 `/lib`, `/dev`, `/proc`, `/sys`, `/run` and `/dosdata`. Include the actual dynamic
 loader, libc, linked dependencies, Mesa drivers and required firmware.
 

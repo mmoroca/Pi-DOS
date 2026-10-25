@@ -1,5 +1,5 @@
-config BR2_PACKAGE_ARMDOS_INIT
-	bool "armdos-init"
+config BR2_PACKAGE_PI_DOS_INIT
+	bool "pi-dos-init"
 	depends on BR2_USE_MMU
 	depends on BR2_ENABLE_LOCALE && BR2_USE_WCHAR
 	depends on BR2_TOOLCHAIN_GCC_AT_LEAST_5

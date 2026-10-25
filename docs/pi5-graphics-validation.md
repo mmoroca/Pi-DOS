@@ -24,7 +24,7 @@ DOS mode 13h VGA emulation
 | GPU capture | Eight expected VGA color bars matched in order and width |
 | Captured display rectangle | `(640,120)`–`(1280,600)`: 640×480, exactly 4:3 |
 | Presentation trace | 64 swap calls, 62 completed DRM flip callbacks; 54 after capture |
-| DOS completion / process exit | `ARMDOS_GRAPHICS_OK` / status 0 |
+| DOS completion / process exit | `PI_DOS_GRAPHICS_OK` / status 0 |
 | Display release | No process holding DRM card devices after exit |
 
 The image is centered with black borders on the wide 1920×720 display. VGA

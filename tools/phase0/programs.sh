@@ -58,12 +58,12 @@ import sys
 
 run = Path(sys.argv[1])
 expected = {
-    'COM.OUT': b'ARMDOS_COM_OK\r\n',
-    'EXE.OUT': b'ARMDOS_EXE_OK\r\n',
-    'BAT.OUT': b'ARMDOS_BAT_OK\r\n',
-    'WORK/SOURCE.TXT': b'ARMDOS_FILE_OK\r\n',
-    'WORK/COPY.TXT': b'ARMDOS_FILE_OK\r\n',
-    'RESULT.TXT': b'ARMDOS_PROGRAMS_OK\r\n',
+    'COM.OUT': b'PI_DOS_COM_OK\r\n',
+    'EXE.OUT': b'PI_DOS_EXE_OK\r\n',
+    'BAT.OUT': b'PI_DOS_BAT_OK\r\n',
+    'WORK/SOURCE.TXT': b'PI_DOS_FILE_OK\r\n',
+    'WORK/COPY.TXT': b'PI_DOS_FILE_OK\r\n',
+    'RESULT.TXT': b'PI_DOS_PROGRAMS_OK\r\n',
 }
 failures = [name for name, data in expected.items()
             if not (run / name).is_file() or (run / name).read_bytes() != data]
@@ -76,9 +76,9 @@ log = (run / 'run.log').read_text(errors='replace')
 if 'Unknown core type' in log:
     failures.append('requested CPU core rejected')
 if sys.argv[3] == '1':
-    for marker in ('ARMDOS_DYNREC_ENTRY_REACHED',
-                   'ARMDOS_DYNREC_BLOCK_RETURN_REACHED',
-                   'ARMDOS_DYNREC_DECODER_MATCH=1'):
+    for marker in ('PI_DOS_DYNREC_ENTRY_REACHED',
+                   'PI_DOS_DYNREC_BLOCK_RETURN_REACHED',
+                   'PI_DOS_DYNREC_DECODER_MATCH=1'):
         if marker not in log:
             failures.append(marker)
 if failures:

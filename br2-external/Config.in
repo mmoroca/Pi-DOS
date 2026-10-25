@@ -1,4 +1,4 @@
 menu "Pi-DOS"
-source "$BR2_EXTERNAL_ARMDOS_PATH/package/armdos-init/Config.in"
-source "$BR2_EXTERNAL_ARMDOS_PATH/package/armdos-runtime/Config.in"
+source "$BR2_EXTERNAL_PI_DOS_PATH/package/pi-dos-init/Config.in"
+source "$BR2_EXTERNAL_PI_DOS_PATH/package/pi-dos-runtime/Config.in"
 endmenu

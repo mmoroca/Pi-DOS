@@ -33,16 +33,16 @@ def main():
     buildroot = (OUT / '.config').read_text()
     require('BR2_cortex_a53=y\n' in buildroot and 'BR2_cortex_a76=y\n' not in buildroot,
             'Userspace must use the common Cortex-A53 instruction baseline')
-    for name in ('init', 'armdos/armdos'):
+    for name in ('init', 'pi-dos/pi-dos'):
         data = (target / name).read_bytes()[:20]
         require(data[:5] == b'\x7fELF\x02' and struct.unpack_from('<H', data, 18)[0] == 183,
                 f'{name} is not ELF64 AArch64')
     with (images / 'rootfs.cpio').open('rb') as stream:
         names = subprocess.check_output(['cpio', '-it', '--quiet'], stdin=stream, text=True).splitlines()
     names = {name.removeprefix('./') for name in names}
-    for name in ('init', 'armdos/armdos', 'armdos/armdos.conf', 'armdos/DOSBOX.CONF',
-                 'armdos/AUTOEXEC.BAT',
-                 'armdos/drivez/BIN/ARJ.EXE', 'dev/console',
+    for name in ('init', 'pi-dos/pi-dos', 'pi-dos/pi-dos.conf', 'pi-dos/DOSBOX.CFG',
+                 'pi-dos/AUTOEXEC.BAT',
+                 'pi-dos/drivez/BIN/ARJ.EXE', 'dev/console',
                  'sbin/fsck.fat', 'lib/firmware/edid/dac-crt.bin'):
         require(name in names, f'Missing initramfs file: {name}')
     with (images / 'rootfs.cpio').open('rb') as stream:
@@ -62,16 +62,16 @@ def main():
     require(('SET PATH=' + default_path).encode() in packed_init, 'Default DOS PATH is incomplete')
     require(b'SET TEMP=C:\\TEMP\nSET TMP=C:\\TEMP\n' in packed_init,
             'PID 1 lacks the default DOS temporary directory')
-    require(b'/dosdata/c/SYSTEM/DOSBOX.CONF' in packed_init,
+    require(b'/dosdata/c/SYSTEM/DOSBOX.CFG' in packed_init,
             'PID 1 does not load the editable DOSBox configuration')
-    for value in (b'armdos.diagnostics=1', b'/dev/kmsg',
+    for value in (b'pi-dos.diagnostics=1', b'/dev/kmsg',
                   b'/dosdata/c/SYSTEM/BOOT.LOG', b'/dosdata/c/SYSTEM/RUNTIME.LOG'):
         require(value in packed_init, 'PID 1 lacks diagnostic file logging support')
     require(b'MOUNT C /dosdata/c -label SYSTEM' in packed_init,
             'PID 1 lacks the default C: volume label')
     require(b'/dosdata/d' not in packed_init,
             'PID 1 still creates or mounts the obsolete D: data directory')
-    require(b'C:\\SYSTEM\\RUNTIME' not in (target / 'armdos/armdos').read_bytes(),
+    require(b'C:\\SYSTEM\\RUNTIME' not in (target / 'pi-dos/pi-dos').read_bytes(),
             'Reverted runtime-launcher patch is still present in the image')
     for name in ('bin/sh', 'bin/busybox', 'sbin/init', 'usr/bin/bash', 'usr/sbin/sshd',
                  'usr/sbin/dropbear', 'sbin/e2fsck', 'sbin/resize2fs'):
@@ -119,7 +119,7 @@ def main():
         require(f'CONFIG_{setting}=y\n' in kernel, f'Required kernel option not built in: {setting}')
     for setting in ('INET', 'IPV6', 'MODULES', 'MEDIA_SUPPORT', 'STAGING', 'BTRFS_FS', 'BCACHEFS_FS'):
         require(f'CONFIG_{setting}=y\n' not in kernel, f'Unexpected kernel option: {setting}')
-    config = next((OUT / 'build').glob('armdos-runtime-*/config.h')).read_text()
+    config = next((OUT / 'build').glob('pi-dos-runtime-*/config.h')).read_text()
     for setting in ('C_SDL2', 'C_DYNREC'):
         require(f'#define {setting} 1' in config, f'Runtime missing {setting}')
     require('#define C_SDL3 1' not in config, 'Runtime unexpectedly uses SDL3')
@@ -146,7 +146,7 @@ def main():
             subprocess.check_call([
                 str(linux_dirs[0].parent / 'scripts/dtc/fdtoverlay'),
                 '-i', str(images / name), '-o', str(Path(temporary) / name), str(images / overlay)])
-    disk = images / ('armdos-arm64-diagnostic-sdcard.img' if diagnostic else 'armdos-arm64-sdcard.img')
+    disk = images / ('pi-dos-arm64-diagnostic-sdcard.img' if diagnostic else 'pi-dos-arm64-sdcard.img')
     with disk.open('rb') as stream:
         mbr = stream.read(512)
         require(mbr[510:] == b'\x55\xaa', 'Invalid MBR signature')
@@ -189,22 +189,22 @@ def main():
     require(not any(name.rstrip('/').endswith('/EDIT.COM') for name in system_files),
             'Obsolete C:/SYSTEM/EDIT.COM would duplicate the tools copy')
     packed_config = subprocess.check_output([
-        str(mcopy), '-i', data_volume, '::c/SYSTEM/DOSBOX.CONF', '-'])
-    default_config = (target / 'armdos/DOSBOX.CONF').read_bytes()
-    require(packed_config == default_config, 'Editable DOSBOX.CONF missing/stale in PI-DOS')
+        str(mcopy), '-i', data_volume, '::c/SYSTEM/DOSBOX.CFG', '-'])
+    default_config = (target / 'pi-dos/DOSBOX.CFG').read_bytes()
+    require(packed_config == default_config, 'Editable DOSBOX.CFG missing/stale in PI-DOS')
     require(b'lfn=true\r\n' in packed_config and
-            b'\n' not in packed_config.replace(b'\r\n', b''), 'Invalid DOSBOX.CONF defaults/line endings')
+            b'\n' not in packed_config.replace(b'\r\n', b''), 'Invalid DOSBOX.CFG defaults/line endings')
     autoexec = (ROOT / 'br2-external/board/raspberrypi/dos/AUTOEXEC.BAT').read_text().replace('\n', '\r\n').encode('ascii')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_autoexec = subprocess.check_output([
-            'cpio', '-i', '--to-stdout', '--quiet', 'armdos/AUTOEXEC.BAT'], stdin=stream)
+            'cpio', '-i', '--to-stdout', '--quiet', 'pi-dos/AUTOEXEC.BAT'], stdin=stream)
     require(packed_autoexec == autoexec, 'AUTOEXEC.BAT template missing/stale in initramfs')
     arj = ROOT / 'br2-external/board/raspberrypi/dos/ARJ.EXE'
-    require((target / 'armdos/drivez/BIN/ARJ.EXE').read_bytes() == arj.read_bytes(),
+    require((target / 'pi-dos/drivez/BIN/ARJ.EXE').read_bytes() == arj.read_bytes(),
             'ARJ missing/stale in the Z: extension')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_arj = subprocess.check_output([
-            'cpio', '-i', '--to-stdout', '--quiet', 'armdos/drivez/BIN/ARJ.EXE'], stdin=stream)
+            'cpio', '-i', '--to-stdout', '--quiet', 'pi-dos/drivez/BIN/ARJ.EXE'], stdin=stream)
     require(packed_arj == arj.read_bytes(), 'ARJ missing/stale in initramfs')
     doszip = ROOT / 'br2-external/board/raspberrypi/dos/doszip'
     for path in sorted(doszip.iterdir()):
@@ -250,8 +250,8 @@ def main():
             str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{name}', '-'])
         expected = (ROOT / 'br2-external/board/raspberrypi' / name).read_bytes()
         if name == 'cmdline.txt' and diagnostic:
-            words = [word for word in expected.decode().split() if not word.startswith(('loglevel=', 'armdos.diagnostics='))]
-            words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M', 'armdos.diagnostics=1']
+            words = [word for word in expected.decode().split() if not word.startswith(('loglevel=', 'pi-dos.diagnostics='))]
+            words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M', 'pi-dos.diagnostics=1']
             expected = (' '.join(words) + '\n').encode()
         require(packed == expected,
                 f'BOOT configuration missing/stale: {name}')
@@ -280,13 +280,13 @@ def main():
                 'storage_source_sha256': digest(ROOT / 'src/init/storage.c'),
                 'editor_sha256': digest(editor),
                 'arj_sha256': digest(arj),
-                'user_config_default_sha256': digest(target / 'armdos/DOSBOX.CONF'),
+                'user_config_default_sha256': digest(target / 'pi-dos/DOSBOX.CFG'),
                 'doszip_sha256': {p.name: digest(p) for p in sorted(doszip.iterdir())},
                 'crt_edid_sha256': digest(ROOT / 'dac-crt.bin'),
                 'patch_sha256': {str(p.relative_to(ROOT)): digest(p)
                                  for p in sorted((ROOT / 'patches').rglob('*.patch'))},
                 'deferred': ['audio teardown underrun', 'mouse validation']}
-    evidence_name = 'armdos-diagnostic-validation.json' if diagnostic else 'armdos-image-validation.json'
+    evidence_name = 'pi-dos-diagnostic-validation.json' if diagnostic else 'pi-dos-image-validation.json'
     (images / evidence_name).write_text(json.dumps(evidence, indent=2) + '\n')
     print(f'PASS: AArch64 kernel/runtime, custom initramfs, FAT32 BOOT and PI-DOS: {disk}')
     print('Hardware boot of this image remains unverified; validation metadata saved beside the image.')

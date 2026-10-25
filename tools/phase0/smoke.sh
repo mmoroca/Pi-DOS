@@ -14,9 +14,9 @@ if timeout 20s env SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$binary" \
     -set 'sdl output=surface' -set 'sdl videodriver=dummy' \
     -set 'sdl waitonerror=false' \
     -c "mount c \"$run_dir\"" -c 'c:' \
-    -c 'echo ARMDOS_SMOKE_OK >RESULT.TXT' -c 'exit' > "$run_dir/run.log" 2>&1; then
+    -c 'echo PI_DOS_SMOKE_OK >RESULT.TXT' -c 'exit' > "$run_dir/run.log" 2>&1; then
     if [[ -f "$run_dir/RESULT.TXT" ]] && \
-        [[ "$(tr -d '\r\n' < "$run_dir/RESULT.TXT")" == ARMDOS_SMOKE_OK ]]; then
+        [[ "$(tr -d '\r\n' < "$run_dir/RESULT.TXT")" == PI_DOS_SMOKE_OK ]]; then
         echo 'PASS: DOS shell started, mounted C:, wrote RESULT.TXT and exited.'
     else
         echo "FAIL: DOS shell result missing or incorrect; see $run_dir/run.log" >&2

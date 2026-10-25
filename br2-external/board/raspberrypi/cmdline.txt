@@ -1,1 +1,1 @@
-console=serial0,115200 rdinit=/init loglevel=4 vt.global_cursor_default=0 armdos.data=/dev/mmcblk0p2 video=HDMI-A-1:720x400@70 video=HDMI-A-2:720x400@70 drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin armdos.diagnostics=0
+console=serial0,115200 rdinit=/init loglevel=4 vt.global_cursor_default=0 pi-dos.data=/dev/mmcblk0p2 video=HDMI-A-1:720x400@70 video=HDMI-A-2:720x400@70 drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin pi-dos.diagnostics=0

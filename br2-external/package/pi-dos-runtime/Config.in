@@ -1,5 +1,5 @@
-config BR2_PACKAGE_ARMDOS_RUNTIME
-	bool "armdos-runtime"
+config BR2_PACKAGE_PI_DOS_RUNTIME
+	bool "pi-dos-runtime"
 	depends on BR2_INSTALL_LIBSTDCPP
 	depends on BR2_TOOLCHAIN_HAS_THREADS
 	depends on !BR2_STATIC_LIBS

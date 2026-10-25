@@ -103,7 +103,7 @@ static void pair_row(FILE *out, const char *label, const char *value,
             label, value, other_label, other_value);
 }
 
-void armdos_startup(FILE *out, const char *config, const char *user_config, const char *device,
+void pi_dos_startup(FILE *out, const char *config, const char *user_config, const char *device,
                     bool mounted, bool writable, bool drive_c)
 {
     char board[256] = "Unknown", cpu[128] = "Unknown", cores[32] = "Unknown";

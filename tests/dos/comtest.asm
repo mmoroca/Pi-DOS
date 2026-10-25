@@ -8,4 +8,4 @@ int 0x21
 mov ax, 0x4c07
 int 0x21
 
-message db 'ARMDOS_COM_OK', 13, 10, '$'
+message db 'PI_DOS_COM_OK', 13, 10, '$'

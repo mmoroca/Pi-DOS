@@ -26,13 +26,13 @@ static bool enabled(void)
     char *save = NULL;
     for (char *word = strtok_r(buffer, " \t\r\n", &save); word;
          word = strtok_r(NULL, " \t\r\n", &save)) {
-        if (!strcmp(word, "armdos.diagnostics=1")) result = true;
-        if (!strcmp(word, "armdos.diagnostics=0")) result = false;
+        if (!strcmp(word, "pi-dos.diagnostics=1")) result = true;
+        if (!strcmp(word, "pi-dos.diagnostics=0")) result = false;
     }
     return result;
 }
 
-static void append(struct armdos_diagnostics *log, const char *data, size_t length)
+static void append(struct pi_dos_diagnostics *log, const char *data, size_t length)
 {
     if (log->boot_fd < 0 || log->bytes >= BOOT_LOG_LIMIT) return;
     if (length > BOOT_LOG_LIMIT - log->bytes) length = BOOT_LOG_LIMIT - log->bytes;
@@ -58,7 +58,7 @@ static void append(struct armdos_diagnostics *log, const char *data, size_t leng
     }
 }
 
-static void drain_kernel(struct armdos_diagnostics *log)
+static void drain_kernel(struct pi_dos_diagnostics *log)
 {
     for (int record = 0; record < 256 && log->kernel_fd >= 0; ++record) {
         char buffer[16384];
@@ -97,7 +97,7 @@ static void copy_text(FILE *output, const char *path)
     fclose(input);
 }
 
-static void snapshot(struct armdos_diagnostics *log, pid_t runtime, time_t now)
+static void snapshot(struct pi_dos_diagnostics *log, pid_t runtime, time_t now)
 {
     char *text = NULL;
     size_t length = 0;
@@ -145,9 +145,9 @@ static void snapshot(struct armdos_diagnostics *log, pid_t runtime, time_t now)
     free(text);
 }
 
-void armdos_diagnostics_start(struct armdos_diagnostics *log, bool writable)
+void pi_dos_diagnostics_start(struct pi_dos_diagnostics *log, bool writable)
 {
-    *log = (struct armdos_diagnostics){.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
+    *log = (struct pi_dos_diagnostics){.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
     if (!enabled()) return;
     if (!writable) {
         dprintf(2, "Pi-DOS: diagnostics require writable C:; using serial output only\n");
@@ -177,7 +177,7 @@ void armdos_diagnostics_start(struct armdos_diagnostics *log, bool writable)
         dprintf(2, "Pi-DOS: cannot create RUNTIME.LOG: %s\n", strerror(errno));
 }
 
-void armdos_diagnostics_poll(struct armdos_diagnostics *log, pid_t runtime)
+void pi_dos_diagnostics_poll(struct pi_dos_diagnostics *log, pid_t runtime)
 {
     if (log->boot_fd < 0) return;
     drain_kernel(log);
@@ -196,14 +196,14 @@ void armdos_diagnostics_poll(struct armdos_diagnostics *log, pid_t runtime)
     }
 }
 
-void armdos_diagnostics_redirect(const struct armdos_diagnostics *log)
+void pi_dos_diagnostics_redirect(const struct pi_dos_diagnostics *log)
 {
     if (log->runtime_fd >= 0 &&
         (dup2(log->runtime_fd, STDOUT_FILENO) < 0 || dup2(log->runtime_fd, STDERR_FILENO) < 0))
         dprintf(2, "Pi-DOS: runtime log redirection failed: %s\n", strerror(errno));
 }
 
-void armdos_diagnostics_stop(struct armdos_diagnostics *log)
+void pi_dos_diagnostics_stop(struct pi_dos_diagnostics *log)
 {
     drain_kernel(log);
     if (log->boot_fd >= 0) { fsync(log->boot_fd); close(log->boot_fd); }

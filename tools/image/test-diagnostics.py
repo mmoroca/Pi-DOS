@@ -39,13 +39,13 @@ def main():
 int main(int argc, char **argv)
 {
     assert(argc >= 2);
-    struct armdos_diagnostics log;
-    armdos_diagnostics_start(&log, atoi(argv[1]) != 0);
+    struct pi_dos_diagnostics log;
+    pi_dos_diagnostics_start(&log, atoi(argv[1]) != 0);
     if (argc > 2) {
         pid_t child = fork();
         assert(child >= 0);
         if (!child) {
-            armdos_diagnostics_redirect(&log);
+            pi_dos_diagnostics_redirect(&log);
             dprintf(1, "runtime stdout captured\n");
             dprintf(2, "runtime stderr captured\n");
             _exit(0);
@@ -65,11 +65,11 @@ int main(int argc, char **argv)
             free(data);
         }
         log.next_snapshot = log.next_sync = 0;
-        armdos_diagnostics_poll(&log, 123);
+        pi_dos_diagnostics_poll(&log, 123);
         puts("READY"); fflush(stdout);
     }
     int descriptors[] = {log.kernel_fd, log.boot_fd, log.runtime_fd};
-    armdos_diagnostics_stop(&log);
+    pi_dos_diagnostics_stop(&log);
     for (size_t i = 0; i < sizeof(descriptors) / sizeof(descriptors[0]); ++i)
         if (descriptors[i] >= 0) assert(fcntl(descriptors[i], F_GETFD) < 0 && errno == EBADF);
     puts("CLOSED");
@@ -100,14 +100,14 @@ int main(int argc, char **argv)
             assert output.strip() == 'CLOSED', output
 
         try:
-            for flag in ('', 'armdos.diagnostics=0', 'xarmdos.diagnostics=1',
-                         'armdos.diagnostics=1 armdos.diagnostics=0'):
+            for flag in ('', 'pi-dos.diagnostics=0', 'xpi-dos.diagnostics=1',
+                         'pi-dos.diagnostics=1 pi-dos.diagnostics=0'):
                 cmdline.write_text(flag + '\n')
                 boot.write_text('keep boot')
                 runtime.write_text('keep runtime')
                 stop(start())
                 assert boot.read_text() == 'keep boot' and runtime.read_text() == 'keep runtime'
-            cmdline.write_text('armdos.diagnostics=1\n')
+            cmdline.write_text('pi-dos.diagnostics=1\n')
             stop(start(writable=False))
             assert boot.read_text() == 'keep boot' and runtime.read_text() == 'keep runtime'
             boot.unlink()

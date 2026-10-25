@@ -46,7 +46,7 @@ def main():
     probe, seed, original = (Path(x).resolve() for x in sys.argv[1:])
     original = original.read_bytes()
     assert len(original) == 512 and original[466] == 0x0c
-    with tempfile.TemporaryDirectory(prefix='armdos-fat32-file.') as temporary:
+    with tempfile.TemporaryDirectory(prefix='pi-dos-fat32-file.') as temporary:
         root = Path(temporary)
         for gib in (2, 64):
             size = gib * 1024**3

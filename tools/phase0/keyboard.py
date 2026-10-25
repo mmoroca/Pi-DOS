@@ -154,7 +154,7 @@ def main():
         actual = (run / 'KEYS.BIN').read_bytes()
         if actual != expected:
             raise RuntimeError(f'DOS key mismatch: expected {expected.hex()}, got {actual.hex()}')
-        if (run / 'KEYBOARD.OUT').read_text().strip() != 'ARMDOS_KEYBOARD_OK':
+        if (run / 'KEYBOARD.OUT').read_text().strip() != 'PI_DOS_KEYBOARD_OK':
             raise RuntimeError('Missing DOS completion marker')
         if 'video kmsdrm' not in (run / 'run.log').read_text().casefold():
             raise RuntimeError('Native KMSDRM driver not confirmed')

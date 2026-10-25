@@ -32,14 +32,14 @@ JOBS=4 make image
 ```
 
 For troubleshooting without a serial adapter, run `JOBS=4 make image-diagnostic`.
-The separate `armdos-arm64-diagnostic-sdcard.img` saves kernel/input diagnostics
+The separate `pi-dos-arm64-diagnostic-sdcard.img` saves kernel/input diagnostics
 to `C:\SYSTEM\BOOT.LOG` and SDL/DOSBox output to `C:\SYSTEM\RUNTIME.LOG`.
-Normal builds explicitly disable both logs with `armdos.diagnostics=0`.
+Normal builds explicitly disable both logs with `pi-dos.diagnostics=0`.
 Both logs are replaced on each diagnostic boot. See the
 [diagnostic procedure](docs/buildroot-pi5.md#diagnostic-image-with-logs-on-c).
 
 The initial 769 MiB development image is
-`output/buildroot-arm64/images/armdos-arm64-sdcard.img`. It contains an ARM64 kernel
+`output/buildroot-arm64/images/pi-dos-arm64-sdcard.img`. It contains an ARM64 kernel
 with embedded initramfs, custom C PID 1, the SDL2 DOS runtime, FAT32 BOOT and
 FAT32 PI-DOS partitions for direct access from modern Windows. The generated image passed static checks for its
 partitions, required kernel/SDL backends, runtime dependencies and absence of
@@ -69,7 +69,7 @@ C: uses the data partition's available space; D: is left available for CD-ROM
 images. The image contains only the `c` data folder.
 The image includes a personalized editor at `C:\PROGRAMS\TOOLS\EDIT.COM`; this
 writable copy takes priority over the bundled editor and retains saved preferences.
-Edit `C:\SYSTEM\DOSBOX.CONF` and reboot to change emulator settings persistently.
+Edit `C:\SYSTEM\DOSBOX.CFG` and reboot to change emulator settings persistently.
 Edit `C:\AUTOEXEC.BAT` to customize environment variables, PATH or programs run
 after standard startup. A minimal template is created only when missing;
 existing files are preserved. `C:\README.TXT` explains both configuration files.

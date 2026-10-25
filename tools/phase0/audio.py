@@ -119,7 +119,7 @@ def main():
     # Only this process uses this config; system and ReplayOS configs stay intact.
     config = run / 'alsa.conf'
     config.write_text(f'''</usr/share/alsa/alsa.conf>
-pcm.armdos_capture {{
+pcm.pi_dos_capture {{
     type file
     slave.pcm "plughw:CARD={card_id},DEV=0"
     file "{run}/pcm.wav"
@@ -132,7 +132,7 @@ pcm.armdos_capture {{
     env.update(SDL_VIDEODRIVER='kmsdrm', SDL_AUDIODRIVER='alsa',
                SDL_KMSDRM_DEVICE_INDEX=outputs[0].name.split('-')[0][4:],
                SDL_RENDER_DRIVER='opengles2', SDL_FRAMEBUFFER_ACCELERATION='opengles2',
-               ALSA_CONFIG_PATH=str(config), AUDIODEV='armdos_capture')
+               ALSA_CONFIG_PATH=str(config), AUDIODEV='pi_dos_capture')
     command = [str(binary), '-defaultconf', '-defaultmapper', '-nopromptfolder',
                '-defaultdir', str(run), '-fastlaunch', '-nomenu', '-fullscreen',
                '-set', 'sdl output=surface', '-set', f'sdl fullresolution={modes[0]}',
@@ -174,7 +174,7 @@ pcm.armdos_capture {{
         (run / 'hardware-status.json').write_text(json.dumps(observations, indent=2) + '\n')
     if process.returncode:
         raise RuntimeError(f'DOSBox-X exited {process.returncode}; see {run}/run.log')
-    if (run / 'AUDIO.OUT').read_text().strip() != 'ARMDOS_AUDIO_OK':
+    if (run / 'AUDIO.OUT').read_text().strip() != 'PI_DOS_AUDIO_OK':
         raise RuntimeError('DOS audio fixture did not finish successfully')
     if not (run / 'DONE.OK').exists() or (run / 'ACTIVE.OK').exists():
         raise RuntimeError('DOS audio fixture lifecycle markers did not complete')

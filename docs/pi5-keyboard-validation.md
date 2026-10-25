@@ -31,7 +31,7 @@ The host compares the complete 21-byte result with the expected sequence:
 | Left Arrow | `4b00` |
 
 The DOS character reads returned exactly `xY3`. The completion marker was
-`ARMDOS_KEYBOARD_OK`, the emulator exited with status 0, the virtual device was
+`PI_DOS_KEYBOARD_OK`, the emulator exited with status 0, the virtual device was
 removed, and no process retained a DRM card descriptor after exit.
 
 ## Repeat over SSH

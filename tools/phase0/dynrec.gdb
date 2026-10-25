@@ -8,14 +8,14 @@ handle SIGSEGV nostop noprint pass
 tbreak CPU_Core_Dynrec_Run
 commands
   silent
-  printf "ARMDOS_DYNREC_ENTRY_REACHED\n"
-  printf "ARMDOS_DYNREC_DECODER_MATCH=%d\n", (cpudecoder == &CPU_Core_Dynrec_Run)
+  printf "PI_DOS_DYNREC_ENTRY_REACHED\n"
+  printf "PI_DOS_DYNREC_DECODER_MATCH=%d\n", (cpudecoder == &CPU_Core_Dynrec_Run)
   continue
 end
 tbreak core_dynrec.cpp:325
 commands
   silent
-  printf "ARMDOS_DYNREC_BLOCK_RETURN_REACHED\n"
+  printf "PI_DOS_DYNREC_BLOCK_RETURN_REACHED\n"
   # The translated block can change cpudecoder (for example, guest HLT).
   # Check selection on entry; record the post-block decoder as context.
   print cpudecoder

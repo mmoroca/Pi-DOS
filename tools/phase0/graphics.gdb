@@ -6,7 +6,7 @@ handle SIGSEGV nostop noprint pass
 python
 import gdb, json, os
 from pathlib import Path
-directory = Path(os.environ['ARMDOS_CAPTURE_DIR'])
+directory = Path(os.environ['PI_DOS_CAPTURE_DIR'])
 stats = {'swap_calls': 0, 'completed_flips': 0, 'flips_after_capture': 0,
          'capture_swap': None}
 class Swap(gdb.Breakpoint):
@@ -35,11 +35,11 @@ end
 bt 8
 print sdl.clip
 print *sdl.surface
-set $capture_result = (int)armdos_capture_frame((void *)sdl.window)
-printf "ARMDOS_GPU_CAPTURE_RESULT=%d\n", $capture_result
+set $capture_result = (int)pi_dos_capture_frame((void *)sdl.window)
+printf "PI_DOS_GPU_CAPTURE_RESULT=%d\n", $capture_result
 continue
 python
 stats['capture_result'] = int(gdb.parse_and_eval('$capture_result'))
 (directory/'presentation.json').write_text(json.dumps(stats, indent=2)+'\n')
-print('ARMDOS_PRESENTATION=' + json.dumps(stats))
+print('PI_DOS_PRESENTATION=' + json.dumps(stats))
 end

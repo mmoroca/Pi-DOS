@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 target=$1
-project="$BR2_EXTERNAL_ARMDOS_PATH/.."
+project="$BR2_EXTERNAL_PI_DOS_PATH/.."
 # Buildroot retains files from deselected packages in an existing output tree.
 # Remove the previous ext4 boot helpers when upgrading that tree to FAT32.
 python3 - "$target" "$BUILD_DIR" <<'PY'
@@ -19,30 +19,32 @@ if 'BR2_PACKAGE_E2FSPROGS=y\n' not in (target.parent / '.config').read_text():
             if installed.is_symlink() or installed.is_file():
                 installed.unlink()
 PY
-install -D -m 0644 "$project/configs/armdos.conf" "$target/armdos/armdos.conf"
-python3 - "$project/configs/armdos.conf" "$target/armdos/DOSBOX.CONF" <<'PY'
+install -D -m 0644 "$project/configs/pi-dos.conf" "$target/pi-dos/pi-dos.conf"
+# Remove the obsolete generated template from incremental build output.
+rm -f "$target/pi-dos/DOSBOX.CONF"
+python3 - "$project/configs/pi-dos.conf" "$target/pi-dos/DOSBOX.CFG" <<'PY'
 from pathlib import Path
 import sys
 source, destination = map(Path, sys.argv[1:])
 text = ('# Pi-DOS persistent configuration. Changes take effect after reboot.\n'
-        '# Edit C:\\SYSTEM\\DOSBOX.CONF; existing files are preserved on BOOT updates.\n'
+        '# Edit C:\\SYSTEM\\DOSBOX.CFG; existing files are preserved on BOOT updates.\n'
         '# Optional [autoexec] commands run after system setup and C:\\AUTOEXEC.BAT.\n\n'
         + source.read_text())
 destination.write_bytes(text.replace('\n', '\r\n').encode('ascii'))
 PY
-python3 - "$project/br2-external/board/raspberrypi/dos/AUTOEXEC.BAT" "$target/armdos/AUTOEXEC.BAT" <<'PY'
+python3 - "$project/br2-external/board/raspberrypi/dos/AUTOEXEC.BAT" "$target/pi-dos/AUTOEXEC.BAT" <<'PY'
 from pathlib import Path
 import sys
 source, destination = map(Path, sys.argv[1:])
 destination.write_bytes(source.read_text().replace('\n', '\r\n').encode('ascii'))
 PY
 install -D -m 0644 "$project/br2-external/board/raspberrypi/dos/ARJ.EXE" \
-    "$target/armdos/drivez/BIN/ARJ.EXE"
+    "$target/pi-dos/drivez/BIN/ARJ.EXE"
 install -D -m 0644 "$project/dac-crt.bin" "$target/lib/firmware/edid/dac-crt.bin"
 mkdir -p "$target/dosdata" "$target/run" "$target/tmp" "$target/proc" "$target/sys"
 # No system shell, getty, login or init scripts are needed by the C supervisor.
 test -x "$target/init"
-test -x "$target/armdos/armdos"
+test -x "$target/pi-dos/pi-dos"
 test ! -e "$target/bin/sh"
 test ! -e "$target/bin/busybox"
 test ! -e "$target/sbin/init"

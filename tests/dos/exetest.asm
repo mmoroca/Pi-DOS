@@ -30,5 +30,5 @@ mov ax, 0x4c0b
 int 0x21
 
 relocated_segment dw 0           ; loader must add the actual load segment
-message db 'ARMDOS_EXE_OK', 13, 10, '$'
+message db 'PI_DOS_EXE_OK', 13, 10, '$'
 file_end:

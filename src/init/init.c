@@ -26,9 +26,9 @@
 #include "diagnostics.h"
 
 enum storage { NO_STORAGE, READ_ONLY, READ_WRITE };
-static struct armdos_diagnostics diagnostics = {.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
+static struct pi_dos_diagnostics diagnostics = {.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
 
-#define USER_CONFIG_PATH "/dosdata/c/SYSTEM/DOSBOX.CONF"
+#define USER_CONFIG_PATH "/dosdata/c/SYSTEM/DOSBOX.CFG"
 
 static int open_device_events(void)
 {
@@ -125,7 +125,7 @@ static void data_device(char *device, size_t size)
     if (!read_line("/proc/cmdline", line, sizeof(line))) return;
     char *save = NULL;
     for (char *token = strtok_r(line, " ", &save); token; token = strtok_r(NULL, " ", &save)) {
-        const char *prefix = "armdos.data=";
+        const char *prefix = "pi-dos.data=";
         if (!strncmp(token, prefix, strlen(prefix)) &&
             !strncmp(token + strlen(prefix), "/dev/", 5)) {
             snprintf(device, size, "%s", token + strlen(prefix));
@@ -151,11 +151,11 @@ static enum storage mount_data(void)
         return NO_STORAGE;
     }
     /* Reject other filesystems before changing or mounting the data partition. */
-    if (!armdos_is_fat32_data(device)) {
+    if (!pi_dos_is_fat32_data(device)) {
         dprintf(2, "Pi-DOS: %s is not the expected FAT32 PI-DOS partition\n", device);
         return NO_STORAGE;
     }
-    bool writable = armdos_expand_data(device) >= 0;
+    bool writable = pi_dos_expand_data(device) >= 0;
     unsigned long flags = MS_NODEV | MS_NOSUID | MS_NOEXEC;
     if (writable && !mount(device, "/dosdata", "vfat", flags,
                            "uid=0,gid=0,umask=0022,utf8=1,errors=remount-ro")) {
@@ -239,8 +239,8 @@ static const char *user_config_path(enum storage storage)
 
 static bool make_config(enum storage storage, const char *user_config)
 {
-    FILE *input = fopen("/armdos/armdos.conf", "r");
-    FILE *output = fopen("/run/armdos.conf", "w");
+    FILE *input = fopen("/pi-dos/pi-dos.conf", "r");
+    FILE *output = fopen("/run/pi-dos.conf", "w");
     if (!input || !output) {
         if (input) fclose(input);
         if (output) fclose(output);
@@ -265,7 +265,7 @@ static bool make_config(enum storage storage, const char *user_config)
     }
     char device[PATH_MAX];
     data_device(device, sizeof(device));
-    armdos_startup(output, "/armdos/armdos.conf", user_config, device, storage != NO_STORAGE,
+    pi_dos_startup(output, "/pi-dos/pi-dos.conf", user_config, device, storage != NO_STORAGE,
                    storage == READ_WRITE, drive_c);
     if (diagnostics.boot_fd >= 0 || diagnostics.runtime_fd >= 0)
         fputs("ECHO Diagnostic capture enabled; logs are in C:\\SYSTEM.\n", output);
@@ -344,7 +344,7 @@ static void select_video(void)
 static void finish(enum storage storage, bool restart)
 {
     dprintf(2, "Pi-DOS: synchronizing storage before %s\n", restart ? "reboot" : "poweroff");
-    armdos_diagnostics_stop(&diagnostics);
+    pi_dos_diagnostics_stop(&diagnostics);
     sync();
     if (storage != NO_STORAGE && umount("/dosdata")) {
         dprintf(2, "Pi-DOS: data unmount failed: %s; attempting read-only remount\n", strerror(errno));
@@ -359,7 +359,7 @@ static void finish(enum storage storage, bool restart)
 int main(void)
 {
     if (getpid() != 1 || geteuid() != 0) {
-        fputs("armdos-init must run as root PID 1; refusing to alter this system.\n", stderr);
+        fputs("pi-dos-init must run as root PID 1; refusing to alter this system.\n", stderr);
         return 1;
     }
     mount_required("devtmpfs", "/dev", "devtmpfs", MS_NOSUID, "mode=0755");
@@ -391,9 +391,9 @@ int main(void)
     }
     enum storage storage = mount_data();
     prepare_dos_folders(storage);
-    seed_user_file(storage, "/armdos/DOSBOX.CONF", USER_CONFIG_PATH);
-    seed_user_file(storage, "/armdos/AUTOEXEC.BAT", "/dosdata/c/AUTOEXEC.BAT");
-    armdos_diagnostics_start(&diagnostics, storage == READ_WRITE);
+    seed_user_file(storage, "/pi-dos/DOSBOX.CFG", USER_CONFIG_PATH);
+    seed_user_file(storage, "/pi-dos/AUTOEXEC.BAT", "/dosdata/c/AUTOEXEC.BAT");
+    pi_dos_diagnostics_start(&diagnostics, storage == READ_WRITE);
     const char *user_config = user_config_path(storage);
     if (!make_config(storage, user_config)) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");
@@ -417,7 +417,7 @@ int main(void)
 
     pid_t runtime = fork();
     if (runtime == 0) {
-        armdos_diagnostics_redirect(&diagnostics);
+        pi_dos_diagnostics_redirect(&diagnostics);
         sigprocmask(SIG_UNBLOCK, &blocked, NULL);
         setsid();
         int tty = open("/dev/tty1", O_RDWR);
@@ -426,12 +426,12 @@ int main(void)
             dup2(tty, 0); /* Keep emulator diagnostics on the serial console. */
             if (tty > 2) close(tty);
         }
-        if (chdir("/armdos")) {
+        if (chdir("/pi-dos")) {
             dprintf(2, "Pi-DOS: runtime directory unavailable: %s\n", strerror(errno));
             _exit(127);
         }
-        char *arguments[14] = {"armdos", "-defaultmapper", "-nopromptfolder",
-                              "-defaultdir", "/armdos", "-conf", "/run/armdos.conf"};
+        char *arguments[14] = {"pi-dos", "-defaultmapper", "-nopromptfolder",
+                              "-defaultdir", "/pi-dos", "-conf", "/run/pi-dos.conf"};
         size_t argc = 7;
         /* Load the editable file last: hardware settings override defaults,
          * and its [autoexec] commands follow the generated system startup. */
@@ -442,7 +442,7 @@ int main(void)
         arguments[argc++] = "-fastlaunch";
         arguments[argc++] = "-nomenu";
         arguments[argc] = NULL;
-        execv("/armdos/armdos", arguments);
+        execv("/pi-dos/pi-dos", arguments);
         dprintf(2, "Pi-DOS: runtime exec failed: %s\n", strerror(errno));
         _exit(127);
     }
@@ -486,7 +486,7 @@ int main(void)
             }
         }
         if (items[1].revents & POLLIN) forward_device_events(device_events);
-        armdos_diagnostics_poll(&diagnostics, runtime);
+        pi_dos_diagnostics_poll(&diagnostics, runtime);
         if (requested && time(NULL) >= deadline) kill(runtime, SIGKILL);
     }
 }

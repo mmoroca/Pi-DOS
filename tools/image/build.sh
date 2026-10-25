@@ -6,10 +6,10 @@ jobs=${JOBS:-4}
 case "$jobs" in ''|*[!0-9]*|0) echo 'JOBS must be positive' >&2; exit 2;; esac
 mode=${1:-build}
 case "$mode" in configure|build|diagnostic|source) ;; *) echo 'Use configure, build, diagnostic or source' >&2; exit 2;; esac
-export ARMDOS_DIAGNOSTIC=0
+export PI_DOS_DIAGNOSTIC=0
 image_variant=arm64
 if [[ "$mode" == diagnostic ]]; then
-    export ARMDOS_DIAGNOSTIC=1
+    export PI_DOS_DIAGNOSTIC=1
     image_variant=arm64-diagnostic
 fi
 python3 tools/phase0/fetch.py --component buildroot
@@ -18,7 +18,7 @@ out="$root/output/buildroot-arm64"
 mkdir -p "$out" "$root/output/logs"
 args=(-C "$source_dir" "O=$out" "BR2_EXTERNAL=$root/br2-external" "BR2_DL_DIR=$root/dl/buildroot" "BR2_JLEVEL=$jobs")
 if [[ "$mode" == configure || ! -f "$out/.config" ]]; then
-    make "${args[@]}" armdos_arm64_defconfig
+    make "${args[@]}" pi_dos_arm64_defconfig
 fi
 if [[ "$mode" == configure ]]; then
     echo "Configured: $out/.config"
@@ -29,9 +29,9 @@ make "${args[@]}" olddefconfig > "$root/output/logs/buildroot-arm64-config.log" 
 # Reuse the exact locked DOSBox-X archive rather than downloading it twice.
 archive=$(python3 -c 'import json;print(json.load(open("sources.lock.json"))["dosbox-x"]["archive"])')
 if [[ -f "$root/dl/$archive" ]]; then
-    mkdir -p "$root/dl/buildroot/armdos-runtime"
-    if [[ ! -e "$root/dl/buildroot/armdos-runtime/$archive" ]]; then
-        cp "$root/dl/$archive" "$root/dl/buildroot/armdos-runtime/$archive"
+    mkdir -p "$root/dl/buildroot/pi-dos-runtime"
+    if [[ ! -e "$root/dl/buildroot/pi-dos-runtime/$archive" ]]; then
+        cp "$root/dl/$archive" "$root/dl/buildroot/pi-dos-runtime/$archive"
     fi
 fi
 log="$root/output/logs/buildroot-$image_variant.log"
@@ -41,7 +41,7 @@ if [[ "$mode" == source ]]; then
 else
     # Local PID 1 sources are not automatically recopied by an incremental make.
     {
-        make "${args[@]}" armdos-init-rebuild
+        make "${args[@]}" pi-dos-init-rebuild
         make "${args[@]}"
     } > "$log" 2>&1
     verify_args=()

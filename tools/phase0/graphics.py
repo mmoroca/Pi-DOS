@@ -122,7 +122,7 @@ def main():
     for name in ('SDL_RENDER_DRIVER', 'SDL_FRAMEBUFFER_ACCELERATION', 'LD_PRELOAD'):
         env.pop(name, None)
     env.update(SDL_VIDEODRIVER='kmsdrm', SDL_AUDIODRIVER='dummy',
-               SDL_KMSDRM_DEVICE_INDEX=device, ARMDOS_CAPTURE_DIR=str(run))
+               SDL_KMSDRM_DEVICE_INDEX=device, PI_DOS_CAPTURE_DIR=str(run))
     if renderer != 'default':
         env['SDL_FRAMEBUFFER_ACCELERATION'] = renderer
         env['SDL_RENDER_DRIVER'] = renderer
@@ -141,7 +141,7 @@ def main():
     if result.returncode:
         print(result.stdout[-6000:])
         raise RuntimeError(f'graphics diagnostic exited {result.returncode}; see {run}/run.log')
-    if (run / 'GFX.OUT').read_text().strip() != 'ARMDOS_GRAPHICS_OK':
+    if (run / 'GFX.OUT').read_text().strip() != 'PI_DOS_GRAPHICS_OK':
         raise RuntimeError('DOS graphics program did not complete')
     if 'video kmsdrm' not in result.stdout.casefold():
         raise RuntimeError('native KMSDRM driver not confirmed')

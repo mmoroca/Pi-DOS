@@ -18,7 +18,7 @@ verified upstream archive. Include those changes with the corresponding
 component source and notices when preparing a distribution.
 
 The Buildroot image uses the pinned upstream Buildroot release and its package
-hashes, plus the external recipes under `br2-external/`. Original `armdos-init`
+hashes, plus the external recipes under `br2-external/`. Original `pi-dos-init`
 code is marked `unknown` in Buildroot metadata until a project license is
 selected. The generated development image is not a completed release license
 or corresponding-source bundle.

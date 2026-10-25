@@ -1,6 +1,6 @@
 # Shared Raspberry Pi ARM64 Buildroot image
 
-The default profile is now `br2-external/configs/armdos_arm64_defconfig`.
+The default profile is now `br2-external/configs/pi_dos_arm64_defconfig`.
 It builds one image for the BCM2837, BCM2711 and BCM2712 families using a
 Cortex-A53/ARMv8-A instruction baseline and a 4 KiB-page `bcm2711` kernel.
 Board assets live in `br2-external/board/raspberrypi`; this guide retains its
@@ -46,7 +46,7 @@ The ReplayOS Pi was not modified.
 | SD image | 806,354,944 bytes / 769 MiB |
 | Kernel with embedded initramfs | 49,637,888 bytes |
 | Uncompressed root filesystem CPIO | 45,184,000 bytes |
-| Kernel release | `6.12.61-armdos-pi5`, 4 KiB pages |
+| Kernel release | `6.12.61-pi-dos-pi5`, 4 KiB pages |
 | Earlier Pi 5 FAT32 image SHA-256 | `43a2bdf4b2ea4399f1e10c58f24a5ec51930d1f9dfb83089cd9e6ec4ac5d92ee` |
 
 The shared FAT image contains the kernel, the device trees listed in
@@ -78,13 +78,13 @@ dependencies are incorporated without resetting local selections.
 | --- | --- |
 | `br2-external/` | External board configuration and packages; no Buildroot fork |
 | `src/init/init.c` | Custom root PID 1 supervisor |
-| `configs/armdos.conf` | Appliance DOS runtime defaults |
+| `configs/pi-dos.conf` | Appliance DOS runtime defaults |
 | `output/src/buildroot-2026.08/` | Verified, extracted upstream Buildroot |
 | `dl/buildroot/` | Buildroot-managed package download cache |
 | `output/buildroot-arm64/` | Isolated AArch64 cross-build output |
 | `output/logs/buildroot-arm64.log` | Current build log |
-| `output/buildroot-arm64/images/armdos-arm64-sdcard.img` | Generated SD card image |
-| `output/buildroot-arm64/images/armdos-image-validation.json` | Static image checks and identity |
+| `output/buildroot-arm64/images/pi-dos-arm64-sdcard.img` | Generated SD card image |
+| `output/buildroot-arm64/images/pi-dos-image-validation.json` | Static image checks and identity |
 
 Buildroot's selected release is pinned by SHA-256 in `sources.lock.json`.
 Its package hashes and the upstream Pi board kernel hash are enforced with
@@ -174,15 +174,15 @@ separate emulated VGA `vsyncmode` retains its default `off`. Matching the HDMI
 refresh to the guest refresh and synchronizing page flips are separate steps;
 a refresh mismatch can still cause periodic repeated or skipped frames.
 To compare without presentation VSync, change this environment value to `0`
-in `src/init/init.c`, rebuild `armdos-init`, then rebuild the image:
+in `src/init/init.c`, rebuild `pi-dos-init`, then rebuild the image:
 
 ```sh
-make -C output/buildroot-arm64 armdos-init-rebuild
+make -C output/buildroot-arm64 pi-dos-init-rebuild
 make image
 ```
 
 Video diagnostics are disabled by default with `videodiagnostics=false` in
-the `[sdl]` section of `configs/armdos.conf`. To enable them, set:
+the `[sdl]` section of `configs/pi-dos.conf`. To enable them, set:
 
 ```ini
 [sdl]
@@ -214,7 +214,7 @@ CRT; the LCD test monitor introduced a separate scaling/sampling concern.
 
 The shared kernel is Raspberry Pi Linux 6.12.61 at the upstream board's pinned
 revision `21b410140c47ffab5668399f6f143c7d7b935c8b`, using the `bcm2711` baseline
-plus 4 KiB pages and the Pi-DOS fragment. The release suffix is `-armdos-arm64`;
+plus 4 KiB pages and the Pi-DOS fragment. The release suffix is `-pi-dos-arm64`;
 static validation checks `CONFIG_ARM64_4K_PAGES=y` directly.
 Display, storage, USB, input and sound drivers are built in,
 with no module loader. The IP stacks, network interfaces, Wi-Fi, Bluetooth and
@@ -256,7 +256,7 @@ gets the test Pi to the Pi-DOS prompt.
 
 `/init` checks that it is root PID 1 before doing anything. It mounts devtmpfs,
 procfs, sysfs, devpts and temporary memory-backed directories. It then waits up
-to ten seconds for the data device from `armdos.data=` in the kernel command
+to ten seconds for the data device from `pi-dos.data=` in the kernel command
 line (default `/dev/mmcblk0p2`). It verifies a valid FAT32 boot sector and the
 PI-DOS label before mounting. It automatically expands PI-DOS when unused
 card capacity is available, as described below; it never formats a device.
@@ -291,8 +291,8 @@ copy in TOOLS. Read-only boots leave existing files in place.
 
 ### Editable DOSBox configuration
 
-`C:\SYSTEM\DOSBOX.CONF` is a persistent, editable DOSBox-X configuration file.
-Edit it with `EDIT C:\SYSTEM\DOSBOX.CONF`, then reboot to apply changes. It is
+`C:\SYSTEM\DOSBOX.CFG` is a persistent, editable DOSBox-X configuration file.
+Edit it with `EDIT C:\SYSTEM\DOSBOX.CFG`, then reboot to apply changes. It is
 loaded after the packaged defaults, before emulated hardware is initialized.
 For example, change `irq=7` to `irq=5` under `[sblaster]` to select IRQ 5. The
 startup table reflects effective settings, including partial override files.
@@ -303,11 +303,14 @@ files, including empty ones, are preserved across BOOT updates. Without usable
 persistent storage, the packaged defaults are used. Removing or renaming a bad
 configuration from the SD card restores the defaults on the next writable boot.
 
-Long filename support is enabled because the requested `DOSBOX.CONF` extension
-has four characters. The default DOS compatibility version stays unchanged.
+`DOSBOX.CFG` uses a DOS-compatible 8.3 filename so older editors save the same
+file that startup loads. `DOSBOX.CONF` and `DOSBOX.CON` are not loaded or migrated.
+
+Long filename support remains enabled for applications that support it.
+The default DOS compatibility version stays unchanged.
 The original Z: files, folders and runtime commands remain available. No C:\CONFIG.SYS parser,
 managed runtime-launcher directory or PIBOOT.BAT is added. An optional `[autoexec]`
-section in DOSBOX.CONF appends commands after system setup and `C:\AUTOEXEC.BAT`.
+section in DOSBOX.CFG appends commands after system setup and `C:\AUTOEXEC.BAT`.
 
 ### User startup commands
 
@@ -320,7 +323,7 @@ create it. The template uses DOS CRLF line endings.
 Edit it with `EDIT C:\AUTOEXEC.BAT` to set environment variables, extend PATH or
 start programs automatically on the next boot. Pi-DOS calls it after its standard
 startup setup. The template leaves PATH, TEMP, TMP and BLASTER defaults in place.
-Emulated hardware settings belong in `C:\SYSTEM\DOSBOX.CONF`; changing
+Emulated hardware settings belong in `C:\SYSTEM\DOSBOX.CFG`; changing
 `SET BLASTER` alone does not reconfigure the emulated Sound Blaster. The generated
 `C:\README.TXT` explains these roles.
 
@@ -531,7 +534,7 @@ runtime/display failure. On a computer, open the SD card's FAT32 BOOT partition
 and replace `cmdline.txt` with the following **single line**:
 
 ```text
-console=serial0,115200 console=tty1 rdinit=/init loglevel=7 ignore_loglevel vt.global_cursor_default=0 armdos.data=/dev/mmcblk0p2
+console=serial0,115200 console=tty1 rdinit=/init loglevel=7 ignore_loglevel vt.global_cursor_default=0 pi-dos.data=/dev/mmcblk0p2
 ```
 
 This changes only boot diagnostics and needs no kernel rebuild
@@ -548,7 +551,7 @@ configuration also requests 720x400 at 70 Hz. To restore an existing card,
 copy `br2-external/board/raspberrypi/cmdline.txt` to BOOT, or use this single line:
 
 ```text
-console=serial0,115200 rdinit=/init loglevel=4 vt.global_cursor_default=0 armdos.data=/dev/mmcblk0p2 video=HDMI-A-1:720x400@70 video=HDMI-A-2:720x400@70 drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin
+console=serial0,115200 rdinit=/init loglevel=4 vt.global_cursor_default=0 pi-dos.data=/dev/mmcblk0p2 video=HDMI-A-1:720x400@70 video=HDMI-A-2:720x400@70 drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin
 ```
 
 This needs no rebuild or reflash. Keep the corrected `Image` and D0 overlay.
@@ -649,9 +652,9 @@ JOBS=4 make image-diagnostic
 ```
 
 The result is
-`output/buildroot-arm64/images/armdos-arm64-diagnostic-sdcard.img`.
+`output/buildroot-arm64/images/pi-dos-arm64-diagnostic-sdcard.img`.
 It reuses the ARM64 build cache and preserves the existing normal SD image.
-Its BOOT command line enables `armdos.diagnostics=1`, a 1 MiB kernel log buffer,
+Its BOOT command line enables `pi-dos.diagnostics=1`, a 1 MiB kernel log buffer,
 and verbose console messages. The ordinary image leaves file logging disabled.
 
 After writable C: is mounted, PID 1 creates these files, replacing the previous
@@ -679,9 +682,9 @@ safe against interrupted power.
 
 An existing shared ARM64 card can retain its data: after building the diagnostic
 variant, replace BOOT's `Image` with `output/buildroot-arm64/images/Image` and
-BOOT's `cmdline.txt` with `output/buildroot-arm64/images/armdos-boot/cmdline.txt`.
-To disable both logs on an existing card, change `armdos.diagnostics=1` to
-`armdos.diagnostics=0` in BOOT/cmdline.txt and reboot. Alternatively, restore the
+BOOT's `cmdline.txt` with `output/buildroot-arm64/images/pi-dos-boot/cmdline.txt`.
+To disable both logs on an existing card, change `pi-dos.diagnostics=1` to
+`pi-dos.diagnostics=0` in BOOT/cmdline.txt and reboot. Alternatively, restore the
 tracked `br2-external/board/raspberrypi/cmdline.txt`, which explicitly disables
 capture. Keep the updated kernel in place. Existing log files remain available
 but are no longer updated; they can be deleted when no longer needed.
