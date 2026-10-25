@@ -1,38 +1,10 @@
 - [ ] defrag fails on both c and d with "Divide error"
 - [ ] command to display available video modes
 - [ ] dos utility to select hdmi, jack or external dac audio output. Also enable the dosbox mixer controls.
-- [ ] volume labels c and d are null and z is dosbox-x
 - [ ] enable midi output
 - [ ] same image must run in all pi 64bit models
 
------------------------------------
-
-[INFO] [DRM] Mode 0: 1024x768@60 (*)
-[INFO] [DRM] Mode 1: 1920x1080@60 
-[INFO] [DRM] Mode 2: 1920x1080@60 
-[INFO] [DRM] Mode 5: 1920x1080@50 
-[INFO] [DRM] Mode 7: 1280x720@60 
-[INFO] [DRM] Mode 8: 1280x720@60 
-[INFO] [DRM] Mode 9: 1280x720@50 
-[INFO] [DRM] Mode 10: 1024x768@75 
-[INFO] [DRM] Mode 11: 1024x768@70 
-[INFO] [DRM] Mode 12: 1024x768@60 
-[INFO] [DRM] Mode 13: 832x624@75 
-[INFO] [DRM] Mode 14: 800x600@75 
-[INFO] [DRM] Mode 15: 800x600@60 
-[INFO] [DRM] Mode 16: 720x480@60 
-[INFO] [DRM] Mode 17: 720x480@60 
-[INFO] [DRM] Mode 18: 720x480@60 
-[INFO] [DRM] Mode 19: 720x480@60 
-[INFO] [DRM] Mode 20: 640x480@75 
-[INFO] [DRM] Mode 21: 640x480@60 
-[INFO] [DRM] Mode 22: 640x480@60 
-[INFO] [DRM] Mode 23: 640x480@60 
-[INFO] [DRM] Mode 24: 720x400@70 
-[INFO] [DRM] Mode 25: 256x160@60
-
 ---------------------------------------------
-
 
 ## Pi-DOS — Complete Feature List
 
@@ -46,7 +18,7 @@
 - [~] CONFIG.SYS compatibility
 - [v] Environment variables
 - [v] Standard folder structure for the DOS file system
-- [v] DOS file managers (Norton Commander, etc.)
+- [v] DOS file managers (DosZip Commander)
 - [v] DOS text editors
 - [ ] DOS programming tools (BASIC, Pascal, C, Assembly)
 - [v] DOS keyboard shortcuts

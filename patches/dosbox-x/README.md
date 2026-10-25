@@ -14,6 +14,11 @@ Buildroot runtime builds generate `include/pi_dos_version.h` from that file.
 The reported DOS compatibility version remains configurable; `VER /R` prepends
 a Pi-DOS version line to the complete original DOSBox-X version and build output.
 
+`0006-brand-system-drive-label.patch` changes the built-in Z: volume label from
+`DOSBOX-X` to `PI-DOS`. The virtual drive returns a fixed label, so startup's
+`LABEL` command cannot rename it. C: receives the `SYSTEM` label through the
+supervisor's `MOUNT -label` option. D: is left available for CD-ROM images.
+
 The native build helper applies `*.patch` in filename order, recognizes already
 applied patches, and rejects mismatches. Upstream source archives retain their
 original hashes; this patch set is a separate input to the resulting runtime.

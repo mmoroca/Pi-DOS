@@ -48,7 +48,7 @@ static bool fat32_info(const char *device, uint64_t *sectors, unsigned *cluster)
         (boot[13] & (boot[13] - 1)) || !le16(boot + 14) || boot[16] != 2 ||
         le16(boot + 17) || le16(boot + 19) || le16(boot + 22) ||
         le16(boot + 42) || le32(boot + 44) < 2 ||
-        memcmp(boot + 71, "DOSDATA    ", 11)) return false;
+        memcmp(boot + 71, "PI-DOS     ", 11)) return false;
     uint64_t total = le32(boot + 32), fat = le32(boot + 36);
     uint64_t overhead = le16(boot + 14) + 2 * fat;
     if (!fat || total <= overhead) return false;
@@ -80,7 +80,7 @@ static int wait_operation(pid_t child, const char *name)
         if (now.tv_sec - start.tv_sec >= 300) {
             kill(child, SIGKILL);
             while (waitpid(child, &status, 0) < 0 && errno == EINTR) {}
-            dprintf(2, "Pi-DOS: %s timed out; DOSDATA will not be mounted writable\n", name);
+            dprintf(2, "Pi-DOS: %s timed out; PI-DOS will not be mounted writable\n", name);
             return -1;
         }
         nanosleep(&pause, NULL);
@@ -219,18 +219,18 @@ int armdos_expand_data(const char *device)
         le32(boot + 12) != 524288 || data[0] != 0 || data[4] != 0x0c ||
         start != 526336 || !sectors || start + sectors > disk_sectors ||
         part_bytes != sectors * 512 || memcmp(mbr + 478, (unsigned char[32]){0}, 32)) {
-        dprintf(2, "Pi-DOS: automatic DOSDATA expansion skipped: nonstandard disk layout\n");
+        dprintf(2, "Pi-DOS: automatic PI-DOS expansion skipped: nonstandard disk layout\n");
         return 0;
     }
     if (fat_sectors > sectors) return -1;
     uint64_t wanted = disk_sectors - start;
     if (sectors == wanted && wanted - fat_sectors < cluster_size) return 0;
 
-    dprintf(2, "Pi-DOS: expanding DOSDATA to remaining card space (%" PRIu64 " MiB)\n",
+    dprintf(2, "Pi-DOS: expanding PI-DOS to remaining card space (%" PRIu64 " MiB)\n",
             wanted * 512 / 1048576);
     int checked = check_fat(device);
     if (checked != 0) {
-        dprintf(2, "Pi-DOS: DOSDATA check failed (%d); expansion stopped\n", checked);
+        dprintf(2, "Pi-DOS: PI-DOS check failed (%d); expansion stopped\n", checked);
         return -1;
     }
     if (sectors < wanted) {
@@ -252,7 +252,7 @@ int armdos_expand_data(const char *device)
         fdisk_deassign_device(context, 0);
         fdisk_unref_context(context);
         if (result) {
-            dprintf(2, "Pi-DOS: DOSDATA partition growth failed; retry on next boot\n");
+            dprintf(2, "Pi-DOS: PI-DOS partition growth failed; retry on next boot\n");
             return -1;
         }
         /* Rereading can briefly remove and recreate the devtmpfs node. */
@@ -266,9 +266,9 @@ int armdos_expand_data(const char *device)
     if (resize_fat(disk, start, fat_sectors, wanted) != 0 ||
         !fat32_info(device, &fat_sectors, &cluster_size) ||
         fat_sectors > wanted || wanted - fat_sectors >= cluster_size || check_fat(device) != 0) {
-        dprintf(2, "Pi-DOS: DOSDATA filesystem growth failed; retry on next boot\n");
+        dprintf(2, "Pi-DOS: PI-DOS filesystem growth failed; retry on next boot\n");
         return -1;
     }
-    dprintf(2, "Pi-DOS: DOSDATA expansion complete\n");
+    dprintf(2, "Pi-DOS: PI-DOS expansion complete\n");
     return 1;
 }

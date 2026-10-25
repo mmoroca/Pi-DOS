@@ -145,12 +145,12 @@ static enum storage mount_data(void)
         delay_ms(100);
     }
     if (!ready) {
-        dprintf(2, "Pi-DOS: DOSDATA device missing after 10 seconds: %s\n", device);
+        dprintf(2, "Pi-DOS: PI-DOS device missing after 10 seconds: %s\n", device);
         return NO_STORAGE;
     }
     /* Reject other filesystems before changing or mounting the data partition. */
     if (!armdos_is_fat32_data(device)) {
-        dprintf(2, "Pi-DOS: %s is not the expected FAT32 DOSDATA partition\n", device);
+        dprintf(2, "Pi-DOS: %s is not the expected FAT32 PI-DOS partition\n", device);
         return NO_STORAGE;
     }
     bool writable = armdos_expand_data(device) >= 0;
@@ -159,19 +159,18 @@ static enum storage mount_data(void)
                            "uid=0,gid=0,umask=0022,utf8=1,errors=remount-ro")) {
         make_dir("/dosdata/c", 0755);
         make_dir("/dosdata/c/SYSTEM", 0755);
-        make_dir("/dosdata/d", 0755);
         /* A stale request must never cause a reboot loop after interrupted power. */
         unlink("/dosdata/c/SYSTEM/CONTROL.REQ");
         return READ_WRITE;
     }
-    if (writable) dprintf(2, "Pi-DOS: writable DOSDATA mount failed: %s\n", strerror(errno));
-    else dprintf(2, "Pi-DOS: expansion did not complete; trying read-only DOSDATA\n");
+    if (writable) dprintf(2, "Pi-DOS: writable PI-DOS mount failed: %s\n", strerror(errno));
+    else dprintf(2, "Pi-DOS: expansion did not complete; trying read-only PI-DOS\n");
     if (!mount(device, "/dosdata", "vfat", flags | MS_RDONLY,
                "uid=0,gid=0,umask=0022,utf8=1")) {
-        dprintf(2, "Pi-DOS: using DOSDATA read-only\n");
+        dprintf(2, "Pi-DOS: using PI-DOS read-only\n");
         return READ_ONLY;
     }
-    dprintf(2, "Pi-DOS: DOSDATA unavailable: %s\n", strerror(errno));
+    dprintf(2, "Pi-DOS: PI-DOS unavailable: %s\n", strerror(errno));
     return NO_STORAGE;
 }
 
@@ -251,11 +250,8 @@ static bool make_config(enum storage storage, const char *user_config)
     fclose(input);
     fputs("\n[autoexec]\n@ECHO OFF\n", output);
     bool drive_c = storage != NO_STORAGE && !access("/dosdata/c", R_OK | X_OK);
-    bool drive_d = drive_c && !access("/dosdata/d", R_OK | X_OK);
     if (drive_c) {
-        fprintf(output, "MOUNT C /dosdata/c%s\nC:\n", storage == READ_ONLY ? " -ro" : "");
-        if (drive_d)
-            fprintf(output, "MOUNT D /dosdata/d%s\n", storage == READ_ONLY ? " -ro" : "");
+        fprintf(output, "MOUNT C /dosdata/c -label SYSTEM%s\nC:\n", storage == READ_ONLY ? " -ro" : "");
         fputs("SET PATH=C:\\PROGRAMS\\TOOLS;C:\\SYSTEM;Z:\\;Z:\\SYSTEM;Z:\\DOS;Z:\\BIN;Z:\\TEXTUTIL;Z:\\DEBUG;Z:\\PATCHING;Z:\\4DOS\n", output);
         struct stat temporary;
         if (storage == READ_WRITE && !stat("/dosdata/c/TEMP", &temporary) &&
@@ -268,7 +264,7 @@ static bool make_config(enum storage storage, const char *user_config)
     char device[PATH_MAX];
     data_device(device, sizeof(device));
     armdos_startup(output, "/armdos/armdos.conf", user_config, device, storage != NO_STORAGE,
-                   storage == READ_WRITE, drive_c, drive_d);
+                   storage == READ_WRITE, drive_c);
     if (drive_c) {
         if (storage == READ_ONLY)
             fputs("ECHO WARNING: drive C: is read-only; storage requires recovery.\n", output);

@@ -10,7 +10,7 @@ It has the same 97,619-byte size as the upstream embedded `EDIT.COM`; only
 five bytes differ, at offsets `0x154f2`, `0x154f3`, `0x154f4`, `0x154fe` and
 `0x15509`, within its settings block. Preserve the upstream component notices.
 
-`post-image.sh` installs this seed as `C:\PROGRAMS\TOOLS\EDIT.COM` on DOSDATA.
+`post-image.sh` installs this seed as `C:\PROGRAMS\TOOLS\EDIT.COM` on PI-DOS.
 The existing DOS PATH selects it before the read-only editor on Z:.
 Preferences saved by PEDIT modify this writable executable directly.
 On existing writable installations, startup moves `C:\SYSTEM\EDIT.COM` to this

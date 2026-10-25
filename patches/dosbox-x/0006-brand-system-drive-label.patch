@@ -1,0 +1,16 @@
+Pi-DOS: Give the built-in Z: drive the project volume label.
+
+The virtual drive's label is returned directly by GetLabel(), so LABEL cannot
+change it. Keep the original files and read-only behavior intact.
+
+--- a/src/dos/drive_virtual.cpp
++++ b/src/dos/drive_virtual.cpp
+@@ -1186,7 +1186,7 @@
+ }
+ 
+ char const* Virtual_Drive::GetLabel(void) {
+-	return "DOSBOX-X";
++	return "PI-DOS";
+ }
+ 
+ void Virtual_Drive::EmptyCache(void) {

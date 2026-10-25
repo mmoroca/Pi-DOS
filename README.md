@@ -29,16 +29,21 @@ JOBS=4 make image
 The initial 769 MiB development image is
 `output/buildroot-pi5/images/armdos-pi5-sdcard.img`. It contains an ARM64 kernel
 with embedded initramfs, custom C PID 1, the SDL2 DOS runtime, FAT32 BOOT and
-FAT32 DOSDATA partitions for direct access from modern Windows. The generated image passed static checks for its
+FAT32 PI-DOS partitions for direct access from modern Windows. The generated image passed static checks for its
 partitions, required kernel/SDL backends, runtime dependencies and absence of
 a Linux shell or conventional init system.
 
-DOSDATA automatically expands to the remaining SD-card space before DOS starts
+The `PI-DOS` data partition automatically expands to the remaining SD-card space before DOS starts
 on first boot. Subsequent boots skip expansion once the partition and filesystem
 fill the card. The FAT32 resizer passed host tests on sparse 2 GiB and 64 GiB
 card images; this updated image still needs ARM64 and physical SD-card testing.
+Storage detection requires the `PI-DOS` volume label; existing FAT32 cards
+labelled `DOSDATA` must be relabelled before using the updated system.
 
 The default DOS PATH includes all bundled utility directories.
+DOS volume labels default to `SYSTEM` for C: and `PI-DOS` for Z:.
+C: uses the data partition's available space; D: is left available for CD-ROM
+images. The image contains only the `c` data folder.
 The image includes a personalized editor at `C:\PROGRAMS\TOOLS\EDIT.COM`; this
 writable copy takes priority over the bundled editor and retains saved preferences.
 Edit `C:\SYSTEM\DOSBOX.CONF` and reboot to change emulator settings persistently.
@@ -54,7 +59,8 @@ SDL2 KMS/DRM teardown keeps the host mouse pointer hidden during reboot and powe
 visual confirmation on hardware is pending.
 
 Moving from the old ext4 image requires backing up `c` and `d`, flashing the
-new image, and restoring those files. A kernel-only update does not convert
+new image, and restoring files into `c` (including any former D: files).
+A kernel-only update does not convert
 the filesystem. The build does not flash any physical card.
 
 This is the first operating-system packaging work beyond the earlier native

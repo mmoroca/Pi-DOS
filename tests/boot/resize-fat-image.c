@@ -14,7 +14,7 @@ int main(int argc, char **argv)
          start == 526336 && status.st_size > (off_t)(start * 512) &&
          pread(fd, bpb, sizeof(bpb), (off_t)(start * 512)) == sizeof(bpb);
     close(fd);
-    if (!ok || memcmp(bpb + 71, "DOSDATA    ", 11)) return 2;
+    if (!ok || memcmp(bpb + 71, "PI-DOS     ", 11)) return 2;
     uint64_t old = le32(bpb + 32), wanted = (uint64_t)status.st_size / 512 - start;
     if (old <= wanted && wanted - old < bpb[13]) {
         puts("Expansion result: 0");

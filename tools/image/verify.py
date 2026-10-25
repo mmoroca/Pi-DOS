@@ -56,6 +56,10 @@ def main():
             'PID 1 lacks the default DOS temporary directory')
     require(b'/dosdata/c/SYSTEM/DOSBOX.CONF' in packed_init,
             'PID 1 does not load the editable DOSBox configuration')
+    require(b'MOUNT C /dosdata/c -label SYSTEM' in packed_init,
+            'PID 1 lacks the default C: volume label')
+    require(b'/dosdata/d' not in packed_init,
+            'PID 1 still creates or mounts the obsolete D: data directory')
     require(b'C:\\SYSTEM\\RUNTIME' not in (target / 'armdos/armdos').read_bytes(),
             'Reverted runtime-launcher patch is still present in the image')
     for name in ('bin/sh', 'bin/busybox', 'sbin/init', 'usr/bin/bash', 'usr/sbin/sshd',
@@ -75,7 +79,7 @@ def main():
                 f'Non-AArch64 ELF in target: {path.relative_to(target)}')
         dynamic = subprocess.check_output([str(readelf), '-d', str(path)], text=True)
         if path == target / 'init':
-            require('libfdisk.so' in dynamic, 'PID 1 lacks DOSDATA growth support')
+            require('libfdisk.so' in dynamic, 'PID 1 lacks PI-DOS growth support')
             require('libparted-fs-resize.so' in dynamic, 'PID 1 lacks FAT32 growth support')
         for library in re.findall(r'\(NEEDED\).*\[(.*?)\]', dynamic):
             require(library in basenames, f'{path.name} requires missing library {library}')
@@ -91,7 +95,7 @@ def main():
                    if option['name'] == 'gallium-drivers')
     require('v3d' in drivers and 'vc4' in drivers, 'Mesa lacks Pi VC4/V3D drivers')
     require(any('libudev.so' in name for name in names), 'Daemon-free libudev missing')
-    require(any('libfdisk.so' in name for name in names), 'DOSDATA expansion library missing')
+    require(any('libfdisk.so' in name for name in names), 'PI-DOS expansion library missing')
     require(any('libparted-fs-resize.so' in name for name in names), 'FAT32 resizer missing')
     linux_dirs = list((OUT / 'build').glob('linux-*/.config'))
     require(len(linux_dirs) == 1, 'Cannot identify kernel build configuration')
@@ -134,29 +138,30 @@ def main():
             partitions.append({'type': expected_type, 'start_sector': start, 'sectors': sectors})
         stream.seek(partitions[0]['start_sector'] * 512)
         boot = stream.read(512)
-        require(boot[82:90] == b'FAT32   ', 'BOOT partition is not FAT32')
+        require(boot[82:90] == b'FAT32   ' and boot[71:82] == b'BOOT       ',
+                'BOOT partition is not labelled FAT32')
         stream.seek(partitions[1]['start_sector'] * 512)
         data_boot = stream.read(512)
-        require(data_boot[82:90] == b'FAT32   ' and data_boot[71:82] == b'DOSDATA    ',
-                'DOSDATA is not labelled FAT32')
+        require(data_boot[82:90] == b'FAT32   ' and data_boot[71:82] == b'PI-DOS     ',
+                'PI-DOS is not labelled FAT32')
         require(struct.unpack_from('<I', data_boot, 28)[0] == partitions[1]['start_sector'],
-                'DOSDATA hidden-sector offset is incorrect')
+                'PI-DOS hidden-sector offset is incorrect')
     mcopy = OUT / 'host/bin/mcopy'
     data_volume = f'{disk}@@{partitions[1]["start_sector"] * 512}'
     for name in ('c/README.TXT', 'c/SYSTEM/REBOOT.BAT', 'c/SYSTEM/POWEROFF.BAT'):
         require(subprocess.check_output([str(mcopy), '-i', data_volume, f'::{name}', '-']),
-                f'DOSDATA missing {name}')
+                f'PI-DOS missing {name}')
     # Existing user startup files are preserved, including intentionally empty ones.
     subprocess.check_call([str(mcopy), '-i', data_volume, '::c/AUTOEXEC.BAT', '-'],
                           stdout=subprocess.DEVNULL)
     editor = ROOT / 'br2-external/board/pi5/dos/EDIT.COM'
     packed_editor = subprocess.check_output([
         str(mcopy), '-i', data_volume, '::c/PROGRAMS/TOOLS/EDIT.COM', '-'])
-    require(packed_editor == editor.read_bytes(), 'Personalized EDIT.COM missing/stale in DOSDATA')
+    require(packed_editor == editor.read_bytes(), 'Personalized EDIT.COM missing/stale in PI-DOS')
     mdir = OUT / 'host/bin/mdir'
     for directory in ('SYSTEM', 'PROGRAMS', 'PROGRAMS/TOOLS', 'GAMES', 'DOCS', 'TEMP'):
         require(subprocess.check_output([str(mdir), '-i', data_volume, f'::c/{directory}']),
-                f'DOSDATA missing standard directory C:/{directory}')
+                f'PI-DOS missing standard directory C:/{directory}')
     system_files = subprocess.check_output([
         str(mdir), '-b', '-i', data_volume, '::c/SYSTEM/*'], text=True).upper().splitlines()
     require(not any(name.rstrip('/').endswith('/EDIT.COM') for name in system_files),
@@ -164,7 +169,7 @@ def main():
     packed_config = subprocess.check_output([
         str(mcopy), '-i', data_volume, '::c/SYSTEM/DOSBOX.CONF', '-'])
     default_config = (target / 'armdos/DOSBOX.CONF').read_bytes()
-    require(packed_config == default_config, 'Editable DOSBOX.CONF missing/stale in DOSDATA')
+    require(packed_config == default_config, 'Editable DOSBOX.CONF missing/stale in PI-DOS')
     require(b'lfn=true\r\n' in packed_config and
             b'\n' not in packed_config.replace(b'\r\n', b''), 'Invalid DOSBOX.CONF defaults/line endings')
     autoexec = (ROOT / 'br2-external/board/pi5/dos/AUTOEXEC.BAT').read_text().replace('\n', '\r\n').encode('ascii')
@@ -184,14 +189,16 @@ def main():
         require(path.is_file(), f'Unexpected Doszip payload entry: {path.name}')
         packed = subprocess.check_output([
             str(mcopy), '-i', data_volume, f'::c/PROGRAMS/DOSZIP/{path.name}', '-'])
-        require(packed == path.read_bytes(), f'Doszip missing/stale in DOSDATA: {path.name}')
+        require(packed == path.read_bytes(), f'Doszip missing/stale in PI-DOS: {path.name}')
     packed_launcher = subprocess.check_output([
         str(mcopy), '-i', data_volume, '::c/SYSTEM/DZ.BAT', '-'])
     require(packed_launcher ==
             b'@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %1 %2 %3 %4 %5 %6 %7 %8 %9\r\n',
-            'Doszip launcher missing/stale in DOSDATA')
-    require(subprocess.check_output([str(OUT / 'host/bin/mdir'), '-i', data_volume, '::d']),
-            'DOSDATA missing directory d')
+            'Doszip launcher missing/stale in PI-DOS')
+    root_entries = subprocess.check_output([
+        str(mdir), '-b', '-i', data_volume, '::/'], text=True).upper().splitlines()
+    require(not any(name.rstrip('/').endswith('/D') for name in root_entries),
+            'PI-DOS still contains the obsolete d directory')
     # Check the actual SD image, not only loose build outputs: a missing D0
     # overlay can panic older EEPROM bootloaders during UART pinctrl setup.
     packed_kernel = subprocess.check_output([
@@ -233,7 +240,7 @@ def main():
                                  for p in sorted((ROOT / 'patches').rglob('*.patch'))},
                 'deferred': ['audio teardown underrun', 'mouse validation']}
     (images / 'armdos-image-validation.json').write_text(json.dumps(evidence, indent=2) + '\n')
-    print(f'PASS: AArch64 kernel/runtime, custom initramfs, FAT32 BOOT and DOSDATA: {disk}')
+    print(f'PASS: AArch64 kernel/runtime, custom initramfs, FAT32 BOOT and PI-DOS: {disk}')
     print('Hardware boot of this image remains unverified; validation metadata saved beside the image.')
 
 

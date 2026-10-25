@@ -3,7 +3,9 @@ set -euo pipefail
 board="$BR2_EXTERNAL_ARMDOS_PATH/board/pi5"
 boot="$BINARIES_DIR/armdos-boot"
 data="$BINARIES_DIR/armdos-data"
-mkdir -p "$boot/overlays" "$data/c/SYSTEM" "$data/d" "$BINARIES_DIR/armdos-empty"
+mkdir -p "$boot/overlays" "$data/c/SYSTEM" "$BINARIES_DIR/armdos-empty"
+# Remove the obsolete empty directory left by earlier image builds.
+if [[ -d "$data/d" ]]; then rmdir "$data/d"; fi
 mkdir -p "$data/c/PROGRAMS/TOOLS" "$data/c/GAMES" "$data/c/DOCS" "$data/c/TEMP"
 install -m 0644 "$BINARIES_DIR/Image" "$boot/Image"
 install -m 0644 "$BINARIES_DIR/bcm2712-rpi-5-b.dtb" "$boot/"
@@ -29,6 +31,9 @@ cp -a "$board/dos/doszip/." "$data/c/PROGRAMS/DOSZIP/"
 printf '@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %%1 %%2 %%3 %%4 %%5 %%6 %%7 %%8 %%9\r\n' > "$data/c/SYSTEM/DZ.BAT"
 printf '%s\r\n' \
     'Pi-DOS persistent drive C:' '' \
+    'Volume labels: C: SYSTEM, Z: PI-DOS.' \
+    'D: is left available for CD-ROM images.' '' \
+    'On another computer, open the PI-DOS partition and its c folder.' '' \
     'SYSTEM          Pi-DOS configuration, lifecycle commands and launchers' \
     'PROGRAMS        Installed applications, one folder per application' \
     'PROGRAMS\TOOLS  Self-contained utilities, including EDIT.COM' \
@@ -53,7 +58,7 @@ image boot.vfat {
     size = 256M
 }
 image dosdata.vfat {
-    vfat { label = "DOSDATA" extraargs = "-F 32 -s 8 -h 526336" }
+    vfat { label = "PI-DOS" extraargs = "-F 32 -s 8 -h 526336" }
     srcpath = "$data"
     size = 512M
 }

@@ -2,7 +2,7 @@
 """Exercise production FAT32 resize code without root, using sparse image files.
 
 Arguments: host-built tests/boot/resize-fat-image.c probe, FAT32 seed containing
-c/KEEP.TXT and d/KEEP.TXT, and an Pi-DOS FAT32 MBR. This checks the resizer;
+c/KEEP.TXT, and a Pi-DOS FAT32 MBR. This checks the resizer;
 kernel partition refresh and mounting require the separate loop-device test.
 """
 import errno
@@ -73,11 +73,10 @@ def main():
                 assert image.read(14) == b'BOOT untouched', 'Filesystem resize altered BOOT'
                 image.seek(START)
                 bpb = image.read(512)
-            assert bpb[71:82] == b'DOSDATA    ' and bpb[82:90] == b'FAT32   '
+            assert bpb[71:82] == b'PI-DOS     ' and bpb[82:90] == b'FAT32   '
             assert 0 <= (size - START) // 512 - struct.unpack_from('<I', bpb, 32)[0] < bpb[13]
-            for drive in 'cd':
-                content = subprocess.check_output([str(HOST / 'bin/mtype'), '-i', f'{card}@@{START}', f'::{drive}/KEEP.TXT'])
-                assert content == KEEP, f'{drive}: file lost during resize'
+            content = subprocess.check_output([str(HOST / 'bin/mtype'), '-i', f'{card}@@{START}', '::c/KEEP.TXT'])
+            assert content == KEEP, 'C: file lost during resize'
             with card.open('rb') as source, volume.open('wb') as target:
                 target.truncate(size - START)
                 copy_sparse(source, target, START, 0, size - START)
@@ -85,7 +84,7 @@ def main():
             print(checked.stdout, end='')
             again = subprocess.check_output([str(probe), str(card)], text=True)
             assert 'Expansion result: 0' in again
-            print(f'PASS: {gib} GiB sparse card: FAT32 retained, C:/D: files and BOOT preserved, fsck clean, repeated growth skipped.')
+            print(f'PASS: {gib} GiB sparse card: FAT32 retained, C: files and BOOT preserved, fsck clean, repeated growth skipped.')
             volume.unlink()
             card.unlink()
 

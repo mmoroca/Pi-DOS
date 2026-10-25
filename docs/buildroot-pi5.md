@@ -23,8 +23,8 @@ The ReplayOS Pi was not modified.
 | Current FAT32 image SHA-256 | `43a2bdf4b2ea4399f1e10c58f24a5ec51930d1f9dfb83089cd9e6ec4ac5d92ee` |
 
 The actual FAT image contains the kernel, both Pi 5 DTBs, KMS and D0 overlays, and boot
-configuration. DOSDATA is now FAT32 for direct file access from modern Windows
-systems. Readback checks confirm the `c` and `d` directories and system batch
+configuration. PI-DOS is now FAT32 for direct file access from modern Windows
+systems. Readback checks confirm the `c` directory and system batch
 files, including the reboot request followed by `EXIT`.
 
 ## Build locally
@@ -79,7 +79,7 @@ There is no separate Linux root partition.
 | Partition | Format / initial size | Contents |
 | --- | --- | --- |
 | 1, BOOT | FAT32 / 256 MiB | ARM64 kernel with initramfs, device trees and boot configuration |
-| 2, DOSDATA | FAT32 / initially 512 MiB | Expands on first boot; `c/`, `d/`, DOS system batch files and user data |
+| 2, PI-DOS | FAT32 / initially 512 MiB | Expands on first boot; `c/`, DOS system batch files and user data |
 
 The first partition starts at 1 MiB. The fixed MBR signature is `a4d05001`.
 The image targets Pi 5 only; Pi 3 and Pi 4 images are not implemented here.
@@ -116,7 +116,7 @@ Physical CRT lock and DOSBox-X mode selection still require hardware checks.
 For an existing FAT32 Pi-DOS card, copy `output/buildroot-pi5/images/Image`
 to BOOT as `Image` and `br2-external/board/pi5/cmdline.txt` to BOOT as
 `cmdline.txt`, then safely eject and boot. Both files are needed for this
-update; DOSDATA can be retained. The full regenerated SD image is also
+update; PI-DOS can be retained. The full regenerated SD image is also
 available for a fresh flash. Placing the EDID binary on BOOT alone does not
 make it available to the kernel's firmware loader.
 Pi 5's EEPROM supplies its boot firmware; this image does not update EEPROM.
@@ -163,7 +163,7 @@ videodiagnostics=true
 
 This is a startup setting. Rebuild `Image` after changing the embedded
 configuration and restart the emulator. With diagnostics enabled, the log is
-saved in `C:\SYSTEM\VIDEO.LOG` on writable DOSDATA and replaced at each
+saved in `C:\SYSTEM\VIDEO.LOG` on writable PI-DOS and replaced at each
 emulator start. An explicit `[log] logfile` setting overrides that path.
 With diagnostics disabled and no explicit logfile, the video log is neither
 created nor updated; verbose mode tracing and presentation queries are skipped.
@@ -230,12 +230,20 @@ gets the test Pi to the Pi-DOS prompt.
 procfs, sysfs, devpts and temporary memory-backed directories. It then waits up
 to ten seconds for the data device from `armdos.data=` in the kernel command
 line (default `/dev/mmcblk0p2`). It verifies a valid FAT32 boot sector and the
-DOSDATA label before mounting. It automatically expands DOSDATA when unused
+PI-DOS label before mounting. It automatically expands PI-DOS when unused
 card capacity is available, as described below; it never formats a device.
-The current image deliberately refuses an old ext4 DOSDATA partition.
+The current image deliberately refuses an old ext4 data partition.
 
-Successful writable storage supplies C: from `/dosdata/c` and D: from
-`/dosdata/d`. If a writable mount fails, init attempts a read-only mount with
+Successful writable storage supplies C: from `/dosdata/c`, with the DOS volume
+label `SYSTEM`; the built-in Z: drive is labelled `PI-DOS`. These labels also
+apply on read-only boots. D: is not created or mounted at startup, leaving the
+letter available for CD-ROM images. Fresh images contain no `d` directory.
+C: is a directory on the FAT32 partition, labelled
+`PI-DOS` on the host. Storage detection requires this exact label; the old
+`DOSDATA` label is not accepted and is not automatically renamed. Existing FAT32
+cards need their data volume relabelled to `PI-DOS` before booting the updated
+system. The internal `/dosdata` mountpoint and `dosdata.vfat` build filename
+remain unchanged. If a writable mount fails, init attempts a read-only mount with
 VFAT read-only options, and presents the drives read-only if usable.
 Missing, wrongly labelled or unmountable storage produces a DOS Z: recovery
 prompt, with no temporary replacement C: drive and no infinite device wait.
@@ -244,9 +252,9 @@ That prompt does not include a filesystem-repair utility.
 The image seeds `C:\PROGRAMS\TOOLS\EDIT.COM` with the personalized PEDIT Light binary
 from `br2-external/board/pi5/dos/EDIT.COM`. The default PATH selects this copy
 before `Z:\DOS\EDIT.COM`. PEDIT stores its settings inside the executable, so
-further preferences saved through Alt+F1 persist on writable DOSDATA. Rebuilding
+further preferences saved through Alt+F1 persist on writable PI-DOS. Rebuilding
 the image restores the seed preferences; updating only BOOT does not replace an
-existing editor on DOSDATA. Static image verification compares the packaged
+existing editor on PI-DOS. Static image verification compares the packaged
 editor byte-for-byte with the seed.
 On an existing writable installation, startup moves `C:\SYSTEM\EDIT.COM` to
 `C:\PROGRAMS\TOOLS\EDIT.COM`, preserving the executable and saved preferences.
@@ -262,7 +270,7 @@ For example, change `irq=7` to `irq=5` under `[sblaster]` to select IRQ 5. The
 startup table reflects effective settings, including partial override files.
 
 Fresh images include a CRLF copy of the default configuration. Writable boots
-also create the file when missing on existing DOSDATA installations. Existing
+also create the file when missing on existing PI-DOS installations. Existing
 files, including empty ones, are preserved across BOOT updates. Without usable
 persistent storage, the packaged defaults are used. Removing or renaming a bad
 configuration from the SD card restores the defaults on the next writable boot.
@@ -320,27 +328,27 @@ The loader (`DZ.EXE`), main program (`DZ.DOS`) and upstream help (`DZ.TXT`) stay
 together. Doszip creates its writable configuration and history beside them;
 the launcher sets that location explicitly. The directory also contains the
 original license notice, GPL v2 text and matching source archive (`SOURCE.ZIP`).
-These files are installed on DOSDATA by the complete SD image. A BOOT-only
+These files are installed on PI-DOS by the complete SD image. A BOOT-only
 update preserves installed applications/settings but does not populate Doszip on
 an existing card; copy the program directory and launcher or use the full image.
 
-### Automatic FAT32 DOSDATA expansion
+### Automatic FAT32 PI-DOS expansion
 
 On first boot, PID 1 grows partition 2 and its FAT32 filesystem to the remaining
-SD-card capacity before mounting C: and D:. Both drives share this space. The
+SD-card capacity before mounting C:, which uses the available data space. The
 image keeps an initial 512 MiB filesystem with 4 KiB clusters, MBR type `0x0c`,
-and the correct hidden-sector offset. Modern Windows can open DOSDATA directly:
-its `c` directory supplies C: and `d` supplies D:.
+and the correct hidden-sector offset. Modern Windows can open PI-DOS directly:
+its `c` directory supplies C:.
 
 Expansion requires the Pi-DOS MBR identity, 512-byte sectors, the original
-BOOT partition and DOSDATA start, a valid FAT32 DOSDATA boot sector, and no
+BOOT partition and PI-DOS start, a valid FAT32 PI-DOS boot sector, and no
 additional partitions. Other layouts are left unchanged. Cards outside the
 current MBR addressing range are not automatically expanded.
 
 The supervisor runs the non-writing `fsck.fat -n` check only when growth is
-needed. It uses libfdisk to change DOSDATA's size and refresh the kernel
-partition table, then uses libparted's FAT resizer while DOSDATA is unmounted.
-A second FAT check verifies the result. It preserves BOOT, DOSDATA's starting
+needed. It uses libfdisk to change PI-DOS's size and refresh the kernel
+partition table, then uses libparted's FAT resizer while PI-DOS is unmounted.
+A second FAT check verifies the result. It preserves BOOT, PI-DOS's starting
 position and existing files, including programs copied onto the seed partition
 before first boot. The resizer may leave less than one cluster of padding at
 the end of the partition. The library is explicitly instructed to retain FAT32
@@ -360,7 +368,7 @@ A failed FAT check, resize error or five-minute operation timeout triggers the
 existing read-only/recovery path. No failed expansion causes reformatting.
 
 The production FAT32 resize routine passed native host tests against sparse
-2 GiB and 64 GiB card images. Both kept FAT32 and the DOSDATA label, preserved
+2 GiB and 64 GiB card images. Both kept FAT32 and the then-current DOSDATA label, preserved
 files in `c` and `d` and BOOT data, passed `fsck.fat -n`, and skipped repeat
 growth. The driver is `tools/image/test-fat32-file.py`, with
 `tests/boot/resize-fat-image.c`; evidence is in
@@ -373,8 +381,9 @@ ARM64 loop test and physical SD-card test are still pending. Earlier ext4
 loop-test results do not validate this FAT32 version.
 
 **Migration from the previous image requires a new flash.** Back up the old
-DOSDATA `c` and `d` directories, write the new SD image, then restore those
-files into the new FAT32 directories. Replacing only BOOT's `Image` will not
+PI-DOS `c` and `d` directories, write the new SD image, then restore those
+files into the new FAT32 `c` directory, placing any former D: files in a suitable
+subdirectory. Replacing only BOOT's `Image` will not
 convert ext4 into FAT32. No physical card is flashed by the build tools.
 Allow first boot extra time to finish expansion before the DOS prompt.
 
@@ -405,9 +414,9 @@ Startup displays a BIOS-style configuration table followed by
 `Welcome to Pi-DOS`. Board and Cortex processor names come from the live device
 tree; CPU cores are the online core count. Host RAM is kernel-usable memory
 (not the advertised installed capacity), displayed in binary units. Storage
-identifies the selected DOSDATA block device, with mounted filesystem capacity,
-available space and access mode. C: and D: share that space; only available
-drive mappings are listed. DOS video, memory, audio and keyboard fields are read
+identifies the selected PI-DOS block device, with mounted filesystem capacity,
+available space and access mode. C: uses that space; only available drive
+mappings are listed. DOS video, memory, audio and keyboard fields are read
 from the runtime configuration and editable configuration overrides, and the Pi-DOS version comes from the init
 package build version. Unavailable readings show `Unknown` or `Unavailable`.
 These describe configured emulated devices, not physical HDMI/audio detection.
@@ -428,13 +437,13 @@ on this appliance. The hint is an Pi-DOS extension, not an upstream SDL2 API.
 For this retest, replace only `Image` on the card's BOOT partition with
 `output/buildroot-pi5/images/Image`, then safely eject, boot and execute
 `POWEROFF`. Also check `REBOOT`. Both SDL2 and PID 1 are embedded in the kernel;
-DOSDATA does not need to be rewritten. Visual confirmation on the test board
+PI-DOS does not need to be rewritten. Visual confirmation on the test board
 is still required.
 
 ## Shutdown protocol
 
 `EXIT` or `POWEROFF` exits the DOS shell. The runtime cleans up before returning
-to PID 1; PID 1 syncs, unmounts DOSDATA and requests poweroff. `REBOOT` writes
+to PID 1; PID 1 syncs, unmounts PI-DOS and requests poweroff. `REBOOT` writes
 the exact word `reboot` to `C:\SYSTEM\CONTROL.REQ` and exits the shell. PID 1
 reads and removes that request after the runtime exits, then syncs/unmounts and
 requests reboot. A stale request is removed on the next writable boot.
@@ -455,7 +464,7 @@ teardown behavior.
 The build runs `tools/image/verify.py` after image generation. It checks the
 actual initramfs, custom AArch64 init/runtime, native SDL2 backends, ARM64 dynrec,
 required built-in kernel drivers, 4 KiB pages, device trees, partition types and
-DOSDATA label. It rejects an included Linux shell, BusyBox or conventional init.
+PI-DOS label. It rejects an included Linux shell, BusyBox or conventional init.
 It writes hashes and the exact source lock beside the image.
 It also checks ELF architecture and linked-library presence throughout the
 target root filesystem, rejecting library search paths pointing into the host
@@ -525,7 +534,7 @@ For the immediate retest, copy the newly generated
 `output/buildroot-pi5/images/bcm2712d0.dtbo` into the existing SD card's
 `overlays/` directory on its FAT32 BOOT partition. Keep the diagnostic
 `cmdline.txt` above. Safely eject the card and boot again.
-No full reflash, kernel replacement or DOSDATA modification is needed.
+No full reflash, kernel replacement or PI-DOS modification is needed.
 Leave `config.txt` unchanged: the firmware selects the silicon-specific
 description; do not force the D0 overlay on every Pi 5.
 
@@ -565,7 +574,7 @@ partition with `output/buildroot-pi5/images/Image`. The initramfs and updated
 PID 1 are embedded in that kernel. Keep the D0 overlay and diagnostic boot
 configuration already on the card. Safely eject, boot with the keyboard
 connected, and try `DIR` followed by Enter; also check reconnecting the keyboard.
-DOSDATA does not need to be rewritten.
+PI-DOS does not need to be rewritten.
 
 The input-correction image passed static validation. Its SHA-256 is
 `41f1a41889d0123b0b7a61f62ec54cf2a8b2205eeaf9e5567183fdc4dd579f92`.

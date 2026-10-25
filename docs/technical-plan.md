@@ -134,9 +134,9 @@ directives and x86 drivers rather than asserting complete MS-DOS compatibility.
 | Partition | Filesystem | Purpose |
 | --- | --- | --- |
 | BOOT | FAT32 | Pi firmware, kernel and device trees |
-| DOSDATA | ext4 | DOS files and user configuration |
+| PI-DOS | FAT32 | DOS files and user configuration |
 
-Map `C:\` to `/dosdata/c` and optionally `D:\` to `/dosdata/d`. Preserve upstream
+Map `C:\` to `/dosdata/c` and leave `D:\` available for CD-ROM images. Preserve upstream
 case-insensitivity, 8.3 aliases, attributes, paths, timestamps, enumeration,
 volumes and supported locking/sharing behavior. Internal shell files can remain
 virtual rather than exposing Linux directories.
@@ -149,7 +149,7 @@ enforcement before production. Writable drive mappings alone are insufficient.
 ## Boot and hardware
 
 Boot path: Pi firmware → ARM64 kernel → embedded initramfs → `/init` → virtual
-filesystems and DOSDATA → SDL2 → DOS VM → `C:\>`.
+filesystems and PI-DOS → SDL2 → DOS VM → `C:\>`.
 
 Production suppresses routine Linux messages/cursor and has no login, launcher,
 boot menu, splash daemon or intentional delay. Development retains serial logs.

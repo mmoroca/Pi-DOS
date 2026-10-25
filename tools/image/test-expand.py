@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Root-only integration test using disposable loop devices, never an SD card.
 
-Arguments: compiled tests/boot/expand-data.c probe, 512 MiB DOSDATA FAT32 fixture
+Arguments: compiled tests/boot/expand-data.c probe, 512 MiB PI-DOS FAT32 fixture
 containing c/KEEP.TXT, and an original Pi-DOS 512-byte MBR.
 """
 import fcntl
@@ -74,7 +74,7 @@ def check(probe, filesystem, original, mode, root):
             device.seek(0)
             bpb = device.read(512)
         sectors = struct.unpack_from('<I', bpb, 32)[0]
-        assert bpb[82:90] == b'FAT32   ' and bpb[71:82] == b'DOSDATA    '
+        assert bpb[82:90] == b'FAT32   ' and bpb[71:82] == b'PI-DOS     '
         assert size == disk_bytes - START, 'Partition did not fill disk'
         assert 0 <= size // 512 - sectors < bpb[13], 'Filesystem did not fill partition'
         mountpoint = root / 'mounted'
@@ -82,14 +82,13 @@ def check(probe, filesystem, original, mode, root):
         run('mount', '-t', 'vfat', '-o', 'ro,nosuid,nodev,noexec', part, str(mountpoint))
         try:
             assert (mountpoint / 'c/KEEP.TXT').read_bytes() == KEEP, 'Lost C: file'
-            assert (mountpoint / 'd/KEEP.TXT').read_bytes() == KEEP, 'Lost D: file'
         finally:
             run('umount', str(mountpoint))
         with card.open('rb') as image:
             grown_mbr = image.read(512)
             assert grown_mbr[:446] == mbr[:446], 'Boot code/disk identity changed'
             assert grown_mbr[446:462] == mbr[446:462], 'BOOT partition changed'
-            assert grown_mbr[470:474] == mbr[470:474], 'DOSDATA start changed'
+            assert grown_mbr[470:474] == mbr[470:474], 'PI-DOS start changed'
             image.seek(1048576)
             assert image.read(len(SENTINEL)) == SENTINEL, 'BOOT data changed'
         again = run(str(probe), part)

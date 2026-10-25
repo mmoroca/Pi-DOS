@@ -104,7 +104,7 @@ static void pair_row(FILE *out, const char *label, const char *value,
 }
 
 void armdos_startup(FILE *out, const char *config, const char *user_config, const char *device,
-                    bool mounted, bool writable, bool drive_c, bool drive_d)
+                    bool mounted, bool writable, bool drive_c)
 {
     char board[256] = "Unknown", cpu[128] = "Unknown", cores[32] = "Unknown";
     char ram[64] = "Unknown", disk[128] = "Unknown", summary[256];
@@ -174,14 +174,13 @@ void armdos_startup(FILE *out, const char *config, const char *user_config, cons
         char total[32], free_space[32];
         size_text(total, sizeof(total), (uint64_t)space.f_blocks * space.f_frsize);
         size_text(free_space, sizeof(free_space), (uint64_t)space.f_bavail * space.f_frsize);
-        snprintf(summary, sizeof(summary), "DOSDATA    : %s total / %s free", total, free_space);
+        snprintf(summary, sizeof(summary), "PI-DOS     : %s total / %s free", total, free_space);
     } else {
-        snprintf(summary, sizeof(summary), "DOSDATA    : %s", mounted ? "Unknown" : "Unavailable");
+        snprintf(summary, sizeof(summary), "PI-DOS     : %s", mounted ? "Unknown" : "Unavailable");
     }
     full_row(out, summary);
-    full_row(out, !drive_c ? "Drives     : Z: built-in DOS utilities (recovery)" : drive_d ?
-             "Drives     : C: and D: share DOSDATA; Z: built-in DOS utilities" :
-             "Drives     : C: on DOSDATA; Z: built-in DOS utilities");
+    full_row(out, !drive_c ? "Drives     : Z: built-in DOS utilities (recovery)" :
+             "Drives     : C: on PI-DOS; Z: built-in DOS utilities");
     border(out, 0xcd, 0xc8, 0, 0xbc);
     fputs("ECHO.\nECHO Welcome to Pi-DOS\nECHO.\n", out);
 }
