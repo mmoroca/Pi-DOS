@@ -175,23 +175,41 @@ static enum storage mount_data(void)
     return NO_STORAGE;
 }
 
-static void seed_user_config(enum storage storage)
+static void prepare_dos_folders(enum storage storage)
+{
+    if (storage != READ_WRITE) return;
+    const char *directories[] = {"/dosdata/c/PROGRAMS", "/dosdata/c/PROGRAMS/TOOLS",
+                                 "/dosdata/c/GAMES", "/dosdata/c/DOCS", "/dosdata/c/TEMP"};
+    for (size_t i = 0; i < sizeof(directories) / sizeof(directories[0]); ++i)
+        make_dir(directories[i], 0755);
+    /* PEDIT saves its preferences inside EDIT.COM. Move the existing writable
+     * copy without replacing a utility already installed in the new location. */
+    struct stat status;
+    if (lstat("/dosdata/c/PROGRAMS/TOOLS/EDIT.COM", &status) && errno == ENOENT &&
+        !lstat("/dosdata/c/SYSTEM/EDIT.COM", &status) && S_ISREG(status.st_mode) &&
+        rename("/dosdata/c/SYSTEM/EDIT.COM", "/dosdata/c/PROGRAMS/TOOLS/EDIT.COM"))
+        dprintf(2, "Pi-DOS: editor migration failed: %s\n", strerror(errno));
+}
+
+static void seed_user_file(enum storage storage, const char *source, const char *destination)
 {
     if (storage != READ_WRITE) return;
     struct stat status;
-    if (!lstat(USER_CONFIG_PATH, &status) || errno != ENOENT) return;
-    FILE *input = fopen("/armdos/DOSBOX.CONF", "rb");
+    if (!lstat(destination, &status) || errno != ENOENT) return;
+    char temporary[PATH_MAX];
+    int length = snprintf(temporary, sizeof(temporary), "%s.XXXXXX", destination);
+    if (length < 0 || (size_t)length >= sizeof(temporary)) return;
+    FILE *input = fopen(source, "rb");
     if (!input) {
-        dprintf(2, "Pi-DOS: default DOSBOX.CONF unavailable: %s\n", strerror(errno));
+        dprintf(2, "Pi-DOS: default %s unavailable: %s\n", source, strerror(errno));
         return;
     }
-    char temporary[] = USER_CONFIG_PATH ".XXXXXX";
     int fd = mkstemp(temporary);
     FILE *output = fd >= 0 ? fdopen(fd, "wb") : NULL;
     if (!output) {
         if (fd >= 0) { close(fd); unlink(temporary); }
         fclose(input);
-        dprintf(2, "Pi-DOS: cannot create DOSBOX.CONF: %s\n", strerror(errno));
+        dprintf(2, "Pi-DOS: cannot create %s: %s\n", destination, strerror(errno));
         return;
     }
     char buffer[4096];
@@ -204,8 +222,8 @@ static void seed_user_config(enum storage storage)
     fclose(input);
     if (fflush(output) || fchmod(fd, 0644) || fsync(fd)) valid = false;
     if (fclose(output)) valid = false;
-    if (!valid || rename(temporary, USER_CONFIG_PATH)) {
-        dprintf(2, "Pi-DOS: DOSBOX.CONF initialization failed\n");
+    if (!valid || rename(temporary, destination)) {
+        dprintf(2, "Pi-DOS: %s initialization failed\n", destination);
         unlink(temporary);
     }
 }
@@ -238,7 +256,12 @@ static bool make_config(enum storage storage, const char *user_config)
         fprintf(output, "MOUNT C /dosdata/c%s\nC:\n", storage == READ_ONLY ? " -ro" : "");
         if (drive_d)
             fprintf(output, "MOUNT D /dosdata/d%s\n", storage == READ_ONLY ? " -ro" : "");
-        fputs("SET PATH=C:\\SYSTEM;Z:\\;Z:\\SYSTEM;Z:\\DOS;Z:\\BIN;Z:\\TEXTUTIL;Z:\\DEBUG;Z:\\PATCHING;Z:\\4DOS\nCLS\n", output);
+        fputs("SET PATH=C:\\PROGRAMS\\TOOLS;C:\\SYSTEM;Z:\\;Z:\\SYSTEM;Z:\\DOS;Z:\\BIN;Z:\\TEXTUTIL;Z:\\DEBUG;Z:\\PATCHING;Z:\\4DOS\n", output);
+        struct stat temporary;
+        if (storage == READ_WRITE && !stat("/dosdata/c/TEMP", &temporary) &&
+            S_ISDIR(temporary.st_mode) && !access("/dosdata/c/TEMP", W_OK | X_OK))
+            fputs("SET TEMP=C:\\TEMP\nSET TMP=C:\\TEMP\n", output);
+        fputs("CLS\n", output);
     } else {
         fputs("CLS\n", output);
     }
@@ -343,7 +366,9 @@ int main(void)
         for (;;) pause();
     }
     enum storage storage = mount_data();
-    seed_user_config(storage);
+    prepare_dos_folders(storage);
+    seed_user_file(storage, "/armdos/DOSBOX.CONF", USER_CONFIG_PATH);
+    seed_user_file(storage, "/armdos/AUTOEXEC.BAT", "/dosdata/c/AUTOEXEC.BAT");
     const char *user_config = user_config_path(storage);
     if (!make_config(storage, user_config)) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");

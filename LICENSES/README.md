@@ -22,3 +22,10 @@ hashes, plus the external recipes under `br2-external/`. Original `armdos-init`
 code is marked `unknown` in Buildroot metadata until a project license is
 selected. The generated development image is not a completed release license
 or corresponding-source bundle.
+
+Doszip Commander DOS 2.68 is vendored under
+`br2-external/board/pi5/dos/doszip/` using its GNU GPL v2-or-later license.
+The image includes the upstream license notice, the GPL v2 text, and the matching
+unmodified source archive (`SOURCE.ZIP`) in `C:\PROGRAMS\DOSZIP`. Archive URLs
+and SHA-256 hashes are recorded in the adjacent `SOURCE.TXT` and
+[DOS payload documentation](../br2-external/board/pi5/dos/README.md).

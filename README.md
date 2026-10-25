@@ -39,10 +39,17 @@ fill the card. The FAT32 resizer passed host tests on sparse 2 GiB and 64 GiB
 card images; this updated image still needs ARM64 and physical SD-card testing.
 
 The default DOS PATH includes all bundled utility directories.
-The image includes a personalized editor at `C:\SYSTEM\EDIT.COM`; this
+The image includes a personalized editor at `C:\PROGRAMS\TOOLS\EDIT.COM`; this
 writable copy takes priority over the bundled editor and retains saved preferences.
 Edit `C:\SYSTEM\DOSBOX.CONF` and reboot to change emulator settings persistently.
+Edit `C:\AUTOEXEC.BAT` to customize environment variables, PATH or programs run
+after standard startup. A minimal template is created only when missing;
+existing files are preserved. `C:\README.TXT` explains both configuration files.
 The original Z: utility layout is retained, with the supplied ARJ at `Z:\BIN\ARJ.EXE`.
+Applications live under `C:\PROGRAMS`. Doszip Commander is included in
+`C:\PROGRAMS\DOSZIP`; type `DZ` to open its two-panel file manager.
+The standard user folders are `C:\GAMES`, `C:\DOCS` and `C:\TEMP`.
+Writable boots set both `TEMP` and `TMP` to `C:\TEMP`.
 SDL2 KMS/DRM teardown keeps the host mouse pointer hidden during reboot and poweroff;
 visual confirmation on hardware is pending.
 

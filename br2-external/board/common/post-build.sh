@@ -30,6 +30,12 @@ text = ('# Pi-DOS persistent configuration. Changes take effect after reboot.\n'
         + source.read_text())
 destination.write_bytes(text.replace('\n', '\r\n').encode('ascii'))
 PY
+python3 - "$project/br2-external/board/pi5/dos/AUTOEXEC.BAT" "$target/armdos/AUTOEXEC.BAT" <<'PY'
+from pathlib import Path
+import sys
+source, destination = map(Path, sys.argv[1:])
+destination.write_bytes(source.read_text().replace('\n', '\r\n').encode('ascii'))
+PY
 install -D -m 0644 "$project/br2-external/board/pi5/dos/ARJ.EXE" \
     "$target/armdos/drivez/BIN/ARJ.EXE"
 install -D -m 0644 "$project/dac-crt.bin" "$target/lib/firmware/edid/dac-crt.bin"

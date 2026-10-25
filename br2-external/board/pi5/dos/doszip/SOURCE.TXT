@@ -1,0 +1,14 @@
+Doszip Commander 2.68 for DOS
+Unmodified official DOS binaries and matching source archive.
+Upstream: https://sourceforge.net/projects/doszip/
+License: GNU GPL version 2 or later; see LICENSE.TXT and COPYING.TXT.
+
+Binary archive: https://downloads.sourceforge.net/project/doszip/DOS/dzbin268.zip
+SHA-256: 5ddd77b69194fe115c9361cd1f6ec31065d561ab7010858677468efb32942096
+
+Source archive: https://downloads.sourceforge.net/project/doszip/DOS/dzsrc268.zip
+SHA-256: 96df1ef800776e1d3764eabee5ec56120e250abe20cf4209af2c71d1b76b82db
+Included unchanged as SOURCE.ZIP.
+
+Run DZ. Settings/history are created in C:\PROGRAMS\DOSZIP.
+F10 exits; F1 opens help. See DZ.TXT for usage and shortcuts.

@@ -10,9 +10,18 @@ It has the same 97,619-byte size as the upstream embedded `EDIT.COM`; only
 five bytes differ, at offsets `0x154f2`, `0x154f3`, `0x154f4`, `0x154fe` and
 `0x15509`, within its settings block. Preserve the upstream component notices.
 
-`post-image.sh` installs this seed as `C:\SYSTEM\EDIT.COM` on DOSDATA.
+`post-image.sh` installs this seed as `C:\PROGRAMS\TOOLS\EDIT.COM` on DOSDATA.
 The existing DOS PATH selects it before the read-only editor on Z:.
 Preferences saved by PEDIT modify this writable executable directly.
+On existing writable installations, startup moves `C:\SYSTEM\EDIT.COM` to this
+location, preserving saved preferences. An existing destination is kept.
+
+## User startup template
+
+`AUTOEXEC.BAT` contains comments for user startup commands, without duplicating
+the system's environment defaults. The build packages a CRLF copy as
+`/armdos/AUTOEXEC.BAT`. Fresh images and writable boots create `C:\AUTOEXEC.BAT`
+only when missing, preserving existing files and customizations.
 
 ## ARJ
 
@@ -25,3 +34,22 @@ SHA-256: `bf37548e55ea0fed2520e5f91449b2566292b2437165dc27db8e599e2d539010`.
 The post-build hook installs it in `/armdos/drivez/BIN/ARJ.EXE`. DOSBox-X's
 existing drivez extension exposes it as `Z:\BIN\ARJ.EXE`; the original Z: layout
 and built-in utilities are retained.
+
+## Doszip Commander
+
+`doszip/` contains the unmodified DOS 2.68 release and matching source archive
+from the upstream project's DOS directory:
+
+- Binary: https://downloads.sourceforge.net/project/doszip/DOS/dzbin268.zip
+  SHA-256: `5ddd77b69194fe115c9361cd1f6ec31065d561ab7010858677468efb32942096`.
+- Source: https://downloads.sourceforge.net/project/doszip/DOS/dzsrc268.zip
+  SHA-256: `96df1ef800776e1d3764eabee5ec56120e250abe20cf4209af2c71d1b76b82db`.
+
+`DZ.EXE` is the DOS loader and requires the adjacent `DZ.DOS` main program.
+`DZ.TXT` is upstream's help file. `LICENSE.TXT` retains the original notice;
+`COPYING.TXT` supplies the GNU GPL v2 text. The program permits GPL v2 or later.
+`SOURCE.ZIP` is the unchanged source archive; `SOURCE.TXT` records provenance.
+
+The image installs these files in writable `C:\PROGRAMS\DOSZIP` and supplies
+`C:\SYSTEM\DZ.BAT` on the default PATH. The launcher passes the configuration
+directory explicitly so preferences/history remain with the application.

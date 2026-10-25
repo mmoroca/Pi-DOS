@@ -241,13 +241,17 @@ Missing, wrongly labelled or unmountable storage produces a DOS Z: recovery
 prompt, with no temporary replacement C: drive and no infinite device wait.
 That prompt does not include a filesystem-repair utility.
 
-The image seeds `C:\SYSTEM\EDIT.COM` with the personalized PEDIT Light binary
+The image seeds `C:\PROGRAMS\TOOLS\EDIT.COM` with the personalized PEDIT Light binary
 from `br2-external/board/pi5/dos/EDIT.COM`. The default PATH selects this copy
 before `Z:\DOS\EDIT.COM`. PEDIT stores its settings inside the executable, so
 further preferences saved through Alt+F1 persist on writable DOSDATA. Rebuilding
 the image restores the seed preferences; updating only BOOT does not replace an
 existing editor on DOSDATA. Static image verification compares the packaged
 editor byte-for-byte with the seed.
+On an existing writable installation, startup moves `C:\SYSTEM\EDIT.COM` to
+`C:\PROGRAMS\TOOLS\EDIT.COM`, preserving the executable and saved preferences.
+If the destination already exists, both files are kept and PATH selects the
+copy in TOOLS. Read-only boots leave existing files in place.
 
 ### Editable DOSBox configuration
 
@@ -265,15 +269,60 @@ configuration from the SD card restores the defaults on the next writable boot.
 
 Long filename support is enabled because the requested `DOSBOX.CONF` extension
 has four characters. The default DOS compatibility version stays unchanged.
-The original Z: files, folders and runtime commands remain available. The prior
-personalized editor at C:\SYSTEM\EDIT.COM is retained. No C:\CONFIG.SYS parser,
-managed runtime-launcher directory, default C:\AUTOEXEC.BAT or PIBOOT.BAT is added.
-A user-created C:\AUTOEXEC.BAT still runs as before. An optional `[autoexec]`
-section in DOSBOX.CONF appends commands after system setup and that user file.
+The original Z: files, folders and runtime commands remain available. No C:\CONFIG.SYS parser,
+managed runtime-launcher directory or PIBOOT.BAT is added. An optional `[autoexec]`
+section in DOSBOX.CONF appends commands after system setup and `C:\AUTOEXEC.BAT`.
+
+### User startup commands
+
+Fresh images include an editable `C:\AUTOEXEC.BAT` containing only `@ECHO OFF`
+and comments inviting users to add startup commands. Writable boots also create
+this template when the file is missing on existing installations. Existing
+files, including empty ones, are preserved. Read-only and recovery boots do not
+create it. The template uses DOS CRLF line endings.
+
+Edit it with `EDIT C:\AUTOEXEC.BAT` to set environment variables, extend PATH or
+start programs automatically on the next boot. Pi-DOS calls it after its standard
+startup setup. The template leaves PATH, TEMP, TMP and BLASTER defaults in place.
+Emulated hardware settings belong in `C:\SYSTEM\DOSBOX.CONF`; changing
+`SET BLASTER` alone does not reconfigure the emulated Sound Blaster. The generated
+`C:\README.TXT` explains these roles.
 
 The supplied ARJ 2.41 binary is available as `Z:\BIN\ARJ.EXE` through DOSBox-X's
 standard `drivez` extension. Other upstream programs and directories retain their
 original layout on Z:.
+
+### Standard C: directory layout
+
+Fresh images provide the following directory structure. Writable boots also
+create missing directories on existing installations, preserving their contents.
+`C:\README.TXT` describes the layout on fresh images.
+
+| Directory | Purpose |
+| --- | --- |
+| `C:\SYSTEM` | Pi-DOS configuration, lifecycle commands and launchers |
+| `C:\PROGRAMS` | Applications, with one subdirectory per application |
+| `C:\PROGRAMS\TOOLS` | Self-contained utilities, including `EDIT.COM` |
+| `C:\GAMES` | Games, with one subdirectory per game |
+| `C:\DOCS` | User documents and manuals |
+| `C:\TEMP` | Temporary files |
+
+Writable boots set `TEMP` and `TMP` to `C:\TEMP` when that directory is usable.
+Startup preserves its contents; it does not automatically delete temporary
+files. User startup commands can override these variables. Read-only and
+recovery boots do not set these defaults.
+
+Doszip Commander DOS 2.68 is installed in `C:\PROGRAMS\DOSZIP`.
+Type `DZ` from any directory to start it through the `C:\SYSTEM\DZ.BAT` launcher
+on the default PATH. Press F1 for help and F10 to exit.
+
+The loader (`DZ.EXE`), main program (`DZ.DOS`) and upstream help (`DZ.TXT`) stay
+together. Doszip creates its writable configuration and history beside them;
+the launcher sets that location explicitly. The directory also contains the
+original license notice, GPL v2 text and matching source archive (`SOURCE.ZIP`).
+These files are installed on DOSDATA by the complete SD image. A BOOT-only
+update preserves installed applications/settings but does not populate Doszip on
+an existing card; copy the program directory and launcher or use the full image.
 
 ### Automatic FAT32 DOSDATA expansion
 
@@ -344,10 +393,11 @@ The generated DOS environment uses the ARM64 dynrec core, US keyboard layout,
 SB16 audio defaults and fixed HDMI output selected by SDL. Its default PATH is:
 
 ```dos
-PATH C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS
+PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS
 ```
 
-C:\SYSTEM stays first for the Pi-DOS lifecycle commands. If
+`C:\PROGRAMS\TOOLS` selects writable utilities such as EDIT, followed by
+`C:\SYSTEM` for the Pi-DOS lifecycle commands and launchers. If
 `C:\AUTOEXEC.BAT` exists, it runs after the system startup commands and can
 override PATH.
 

@@ -1,6 +1,4 @@
-- [ ] what if I want to change config.sys and autoexec.bat?
 - [ ] defrag fails on both c and d with "Divide error"
-- [ ] move dos commands to c (edit.com)?
 - [ ] command to display available video modes
 - [ ] dos utility to select hdmi, jack or external dac audio output. Also enable the dosbox mixer controls.
 - [ ] volume labels c and d are null and z is dosbox-x
@@ -40,21 +38,22 @@
 
 ### DOS Environment
 
-- [x] MS-DOS-compatible command prompt
-- [x] DOS commands (DIR, COPY, DEL, etc.)
-- [x] COM and EXE execution
-- [x] BAT scripting
-- [x] AUTOEXEC.BAT support
-- [ ] CONFIG.SYS compatibility
-- [ ] Environment variables
-- [ ] DOS file managers (Norton Commander, etc.)
-- [ ] DOS text editors
+- [v] MS-DOS-compatible command prompt
+- [v] DOS commands (DIR, COPY, DEL, etc.)
+- [v] COM and EXE execution
+- [v] BAT scripting
+- [~] AUTOEXEC.BAT support
+- [~] CONFIG.SYS compatibility
+- [v] Environment variables
+- [v] Standard folder structure for the DOS file system
+- [v] DOS file managers (Norton Commander, etc.)
+- [v] DOS text editors
 - [ ] DOS programming tools (BASIC, Pascal, C, Assembly)
-- [ ] DOS keyboard shortcuts
+- [v] DOS keyboard shortcuts
 - [ ] DOS error messages and exit codes
 - [ ] International keyboard layouts and code pages
 - [ ] DOS date and time management
-- [ ] Configurable DOS version reporting
+- [v] Configurable DOS version reporting
 
 ### CPU and Memory
 
