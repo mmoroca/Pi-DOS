@@ -2,7 +2,8 @@
 - [ ] command to display available video modes
 - [ ] dos utility to select hdmi, jack or external dac audio output. Also enable the dosbox mixer controls.
 - [ ] enable midi output
-- [ ] pi3 wolf3d corrupted, pi4 no keyboard
+- [ ] pi3 wolf3d corrupted
+- [ ] drive size not detecting free space correctly anymore?
 
 ---------------------------------------------
 

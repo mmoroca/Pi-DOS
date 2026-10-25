@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check the shared Raspberry Pi ARM64 image; this is not a hardware boot test."""
 import hashlib
+import argparse
 import json
 from pathlib import Path
 import re
@@ -24,6 +25,9 @@ def digest(path):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--diagnostic', action='store_true')
+    diagnostic = parser.parse_args().diagnostic
     images = OUT / 'images'
     target = OUT / 'target'
     buildroot = (OUT / '.config').read_text()
@@ -60,6 +64,9 @@ def main():
             'PID 1 lacks the default DOS temporary directory')
     require(b'/dosdata/c/SYSTEM/DOSBOX.CONF' in packed_init,
             'PID 1 does not load the editable DOSBox configuration')
+    for value in (b'armdos.diagnostics=1', b'/dev/kmsg',
+                  b'/dosdata/c/SYSTEM/BOOT.LOG', b'/dosdata/c/SYSTEM/RUNTIME.LOG'):
+        require(value in packed_init, 'PID 1 lacks diagnostic file logging support')
     require(b'MOUNT C /dosdata/c -label SYSTEM' in packed_init,
             'PID 1 lacks the default C: volume label')
     require(b'/dosdata/d' not in packed_init,
@@ -105,7 +112,7 @@ def main():
     require(len(linux_dirs) == 1, 'Cannot identify kernel build configuration')
     kernel = linux_dirs[0].read_text()
     for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'INPUT_EVDEV',
-                    'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS',
+                    'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS', 'PRINTK',
                     'USB_HID', 'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
                     'MMC_BCM2835_MMC', 'MMC_SDHCI_IPROC', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
                     'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC'):
@@ -139,7 +146,7 @@ def main():
             subprocess.check_call([
                 str(linux_dirs[0].parent / 'scripts/dtc/fdtoverlay'),
                 '-i', str(images / name), '-o', str(Path(temporary) / name), str(images / overlay)])
-    disk = images / 'armdos-arm64-sdcard.img'
+    disk = images / ('armdos-arm64-diagnostic-sdcard.img' if diagnostic else 'armdos-arm64-sdcard.img')
     with disk.open('rb') as stream:
         mbr = stream.read(512)
         require(mbr[510:] == b'\x55\xaa', 'Invalid MBR signature')
@@ -225,23 +232,40 @@ def main():
             str(OUT / 'host/bin/mcopy'), '-i',
             f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{boot_path}', '-'])
         require(packed == (images / Path(name).name).read_bytes(), f'BOOT device tree missing/stale: {boot_path}')
+    firmware_hashes = {}
+    for line in (ROOT / 'br2-external/board/raspberrypi/rpi-firmware.hash').read_text().splitlines():
+        fields = line.split()
+        if len(fields) == 3 and fields[0] == 'sha256':
+            firmware_hashes[fields[2]] = fields[1]
     for name in ('bootcode.bin', 'start.elf', 'fixup.dat', 'start4.elf', 'fixup4.dat', 'LICENCE.broadcom'):
         packed = subprocess.check_output([
             str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{name}', '-'])
         require(packed == (images / 'rpi-firmware' / name).read_bytes(),
                 f'BOOT firmware missing/stale: {name}')
+        if name in ('start4.elf', 'fixup4.dat'):
+            require(hashlib.sha256(packed).hexdigest() == firmware_hashes['boot/' + name],
+                    f'BOOT {name} lacks the confirmed Pi 4 USB firmware fix')
     for name in ('cmdline.txt', 'config.txt'):
         packed = subprocess.check_output([
             str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{name}', '-'])
-        require(packed == (ROOT / 'br2-external/board/raspberrypi' / name).read_bytes(),
+        expected = (ROOT / 'br2-external/board/raspberrypi' / name).read_bytes()
+        if name == 'cmdline.txt' and diagnostic:
+            words = [word for word in expected.decode().split() if not word.startswith(('loglevel=', 'armdos.diagnostics='))]
+            words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M', 'armdos.diagnostics=1']
+            expected = (' '.join(words) + '\n').encode()
+        require(packed == expected,
                 f'BOOT configuration missing/stale: {name}')
         if name == 'cmdline.txt':
             require(len(packed.decode().splitlines()) == 1, 'BOOT cmdline.txt must be a single line')
             require('drm.edid_firmware=HDMI-A-1:edid/dac-crt.bin,HDMI-A-2:edid/dac-crt.bin'
                     in packed.decode().split(), 'BOOT command line lacks the CRT EDID override')
     evidence = {'scope': 'Static image validation only; this rebuilt image requires hardware validation',
+                'diagnostic': diagnostic,
                 'cpu_baseline': 'Cortex-A53 / ARMv8-A',
                 'device_trees': trees,
+                'firmware_file_sha256': {
+                    name: digest(images / 'rpi-firmware' / name)
+                    for name in ('bootcode.bin', 'start.elf', 'fixup.dat', 'start4.elf', 'fixup4.dat')},
                 'image': str(disk.relative_to(ROOT)), 'image_bytes': disk.stat().st_size,
                 'image_sha256': digest(disk), 'partitions': partitions,
                 'initramfs_bytes': (images / 'rootfs.cpio').stat().st_size,
@@ -252,6 +276,7 @@ def main():
                 'buildroot_config_sha256': digest(OUT / '.config'),
                 'source_lock': json.loads((ROOT / 'sources.lock.json').read_text()),
                 'init_source_sha256': digest(ROOT / 'src/init/init.c'),
+                'diagnostics_source_sha256': digest(ROOT / 'src/init/diagnostics.c'),
                 'storage_source_sha256': digest(ROOT / 'src/init/storage.c'),
                 'editor_sha256': digest(editor),
                 'arj_sha256': digest(arj),
@@ -261,7 +286,8 @@ def main():
                 'patch_sha256': {str(p.relative_to(ROOT)): digest(p)
                                  for p in sorted((ROOT / 'patches').rglob('*.patch'))},
                 'deferred': ['audio teardown underrun', 'mouse validation']}
-    (images / 'armdos-image-validation.json').write_text(json.dumps(evidence, indent=2) + '\n')
+    evidence_name = 'armdos-diagnostic-validation.json' if diagnostic else 'armdos-image-validation.json'
+    (images / evidence_name).write_text(json.dumps(evidence, indent=2) + '\n')
     print(f'PASS: AArch64 kernel/runtime, custom initramfs, FAT32 BOOT and PI-DOS: {disk}')
     print('Hardware boot of this image remains unverified; validation metadata saved beside the image.')
 

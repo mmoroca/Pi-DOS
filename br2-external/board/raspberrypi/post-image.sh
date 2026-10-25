@@ -3,6 +3,8 @@ set -euo pipefail
 board="$BR2_EXTERNAL_ARMDOS_PATH/board/raspberrypi"
 boot="$BINARIES_DIR/armdos-boot"
 data="$BINARIES_DIR/armdos-data"
+image_name=armdos-arm64-sdcard.img
+if [[ "${ARMDOS_DIAGNOSTIC:-0}" == 1 ]]; then image_name=armdos-arm64-diagnostic-sdcard.img; fi
 mkdir -p "$boot/overlays" "$data/c/SYSTEM" "$BINARIES_DIR/armdos-empty"
 # Remove the obsolete empty directory left by earlier image builds.
 if [[ -d "$data/d" ]]; then rmdir "$data/d"; fi
@@ -21,6 +23,16 @@ for firmware in bootcode.bin start.elf fixup.dat start4.elf fixup4.dat LICENCE.b
 done
 install -m 0644 "$board/config.txt" "$boot/config.txt"
 install -m 0644 "$board/cmdline.txt" "$boot/cmdline.txt"
+if [[ "${ARMDOS_DIAGNOSTIC:-0}" == 1 ]]; then
+    python3 - "$boot/cmdline.txt" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+words = [word for word in path.read_text().split() if not word.startswith(('loglevel=', 'armdos.diagnostics='))]
+words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M', 'armdos.diagnostics=1']
+path.write_text(' '.join(words) + '\n')
+PY
+fi
 printf '@ECHO OFF\r\nECHO reboot>C:\\SYSTEM\\CONTROL.REQ\r\nEXIT\r\n' > "$data/c/SYSTEM/REBOOT.BAT"
 printf '@ECHO OFF\r\nEXIT\r\n' > "$data/c/SYSTEM/POWEROFF.BAT"
 # Keep the personalized editor writable: PEDIT saves settings in its executable.
@@ -56,6 +68,14 @@ printf '%s\r\n' \
     'Edit C:\SYSTEM\DOSBOX.CONF and reboot to change emulator settings,' \
     'including Sound Blaster hardware. SET BLASTER alone does not change it.' \
     > "$data/c/README.TXT"
+if [[ "${ARMDOS_DIAGNOSTIC:-0}" == 1 ]]; then
+    printf '%s\r\n' '' 'Diagnostic image:' \
+        'SYSTEM\BOOT.LOG captures kernel messages and input-device snapshots.' \
+        'SYSTEM\RUNTIME.LOG captures SDL/DOSBox standard output and errors.' \
+        'Logs are replaced on every diagnostic boot and need writable C:.' \
+        'After reconnecting the keyboard, wait 15 seconds before collecting logs.' \
+        >> "$data/c/README.TXT"
+fi
 cat > "$BINARIES_DIR/genimage.cfg" <<EOF
 image boot.vfat {
     vfat { label = "BOOT" extraargs = "-F 32" }
@@ -67,7 +87,7 @@ image dosdata.vfat {
     srcpath = "$data"
     size = 512M
 }
-image armdos-arm64-sdcard.img {
+image $image_name {
     hdimage { partition-table-type = "mbr" disk-signature = 0xa4d05001 }
     partition boot { partition-type = 0x0c bootable = "true" image = "boot.vfat" offset = 1M }
     partition dosdata { partition-type = 0x0c image = "dosdata.vfat" }
@@ -76,4 +96,4 @@ EOF
 "$HOST_DIR/bin/genimage" --rootpath "$BINARIES_DIR/armdos-empty" \
     --tmppath "$BUILD_DIR/armdos-genimage.tmp" --inputpath "$BINARIES_DIR" \
     --outputpath "$BINARIES_DIR" --config "$BINARIES_DIR/genimage.cfg"
-sha256sum "$BINARIES_DIR/armdos-arm64-sdcard.img" > "$BINARIES_DIR/armdos-arm64-sdcard.img.sha256"
+sha256sum "$BINARIES_DIR/$image_name" > "$BINARIES_DIR/$image_name.sha256"

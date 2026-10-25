@@ -20,7 +20,8 @@ DSI and composite display support are outside this HDMI/USB appliance profile.
 Pi 1, original Zero/Zero W and Pi 2B rev 1.1 cannot run this AArch64 image.
 
 This is the intended board coverage, not a record of successful boots on every
-board. The new shared image requires hardware testing across these families.
+board. The user confirmed working Pi 3/Pi 5 input and Pi 4 operation after the
+firmware correction recorded below. Other models still require hardware testing.
 Model filters and 64-bit eligibility follow the
 [official Raspberry Pi configuration documentation](https://www.raspberrypi.com/documentation/computers/config_txt.html).
 
@@ -577,6 +578,31 @@ overlay from its BOOT partition. Its SHA-256 is
 
 ### DOS prompt appears but USB keyboard does not respond
 
+For the Pi 4 investigation, use the diagnostic image described below to collect
+kernel USB/HID messages and the runtime's open input-device handles. Working
+Pi 3/Pi 5 keyboards do not establish Pi 4 VL805-controller operation.
+
+On 25 October 2026, the Pi 4 Model B Rev 1.5 capture showed the VL805 PCIe USB
+controller failing with `can't setup: -110` approximately 17 seconds after its
+initial probe. No physical USB keyboard was registered. SDL KMS/DRM initialized
+successfully. The captured VideoCore firmware was dated 8 December 2025,
+matching the regression in
+[Raspberry Pi firmware issue 2009](https://github.com/raspberrypi/firmware/issues/2009).
+
+Replacing BOOT's matched `start4.elf` and `fixup4.dat` with the files from commit
+`c3c104bcfd90a5e6f7c89f00204ac11f1e9ffa6f` (22 May 2026) restored the keyboard;
+the user also confirmed substantially faster boot. This is a boot-partition
+firmware fix. No board EEPROM update or SDL startup delay was needed.
+
+The tracked profile now loads `board/raspberrypi/package-overrides.mk` from the
+external tree before Buildroot expands package recipes. It pins the firmware
+version and its hash file, so download names, package directories and checksum
+validation all use the fixed snapshot. Run `make image-config` once after this
+profile change before the next image build. Existing `.img` files must be rebuilt
+to include the fix; changing the pin does not rewrite them or a physical card.
+Pi 4 is confirmed with the replacement pair; Pi 3 should be retested when moving
+to the newer package's `start.elf`/`fixup.dat` pair. Pi 5 uses EEPROM firmware.
+
 The first successful boot had no input from an official wired Raspberry Pi
 keyboard. Reconnecting it did not help. The kernel includes USB host, HID and
 evdev support, but the original PID 1 omitted the notification forwarding
@@ -613,6 +639,60 @@ appliance, including after unplugging and reconnecting. This hardware retest
 confirms the correction for the reported keyboard failure. The subsequent
 persistence/reboot/poweroff checks also passed, as recorded above. Mouse
 validation remains deferred.
+
+### Diagnostic image with logs on C:
+
+Build the separate diagnostic variant with:
+
+```sh
+JOBS=4 make image-diagnostic
+```
+
+The result is
+`output/buildroot-arm64/images/armdos-arm64-diagnostic-sdcard.img`.
+It reuses the ARM64 build cache and preserves the existing normal SD image.
+Its BOOT command line enables `armdos.diagnostics=1`, a 1 MiB kernel log buffer,
+and verbose console messages. The ordinary image leaves file logging disabled.
+
+After writable C: is mounted, PID 1 creates these files, replacing the previous
+diagnostic boot's logs:
+
+| DOS path | Contents |
+| --- | --- |
+| `C:\SYSTEM\BOOT.LOG` | Kernel-ring backlog and subsequent records, input-device names/capabilities, selected SDL/audio environment and evdev handles opened by the runtime |
+| `C:\SYSTEM\RUNTIME.LOG` | SDL/DOSBox standard output and standard error, including startup failures |
+
+Kernel records retain their priority, sequence and microsecond timestamp prefix.
+Reading `/dev/kmsg` does not clear the kernel ring. Input snapshots are checked
+every five seconds and written only when their contents change. BOOT.LOG is
+capped at approximately 4 MiB and flushed at least once a second when updated;
+runtime output uses synchronous file writes. Normal shutdown closes the log
+files before unmounting C:. No logger daemon, Linux shell or SSH service is added.
+The host check is `python3 tools/image/test-diagnostics.py`.
+
+For the Pi 4 keyboard test, boot with the keyboard attached, wait for the DOS
+prompt, then unplug and reconnect it. Wait another 15 seconds. Power down, using
+`POWEROFF` if input works, and open the SD card on your computer. Copy
+`c/SYSTEM/BOOT.LOG` and `c/SYSTEM/RUNTIME.LOG` from its PI-DOS partition before
+booting it again. File flushing reduces missing output but does not make FAT32
+safe against interrupted power.
+
+An existing shared ARM64 card can retain its data: after building the diagnostic
+variant, replace BOOT's `Image` with `output/buildroot-arm64/images/Image` and
+BOOT's `cmdline.txt` with `output/buildroot-arm64/images/armdos-boot/cmdline.txt`.
+To disable both logs on an existing card, change `armdos.diagnostics=1` to
+`armdos.diagnostics=0` in BOOT/cmdline.txt and reboot. Alternatively, restore the
+tracked `br2-external/board/raspberrypi/cmdline.txt`, which explicitly disables
+capture. Keep the updated kernel in place. Existing log files remain available
+but are no longer updated; they can be deleted when no longer needed.
+
+The logger needs a writable C: volume. Missing/read-only storage uses serial
+diagnostics only. Kernel messages retained before mounting C: can be recovered;
+an early kernel panic or failure to mount C: cannot be saved there. Firmware/EEPROM
+messages and PID 1/storage-helper output before logging starts still require
+serial capture. Runtime output is redirected to RUNTIME.LOG in diagnostic mode;
+PID 1's own error messages remain on serial. This build gathers evidence; it
+does not change the Pi 4 USB initialization or claim to repair the keyboard.
 
 ## References
 

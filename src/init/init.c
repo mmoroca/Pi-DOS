@@ -23,8 +23,10 @@
 #include <unistd.h>
 #include "storage.h"
 #include "startup.h"
+#include "diagnostics.h"
 
 enum storage { NO_STORAGE, READ_ONLY, READ_WRITE };
+static struct armdos_diagnostics diagnostics = {.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
 
 #define USER_CONFIG_PATH "/dosdata/c/SYSTEM/DOSBOX.CONF"
 
@@ -265,6 +267,8 @@ static bool make_config(enum storage storage, const char *user_config)
     data_device(device, sizeof(device));
     armdos_startup(output, "/armdos/armdos.conf", user_config, device, storage != NO_STORAGE,
                    storage == READ_WRITE, drive_c);
+    if (diagnostics.boot_fd >= 0 || diagnostics.runtime_fd >= 0)
+        fputs("ECHO Diagnostic capture enabled; logs are in C:\\SYSTEM.\n", output);
     if (drive_c) {
         if (storage == READ_ONLY)
             fputs("ECHO WARNING: drive C: is read-only; storage requires recovery.\n", output);
@@ -340,6 +344,7 @@ static void select_video(void)
 static void finish(enum storage storage, bool restart)
 {
     dprintf(2, "Pi-DOS: synchronizing storage before %s\n", restart ? "reboot" : "poweroff");
+    armdos_diagnostics_stop(&diagnostics);
     sync();
     if (storage != NO_STORAGE && umount("/dosdata")) {
         dprintf(2, "Pi-DOS: data unmount failed: %s; attempting read-only remount\n", strerror(errno));
@@ -388,6 +393,7 @@ int main(void)
     prepare_dos_folders(storage);
     seed_user_file(storage, "/armdos/DOSBOX.CONF", USER_CONFIG_PATH);
     seed_user_file(storage, "/armdos/AUTOEXEC.BAT", "/dosdata/c/AUTOEXEC.BAT");
+    armdos_diagnostics_start(&diagnostics, storage == READ_WRITE);
     const char *user_config = user_config_path(storage);
     if (!make_config(storage, user_config)) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");
@@ -411,6 +417,7 @@ int main(void)
 
     pid_t runtime = fork();
     if (runtime == 0) {
+        armdos_diagnostics_redirect(&diagnostics);
         sigprocmask(SIG_UNBLOCK, &blocked, NULL);
         setsid();
         int tty = open("/dev/tty1", O_RDWR);
@@ -463,8 +470,9 @@ int main(void)
             }
             finish(storage, restart);
         }
-        struct pollfd items[] = {{signals, POLLIN, 0}, {device_events, POLLIN, 0}};
-        if (poll(items, 2, 100) > 0 && (items[0].revents & POLLIN)) {
+        struct pollfd items[] = {{signals, POLLIN, 0}, {device_events, POLLIN, 0},
+                                 {diagnostics.kernel_fd, POLLIN, 0}};
+        if (poll(items, 3, 100) > 0 && (items[0].revents & POLLIN)) {
             struct signalfd_siginfo info;
             if (read(signals, &info, sizeof(info)) == sizeof(info) &&
                 (info.ssi_signo == SIGTERM || info.ssi_signo == SIGINT)) {
@@ -478,6 +486,7 @@ int main(void)
             }
         }
         if (items[1].revents & POLLIN) forward_device_events(device_events);
+        armdos_diagnostics_poll(&diagnostics, runtime);
         if (requested && time(NULL) >= deadline) kill(runtime, SIGKILL);
     }
 }

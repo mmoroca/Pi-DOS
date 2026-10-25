@@ -1,0 +1,6 @@
+# SHA-256 calculated from the upstream archive at the pinned commit.
+sha256  eba74a4e6f83c82994b1eb63abfe451add90f1832c6f7cc051e26e1ccda4e3cf  rpi-firmware-c3c104bcfd90a5e6f7c89f00204ac11f1e9ffa6f.tar.gz
+sha256  c7283ff51f863d93a275c66e3b4cb08021a5dd4d8c1e7acc47d872fbe52d3d6b  boot/LICENCE.broadcom
+# Matched Pi 4 pair; also checked in the actual SD image by tools/image/verify.py.
+sha256  3484b5ddc0f655e0e562680b7e2462ec21177763cc2d884b37d31e53b800bb02  boot/start4.elf
+sha256  c571fe712649b66409a4834b06af39dcef8dca6727e3abc10c6043f02028b5e5  boot/fixup4.dat

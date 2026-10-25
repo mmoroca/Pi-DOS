@@ -8,7 +8,7 @@ ARMDOS_INIT_DEPENDENCIES = util-linux parted dosfstools
 define ARMDOS_INIT_BUILD_CMDS
 	$(TARGET_CC) $(TARGET_CFLAGS) -std=c11 -Wall -Wextra -Werror \
 		-DPI_DOS_VERSION='"$(ARMDOS_INIT_VERSION)"' \
-		$(@D)/init.c $(@D)/startup.c $(@D)/storage.c -o $(@D)/armdos-init $(TARGET_LDFLAGS) \
+		$(@D)/init.c $(@D)/startup.c $(@D)/storage.c $(@D)/diagnostics.c -o $(@D)/armdos-init $(TARGET_LDFLAGS) \
 		-lfdisk -lparted-fs-resize -lparted
 endef
 

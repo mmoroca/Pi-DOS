@@ -5,7 +5,13 @@ cd "$root"
 jobs=${JOBS:-4}
 case "$jobs" in ''|*[!0-9]*|0) echo 'JOBS must be positive' >&2; exit 2;; esac
 mode=${1:-build}
-case "$mode" in configure|build|source) ;; *) echo 'Use configure, build or source' >&2; exit 2;; esac
+case "$mode" in configure|build|diagnostic|source) ;; *) echo 'Use configure, build, diagnostic or source' >&2; exit 2;; esac
+export ARMDOS_DIAGNOSTIC=0
+image_variant=arm64
+if [[ "$mode" == diagnostic ]]; then
+    export ARMDOS_DIAGNOSTIC=1
+    image_variant=arm64-diagnostic
+fi
 python3 tools/phase0/fetch.py --component buildroot
 source_dir=$(python3 -c 'import json;print("output/src/"+json.load(open("sources.lock.json"))["buildroot"]["directory"])')
 out="$root/output/buildroot-arm64"
@@ -28,12 +34,18 @@ if [[ -f "$root/dl/$archive" ]]; then
         cp "$root/dl/$archive" "$root/dl/buildroot/armdos-runtime/$archive"
     fi
 fi
-log="$root/output/logs/buildroot-arm64.log"
+log="$root/output/logs/buildroot-$image_variant.log"
 echo "Buildroot $mode; log: $log"
 if [[ "$mode" == source ]]; then
     make "${args[@]}" source > "$log" 2>&1
 else
-    make "${args[@]}" > "$log" 2>&1
-    python3 tools/image/verify.py
+    # Local PID 1 sources are not automatically recopied by an incremental make.
+    {
+        make "${args[@]}" armdos-init-rebuild
+        make "${args[@]}"
+    } > "$log" 2>&1
+    verify_args=()
+    if [[ "$mode" == diagnostic ]]; then verify_args+=(--diagnostic); fi
+    python3 tools/image/verify.py "${verify_args[@]}"
 fi
 echo "Completed Buildroot $mode: $out/images"

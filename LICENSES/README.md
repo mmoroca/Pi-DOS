@@ -23,9 +23,12 @@ code is marked `unknown` in Buildroot metadata until a project license is
 selected. The generated development image is not a completed release license
 or corresponding-source bundle.
 
-The shared ARM64 image also includes Raspberry Pi boot firmware from Buildroot's
-pinned `rpi-firmware` package (`063bcab6c8a90efb0d19f69d88cbbc7ec79cab68`).
-Its archive and BSD-3-Clause notice are hash-checked by Buildroot; the image
+The shared ARM64 image also includes Raspberry Pi boot firmware from the
+`rpi-firmware` package, pinned by the external tree to
+`c3c104bcfd90a5e6f7c89f00204ac11f1e9ffa6f` (22 May 2026). This replaces the
+December 2025 snapshot with a confirmed fix for Pi 4 VL805 USB timeouts.
+Its archive and BSD-3-Clause notice are hash-checked using
+`br2-external/board/raspberrypi/rpi-firmware.hash`; the image
 retains `LICENCE.broadcom` on BOOT beside the firmware files.
 
 Doszip Commander DOS 2.68 is vendored under

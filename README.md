@@ -8,7 +8,12 @@ The architecture is Buildroot, an embedded initramfs, a small C PID 1 supervisor
 native SDL2 KMS/DRM video, ALSA audio, USB input and persistent DOS storage. The
 runtime runs as root. Pi 5 supplied the first hardware validation baseline.
 
-**Status: the previous Pi 5 image passed boot, keyboard/reconnection, persistence, reboot and poweroff checks. The new FAT32 image awaits hardware retesting.**
+**Status: shared-image boot and keyboard operation are user-confirmed on Pi 3/Pi 5, and on Pi 4 after the firmware correction below. Earlier Pi 5 persistence, reboot and poweroff checks passed; broader hardware validation remains open.**
+The user confirmed boot/input on Pi 3 and Pi 5 with the shared image. On
+25 October 2026, replacing the Pi 4's matched `start4.elf`/`fixup4.dat` pair
+with the pinned May 2026 firmware restored USB input and removed its roughly
+17-second controller timeout. Future builds use that firmware pin; other-board
+coverage still needs hardware validation.
 The SDL2 baseline builds and runs the small DOS fixtures on x86-64 and Pi 5.
 The Pi's ARM64 dynrec execution was confirmed with GDB. Hardware GLES rendering,
 4:3 VGA output and KMS page flips now pass with a small display-dimension patch.
@@ -25,6 +30,13 @@ See the [technical plan](docs/technical-plan.md) and
 make image-config
 JOBS=4 make image
 ```
+
+For troubleshooting without a serial adapter, run `JOBS=4 make image-diagnostic`.
+The separate `armdos-arm64-diagnostic-sdcard.img` saves kernel/input diagnostics
+to `C:\SYSTEM\BOOT.LOG` and SDL/DOSBox output to `C:\SYSTEM\RUNTIME.LOG`.
+Normal builds explicitly disable both logs with `armdos.diagnostics=0`.
+Both logs are replaced on each diagnostic boot. See the
+[diagnostic procedure](docs/buildroot-pi5.md#diagnostic-image-with-logs-on-c).
 
 The initial 769 MiB development image is
 `output/buildroot-arm64/images/armdos-arm64-sdcard.img`. It contains an ARM64 kernel

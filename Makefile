@@ -3,6 +3,7 @@
 help:
 	@echo 'make image-config - configure the shared Raspberry Pi ARM64 image'
 	@echo 'make image - build the Raspberry Pi ARM64 SD image (JOBS=4 by default)'
+	@echo 'make image-diagnostic - build an image that saves boot/runtime logs on C:'
 	@echo 'make fetch   - fetch and verify pinned Phase 0 sources'
 	@echo 'make sdl2    - build private native SDL2 with required backends'
 	@echo 'make phase0  - build native SDL2 and DOSBox-X (JOBS=4 by default)'
@@ -37,9 +38,12 @@ smoke-keyboard:
 smoke-audio:
 	python3 tools/phase0/audio.py
 
-.PHONY: image-config image
+.PHONY: image-config image image-diagnostic
 image-config:
 	bash tools/image/build.sh configure
 
 image:
 	bash tools/image/build.sh build
+
+image-diagnostic:
+	bash tools/image/build.sh diagnostic
