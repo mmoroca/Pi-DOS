@@ -26,6 +26,8 @@
 
 enum storage { NO_STORAGE, READ_ONLY, READ_WRITE };
 
+#define USER_CONFIG_PATH "/dosdata/c/SYSTEM/DOSBOX.CONF"
+
 static int open_device_events(void)
 {
     /* devtmpfs creates nodes; libudev-zero still needs userspace notifications.
@@ -173,7 +175,50 @@ static enum storage mount_data(void)
     return NO_STORAGE;
 }
 
-static bool make_config(enum storage storage)
+static void seed_user_config(enum storage storage)
+{
+    if (storage != READ_WRITE) return;
+    struct stat status;
+    if (!lstat(USER_CONFIG_PATH, &status) || errno != ENOENT) return;
+    FILE *input = fopen("/armdos/DOSBOX.CONF", "rb");
+    if (!input) {
+        dprintf(2, "Pi-DOS: default DOSBOX.CONF unavailable: %s\n", strerror(errno));
+        return;
+    }
+    char temporary[] = USER_CONFIG_PATH ".XXXXXX";
+    int fd = mkstemp(temporary);
+    FILE *output = fd >= 0 ? fdopen(fd, "wb") : NULL;
+    if (!output) {
+        if (fd >= 0) { close(fd); unlink(temporary); }
+        fclose(input);
+        dprintf(2, "Pi-DOS: cannot create DOSBOX.CONF: %s\n", strerror(errno));
+        return;
+    }
+    char buffer[4096];
+    size_t count;
+    bool valid = true;
+    while ((count = fread(buffer, 1, sizeof(buffer), input))) {
+        if (fwrite(buffer, 1, count, output) != count) { valid = false; break; }
+    }
+    if (ferror(input)) valid = false;
+    fclose(input);
+    if (fflush(output) || fchmod(fd, 0644) || fsync(fd)) valid = false;
+    if (fclose(output)) valid = false;
+    if (!valid || rename(temporary, USER_CONFIG_PATH)) {
+        dprintf(2, "Pi-DOS: DOSBOX.CONF initialization failed\n");
+        unlink(temporary);
+    }
+}
+
+static const char *user_config_path(enum storage storage)
+{
+    struct stat status;
+    if (storage != NO_STORAGE && !stat(USER_CONFIG_PATH, &status) &&
+        S_ISREG(status.st_mode) && !access(USER_CONFIG_PATH, R_OK)) return USER_CONFIG_PATH;
+    return NULL;
+}
+
+static bool make_config(enum storage storage, const char *user_config)
 {
     FILE *input = fopen("/armdos/armdos.conf", "r");
     FILE *output = fopen("/run/armdos.conf", "w");
@@ -199,7 +244,7 @@ static bool make_config(enum storage storage)
     }
     char device[PATH_MAX];
     data_device(device, sizeof(device));
-    armdos_startup(output, "/armdos/armdos.conf", device, storage != NO_STORAGE,
+    armdos_startup(output, "/armdos/armdos.conf", user_config, device, storage != NO_STORAGE,
                    storage == READ_WRITE, drive_c, drive_d);
     if (drive_c) {
         if (storage == READ_ONLY)
@@ -298,7 +343,9 @@ int main(void)
         for (;;) pause();
     }
     enum storage storage = mount_data();
-    if (!make_config(storage)) {
+    seed_user_config(storage);
+    const char *user_config = user_config_path(storage);
+    if (!make_config(storage, user_config)) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");
         for (;;) pause();
     }
@@ -332,9 +379,19 @@ int main(void)
             dprintf(2, "Pi-DOS: runtime directory unavailable: %s\n", strerror(errno));
             _exit(127);
         }
-        execl("/armdos/armdos", "armdos", "-defaultmapper",
-              "-nopromptfolder", "-defaultdir", "/armdos", "-conf", "/run/armdos.conf",
-              "-fastlaunch", "-nomenu", (char *)NULL);
+        char *arguments[14] = {"armdos", "-defaultmapper", "-nopromptfolder",
+                              "-defaultdir", "/armdos", "-conf", "/run/armdos.conf"};
+        size_t argc = 7;
+        /* Load the editable file last: hardware settings override defaults,
+         * and its [autoexec] commands follow the generated system startup. */
+        if (user_config) {
+            arguments[argc++] = "-conf";
+            arguments[argc++] = (char *)user_config;
+        }
+        arguments[argc++] = "-fastlaunch";
+        arguments[argc++] = "-nomenu";
+        arguments[argc] = NULL;
+        execv("/armdos/armdos", arguments);
         dprintf(2, "Pi-DOS: runtime exec failed: %s\n", strerror(errno));
         _exit(127);
     }

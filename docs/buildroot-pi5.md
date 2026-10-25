@@ -249,6 +249,32 @@ the image restores the seed preferences; updating only BOOT does not replace an
 existing editor on DOSDATA. Static image verification compares the packaged
 editor byte-for-byte with the seed.
 
+### Editable DOSBox configuration
+
+`C:\SYSTEM\DOSBOX.CONF` is a persistent, editable DOSBox-X configuration file.
+Edit it with `EDIT C:\SYSTEM\DOSBOX.CONF`, then reboot to apply changes. It is
+loaded after the packaged defaults, before emulated hardware is initialized.
+For example, change `irq=7` to `irq=5` under `[sblaster]` to select IRQ 5. The
+startup table reflects effective settings, including partial override files.
+
+Fresh images include a CRLF copy of the default configuration. Writable boots
+also create the file when missing on existing DOSDATA installations. Existing
+files, including empty ones, are preserved across BOOT updates. Without usable
+persistent storage, the packaged defaults are used. Removing or renaming a bad
+configuration from the SD card restores the defaults on the next writable boot.
+
+Long filename support is enabled because the requested `DOSBOX.CONF` extension
+has four characters. The default DOS compatibility version stays unchanged.
+The original Z: files, folders and runtime commands remain available. The prior
+personalized editor at C:\SYSTEM\EDIT.COM is retained. No C:\CONFIG.SYS parser,
+managed runtime-launcher directory, default C:\AUTOEXEC.BAT or PIBOOT.BAT is added.
+A user-created C:\AUTOEXEC.BAT still runs as before. An optional `[autoexec]`
+section in DOSBOX.CONF appends commands after system setup and that user file.
+
+The supplied ARJ 2.41 binary is available as `Z:\BIN\ARJ.EXE` through DOSBox-X's
+standard `drivez` extension. Other upstream programs and directories retain their
+original layout on Z:.
+
 ### Automatic FAT32 DOSDATA expansion
 
 On first boot, PID 1 grows partition 2 and its FAT32 filesystem to the remaining
@@ -332,7 +358,7 @@ tree; CPU cores are the online core count. Host RAM is kernel-usable memory
 identifies the selected DOSDATA block device, with mounted filesystem capacity,
 available space and access mode. C: and D: share that space; only available
 drive mappings are listed. DOS video, memory, audio and keyboard fields are read
-from the runtime configuration, and the Pi-DOS version comes from the init
+from the runtime configuration and editable configuration overrides, and the Pi-DOS version comes from the init
 package build version. Unavailable readings show `Unknown` or `Unavailable`.
 These describe configured emulated devices, not physical HDMI/audio detection.
 The table fits the native 80x25 screen without a delay or keypress. Read-only

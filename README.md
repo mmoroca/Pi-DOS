@@ -41,6 +41,8 @@ card images; this updated image still needs ARM64 and physical SD-card testing.
 The default DOS PATH includes all bundled utility directories.
 The image includes a personalized editor at `C:\SYSTEM\EDIT.COM`; this
 writable copy takes priority over the bundled editor and retains saved preferences.
+Edit `C:\SYSTEM\DOSBOX.CONF` and reboot to change emulator settings persistently.
+The original Z: utility layout is retained, with the supplied ARJ at `Z:\BIN\ARJ.EXE`.
 SDL2 KMS/DRM teardown keeps the host mouse pointer hidden during reboot and poweroff;
 visual confirmation on hardware is pending.
 

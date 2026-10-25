@@ -49,7 +49,6 @@ static char *trim(char *text)
 static void setting(FILE *file, const char *section, const char *key,
                     char *value, size_t size)
 {
-    snprintf(value, size, "Unknown");
     if (!file) return;
     rewind(file);
     bool active = false;
@@ -104,7 +103,7 @@ static void pair_row(FILE *out, const char *label, const char *value,
             label, value, other_label, other_value);
 }
 
-void armdos_startup(FILE *out, const char *config, const char *device,
+void armdos_startup(FILE *out, const char *config, const char *user_config, const char *device,
                     bool mounted, bool writable, bool drive_c, bool drive_d)
 {
     char board[256] = "Unknown", cpu[128] = "Unknown", cores[32] = "Unknown";
@@ -136,7 +135,14 @@ void armdos_startup(FILE *out, const char *config, const char *device,
     snprintf(disk, sizeof(disk), "%s", device);
     safe_text(disk);
     FILE *file = fopen(config, "r");
-    char graphics[128], memory[128], sound[128], keyboard[128];
+    char graphics[128] = "Unknown", memory[128] = "Unknown";
+    char sound[128] = "Unknown", keyboard[128] = "Unknown";
+    setting(file, "dosbox", "machine", graphics, sizeof(graphics));
+    setting(file, "dosbox", "memsize", memory, sizeof(memory));
+    setting(file, "sblaster", "sbtype", sound, sizeof(sound));
+    setting(file, "dos", "keyboardlayout", keyboard, sizeof(keyboard));
+    if (file) fclose(file);
+    file = user_config ? fopen(user_config, "r") : NULL;
     setting(file, "dosbox", "machine", graphics, sizeof(graphics));
     setting(file, "dosbox", "memsize", memory, sizeof(memory));
     setting(file, "sblaster", "sbtype", sound, sizeof(sound));

@@ -20,6 +20,18 @@ if 'BR2_PACKAGE_E2FSPROGS=y\n' not in (target.parent / '.config').read_text():
                 installed.unlink()
 PY
 install -D -m 0644 "$project/configs/armdos.conf" "$target/armdos/armdos.conf"
+python3 - "$project/configs/armdos.conf" "$target/armdos/DOSBOX.CONF" <<'PY'
+from pathlib import Path
+import sys
+source, destination = map(Path, sys.argv[1:])
+text = ('# Pi-DOS persistent configuration. Changes take effect after reboot.\n'
+        '# Edit C:\\SYSTEM\\DOSBOX.CONF; existing files are preserved on BOOT updates.\n'
+        '# Optional [autoexec] commands run after system setup and C:\\AUTOEXEC.BAT.\n\n'
+        + source.read_text())
+destination.write_bytes(text.replace('\n', '\r\n').encode('ascii'))
+PY
+install -D -m 0644 "$project/br2-external/board/pi5/dos/ARJ.EXE" \
+    "$target/armdos/drivez/BIN/ARJ.EXE"
 install -D -m 0644 "$project/dac-crt.bin" "$target/lib/firmware/edid/dac-crt.bin"
 mkdir -p "$target/dosdata" "$target/run" "$target/tmp" "$target/proc" "$target/sys"
 # No system shell, getty, login or init scripts are needed by the C supervisor.

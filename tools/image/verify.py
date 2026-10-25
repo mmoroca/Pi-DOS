@@ -32,7 +32,8 @@ def main():
     with (images / 'rootfs.cpio').open('rb') as stream:
         names = subprocess.check_output(['cpio', '-it', '--quiet'], stdin=stream, text=True).splitlines()
     names = {name.removeprefix('./') for name in names}
-    for name in ('init', 'armdos/armdos', 'armdos/armdos.conf', 'dev/console',
+    for name in ('init', 'armdos/armdos', 'armdos/armdos.conf', 'armdos/DOSBOX.CONF',
+                 'armdos/drivez/BIN/ARJ.EXE', 'dev/console',
                  'sbin/fsck.fat', 'lib/firmware/edid/dac-crt.bin'):
         require(name in names, f'Missing initramfs file: {name}')
     with (images / 'rootfs.cpio').open('rb') as stream:
@@ -50,6 +51,10 @@ def main():
             'CRT EDID must be digital EDID 1.3+ for Linux HDMI/audio capability parsing')
     default_path = r'C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS'
     require(('SET PATH=' + default_path).encode() in packed_init, 'Default DOS PATH is incomplete')
+    require(b'/dosdata/c/SYSTEM/DOSBOX.CONF' in packed_init,
+            'PID 1 does not load the editable DOSBox configuration')
+    require(b'C:\\SYSTEM\\RUNTIME' not in (target / 'armdos/armdos').read_bytes(),
+            'Reverted runtime-launcher patch is still present in the image')
     for name in ('bin/sh', 'bin/busybox', 'sbin/init', 'usr/bin/bash', 'usr/sbin/sshd',
                  'usr/sbin/dropbear', 'sbin/e2fsck', 'sbin/resize2fs'):
         require(name not in names, f'Unexpected general-purpose runtime: {name}')
@@ -142,6 +147,19 @@ def main():
     packed_editor = subprocess.check_output([
         str(mcopy), '-i', data_volume, '::c/SYSTEM/EDIT.COM', '-'])
     require(packed_editor == editor.read_bytes(), 'Personalized EDIT.COM missing/stale in DOSDATA')
+    packed_config = subprocess.check_output([
+        str(mcopy), '-i', data_volume, '::c/SYSTEM/DOSBOX.CONF', '-'])
+    default_config = (target / 'armdos/DOSBOX.CONF').read_bytes()
+    require(packed_config == default_config, 'Editable DOSBOX.CONF missing/stale in DOSDATA')
+    require(b'lfn=true\r\n' in packed_config and
+            b'\n' not in packed_config.replace(b'\r\n', b''), 'Invalid DOSBOX.CONF defaults/line endings')
+    arj = ROOT / 'br2-external/board/pi5/dos/ARJ.EXE'
+    require((target / 'armdos/drivez/BIN/ARJ.EXE').read_bytes() == arj.read_bytes(),
+            'ARJ missing/stale in the Z: extension')
+    with (images / 'rootfs.cpio').open('rb') as stream:
+        packed_arj = subprocess.check_output([
+            'cpio', '-i', '--to-stdout', '--quiet', 'armdos/drivez/BIN/ARJ.EXE'], stdin=stream)
+    require(packed_arj == arj.read_bytes(), 'ARJ missing/stale in initramfs')
     require(subprocess.check_output([str(OUT / 'host/bin/mdir'), '-i', data_volume, '::d']),
             'DOSDATA missing directory d')
     # Check the actual SD image, not only loose build outputs: a missing D0
@@ -177,6 +195,8 @@ def main():
                 'init_source_sha256': digest(ROOT / 'src/init/init.c'),
                 'storage_source_sha256': digest(ROOT / 'src/init/storage.c'),
                 'editor_sha256': digest(editor),
+                'arj_sha256': digest(arj),
+                'user_config_default_sha256': digest(target / 'armdos/DOSBOX.CONF'),
                 'crt_edid_sha256': digest(ROOT / 'dac-crt.bin'),
                 'patch_sha256': {str(p.relative_to(ROOT)): digest(p)
                                  for p in sorted((ROOT / 'patches').rglob('*.patch'))},

@@ -3,7 +3,9 @@
 - [ ] move dos commands to c (edit.com)?
 - [ ] command to display available video modes
 - [ ] dos utility to select hdmi, jack or external dac audio output. Also enable the dosbox mixer controls.
-- [ ] check if vsync is enabled or disabled
+- [ ] volume labels c and d are null and z is dosbox-x
+- [ ] enable midi output
+- [ ] same image must run in all pi 64bit models
 
 -----------------------------------
 
@@ -39,10 +41,10 @@
 ### DOS Environment
 
 - [x] MS-DOS-compatible command prompt
-- [ ] DOS commands (DIR, COPY, DEL, etc.)
-- [ ] COM and EXE execution
-- [ ] BAT scripting
-- [ ] AUTOEXEC.BAT support
+- [x] DOS commands (DIR, COPY, DEL, etc.)
+- [x] COM and EXE execution
+- [x] BAT scripting
+- [x] AUTOEXEC.BAT support
 - [ ] CONFIG.SYS compatibility
 - [ ] Environment variables
 - [ ] DOS file managers (Norton Commander, etc.)

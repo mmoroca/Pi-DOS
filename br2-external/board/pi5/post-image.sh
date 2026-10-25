@@ -17,6 +17,7 @@ printf '@ECHO OFF\r\nECHO reboot>C:\\SYSTEM\\CONTROL.REQ\r\nEXIT\r\n' > "$data/c
 printf '@ECHO OFF\r\nEXIT\r\n' > "$data/c/SYSTEM/POWEROFF.BAT"
 # Keep the personalized editor writable: PEDIT saves settings in its executable.
 install -m 0644 "$board/dos/EDIT.COM" "$data/c/SYSTEM/EDIT.COM"
+install -m 0644 "$TARGET_DIR/armdos/DOSBOX.CONF" "$data/c/SYSTEM/DOSBOX.CONF"
 printf 'Pi-DOS persistent drive C:\r\n' > "$data/c/README.TXT"
 cat > "$BINARIES_DIR/genimage.cfg" <<EOF
 image boot.vfat {
