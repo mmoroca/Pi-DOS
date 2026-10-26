@@ -16,6 +16,14 @@ Preferences saved by PEDIT modify this writable executable directly.
 On existing writable installations, startup moves `C:\SYSTEM\EDIT.COM` to this
 location, preserving saved preferences. An existing destination is kept.
 
+## Pi-DOS CPU setup
+
+See also [Pi-DOS CPU setup source and build instructions](../../../../src/doscfg/README.md).
+`PIDOSCFG.EXE` is installed in `Z:\BIN` and available by typing `PIDOSCFG`.
+It offers keyboard and optional mouse CPU profile setup, edits `C:\SYSTEM\PIDOS.CFG`,
+and backs up the previous file as `PIDOS.BAK`. Run `REBOOT` after saving.
+Its manual and the Open Watcom runtime notice are included in `C:\DOCS`.
+
 ## User startup template
 
 `AUTOEXEC.BAT` contains comments for user startup commands, without duplicating

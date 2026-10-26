@@ -57,6 +57,8 @@ destination.write_bytes(source.read_text().replace('\n', '\r\n').encode('ascii')
 PY
 install -D -m 0644 "$project/br2-external/board/raspberrypi/dos/ARJ.EXE" \
     "$target/pi-dos/drivez/BIN/ARJ.EXE"
+install -D -m 0644 "$project/br2-external/board/raspberrypi/dos/PIDOSCFG.EXE" \
+    "$target/pi-dos/drivez/BIN/PIDOSCFG.EXE"
 install -D -m 0644 "$project/dac-crt.bin" "$target/lib/firmware/edid/dac-crt.bin"
 mkdir -p "$target/dosdata" "$target/run" "$target/tmp" "$target/proc" "$target/sys"
 # No system shell, getty, login or init scripts are needed by the C supervisor.

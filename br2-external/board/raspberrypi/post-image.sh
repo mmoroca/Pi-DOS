@@ -37,6 +37,20 @@ printf '@ECHO OFF\r\nECHO reboot>C:\\SYSTEM\\CONTROL.REQ\r\nEXIT\r\n' > "$data/c
 printf '@ECHO OFF\r\nEXIT\r\n' > "$data/c/SYSTEM/POWEROFF.BAT"
 # Keep the personalized editor writable: PEDIT saves settings in its executable.
 install -m 0644 "$board/dos/EDIT.COM" "$data/c/PROGRAMS/TOOLS/EDIT.COM"
+python3 - "$BR2_EXTERNAL_PI_DOS_PATH/.." "$data/c/DOCS" <<'PY'
+from pathlib import Path
+import sys
+project, docs = map(Path, sys.argv[1:])
+manual = (project / 'src/doscfg/README.DOS').read_text()
+docs.joinpath('PIDOSCFG.TXT').write_bytes(manual.replace('\n', '\r\n').encode('ascii'))
+notice = ('Open Watcom runtime used by PIDOSCFG.EXE\n\n'
+          'Unmodified compiler/runtime release: 2026-10-01-Build\n'
+          'Source: https://github.com/open-watcom/open-watcom-v2/tree/2026-10-01-Build\n'
+          'Runtime source is under bld/clib in that repository.\n'
+          'Source and release: https://github.com/open-watcom/open-watcom-v2/releases/tag/2026-10-01-Build\n\n'
+          + (project / 'LICENSES/OpenWatcom.txt').read_text())
+docs.joinpath('WATCOM.TXT').write_bytes(notice.replace('\n', '\r\n').encode('ascii'))
+PY
 # Remove the old generated copy from an incremental image staging tree only.
 rm -f "$data/c/SYSTEM/EDIT.COM" "$data/c/SYSTEM/DOSBOX.CONF" \
     "$data/c/SYSTEM/DOSBOX.CFG" "$data/c/SYSTEM/TIMEZONE.CFG"
@@ -78,6 +92,8 @@ printf '%s\r\n' \
     '' 'Emulated hardware settings:' \
     'Edit C:\SYSTEM\PIDOS.CFG and reboot to change emulator settings,' \
     'including Sound Blaster hardware. SET BLASTER alone does not change it.' \
+    'Run PIDOSCFG for keyboard/mouse CPU profile setup, then REBOOT to apply.' \
+    'CPU setup preserves other settings and saves the previous file as PIDOS.BAK.' \
     '' 'Local timezone:' \
     'In C:\SYSTEM\PIDOS.CFG, set timezone=Europe/Madrid under [pidos]' \
     '(or another IANA timezone), then reboot. Daylight saving is automatic.' \

@@ -1,6 +1,7 @@
 /* Boot summary rendered by the DOS shell in its native 80x25 text mode. */
 #define _GNU_SOURCE
 #include "startup.h"
+#include "cpu_profiles.h"
 #include <ctype.h>
 #include <glob.h>
 #include <stdint.h>
@@ -102,8 +103,11 @@ static void full_row(FILE *out, const char *text)
 static void pair_row(FILE *out, const char *label, const char *value,
                      const char *other_label, const char *other_value)
 {
-    fprintf(out, "ECHO \xba %-10.10s : %-21.21s \xba %-10.10s : %-21.21s \xba\n",
-            label, value, other_label, other_value);
+    char other[35] = "";
+    if (*other_label)
+        snprintf(other, sizeof(other), "%-10.10s : %-21.21s", other_label, other_value);
+    fprintf(out, "ECHO \xba %-10.10s : %-21.21s \xba %-34.34s \xba\n",
+            label, value, other);
 }
 
 void pi_dos_startup(FILE *out, const char *config, const char *user_config, const char *device,
@@ -140,17 +144,35 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     FILE *file = fopen(config, "r");
     char graphics[128] = "Unknown", memory[128] = "Unknown";
     char sound[128] = "Unknown", keyboard[128] = "Unknown";
+    char dos_cpu[128], cycles[128], cpu_model[128];
+    const CpuProfile *defaults = &cpu_profiles[cpu_profile_default()];
+    snprintf(dos_cpu, sizeof(dos_cpu), "%s", defaults->type);
+    snprintf(cycles, sizeof(cycles), "%s", defaults->cycles);
     setting(file, "dosbox", "machine", graphics, sizeof(graphics));
     setting(file, "dosbox", "memsize", memory, sizeof(memory));
     setting(file, "sblaster", "sbtype", sound, sizeof(sound));
     setting(file, "dos", "keyboardlayout", keyboard, sizeof(keyboard));
+    setting(file, "cpu", "cputype", dos_cpu, sizeof(dos_cpu));
+    setting(file, "cpu", "cycles", cycles, sizeof(cycles));
     if (file) fclose(file);
     file = user_config ? fopen(user_config, "r") : NULL;
     setting(file, "dosbox", "machine", graphics, sizeof(graphics));
     setting(file, "dosbox", "memsize", memory, sizeof(memory));
     setting(file, "sblaster", "sbtype", sound, sizeof(sound));
     setting(file, "dos", "keyboardlayout", keyboard, sizeof(keyboard));
+    setting(file, "cpu", "cputype", dos_cpu, sizeof(dos_cpu));
+    setting(file, "cpu", "cycles", cycles, sizeof(cycles));
     if (file) fclose(file);
+    int profile = cpu_profile_find(dos_cpu, NULL, cycles);
+    if (!strcasecmp(dos_cpu, "auto"))
+        snprintf(cpu_model, sizeof(cpu_model), "Auto (486/Pentium)");
+    else if (profile >= 1)
+        snprintf(cpu_model, sizeof(cpu_model), "%s", cpu_profiles[profile].label);
+    else if (!strcasecmp(dos_cpu, "pentium_mmx"))
+        snprintf(cpu_model, sizeof(cpu_model), "Pentium MMX");
+    else if (!strcasecmp(dos_cpu, "pentium"))
+        snprintf(cpu_model, sizeof(cpu_model), "Pentium");
+    else snprintf(cpu_model, sizeof(cpu_model), "%s", dos_cpu);
     if (!strcasecmp(graphics, "svga_s3")) snprintf(graphics, sizeof(graphics), "S3 SVGA");
     if (!strcasecmp(sound, "sb16")) snprintf(sound, sizeof(sound), "Sound Blaster 16");
     if (!strcmp(memory, "Unknown")) snprintf(summary, sizeof(summary), "Unknown");
@@ -176,12 +198,13 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     full_row(out, board_row);
     border(out, 0xcd, 0xcc, 0xcb, 0xb9);
     pair_row(out, "Processor", cpu, "System", "Pi-DOS " PI_DOS_VERSION);
-    pair_row(out, "CPU cores", cores, "DOS video", graphics);
-    pair_row(out, "Host RAM", ram, "DOS memory", summary);
-    pair_row(out, "Storage", disk, "DOS audio", sound);
+    pair_row(out, "CPU cores", cores, "DOS CPU", cpu_model);
+    pair_row(out, "Host RAM", ram, "DOS video", graphics);
+    pair_row(out, "Storage", disk, "DOS memory", summary);
     pair_row(out, "Access", !mounted ? "Unavailable" : writable ? "Read/write" : "Read-only",
-             "Keyboard", keyboard);
-    pair_row(out, "Date", date, "Time", clock);
+             "DOS audio", sound);
+    pair_row(out, "Date", date, "Keyboard", keyboard);
+    pair_row(out, "Time", clock, "", "");
     border(out, 0xcd, 0xcc, 0xca, 0xb9);
     if (have_space) {
         char total[32], free_space[32];

@@ -1,0 +1,7 @@
+{
+  "name": "Open Watcom v2 C/C++ Linux x64",
+  "release": "2026-10-01-Build",
+  "url": "https://github.com/open-watcom/open-watcom-v2/releases/download/2026-10-01-Build/open-watcom-2_0-c-linux-x64",
+  "archive": "open-watcom-2_0-c-linux-x64-20261001",
+  "sha256": "a961f3e02ce27bcd88428345dc57483457a623b6e718b6cee52c48d24ab8065f"
+}

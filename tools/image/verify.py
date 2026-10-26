@@ -44,12 +44,29 @@ def main():
                  'pi-dos/AUTOEXEC.BAT',
                  'pi-dos/network-dns', 'sbin/dhcpcd', 'usr/sbin/chronyd',
                  'etc/dhcpcd.conf', 'etc/chrony.conf', 'etc/resolv.conf', 'var/run',
-                 'pi-dos/drivez/BIN/ARJ.EXE', 'dev/console',
+                 'pi-dos/drivez/BIN/ARJ.EXE', 'pi-dos/drivez/BIN/PIDOSCFG.EXE', 'dev/console',
                  'sbin/fsck.fat', 'lib/firmware/edid/dac-crt.bin'):
         require(name in names, f'Missing initramfs file: {name}')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_init = subprocess.check_output(['cpio', '-i', '--to-stdout', '--quiet', 'init'], stdin=stream)
     require(packed_init == (target / 'init').read_bytes(), 'Stale PID 1 in initramfs')
+    require(b'DOS CPU' in packed_init and b'DOS cycles' not in packed_init,
+            'PID 1 must show the DOS CPU model without a cycles row')
+    setup_name = 'pi-dos/drivez/BIN/PIDOSCFG.EXE'
+    with (images / 'rootfs.cpio').open('rb') as stream:
+        packed_setup = subprocess.check_output([
+            'cpio', '-i', '--to-stdout', '--quiet', setup_name], stdin=stream)
+    require(packed_setup.startswith(b'MZ') and packed_setup ==
+            (ROOT / 'br2-external/board/raspberrypi/dos/PIDOSCFG.EXE').read_bytes(),
+            'Bundled PIDOSCFG.EXE missing/stale in initramfs')
+    require(b'Restore defaults (F3)' in packed_setup,
+            'PIDOSCFG lacks the Restore defaults button')
+    setup_manifest = json.loads((ROOT /
+        'br2-external/board/raspberrypi/dos/PIDOSCFG.build.json').read_text())
+    require(hashlib.sha256(packed_setup).hexdigest() == setup_manifest['executable_sha256'],
+            'PIDOSCFG.EXE does not match its build manifest')
+    for source, expected in setup_manifest['source_sha256'].items():
+        require(digest(ROOT / source) == expected, 'PIDOSCFG sources changed; run make dos-config')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_edid = subprocess.check_output([
             'cpio', '-i', '--to-stdout', '--quiet', 'lib/firmware/edid/dac-crt.bin'], stdin=stream)
@@ -196,6 +213,16 @@ def main():
     for name in ('c/README.TXT', 'c/SYSTEM/REBOOT.BAT', 'c/SYSTEM/POWEROFF.BAT'):
         require(subprocess.check_output([str(mcopy), '-i', data_volume, f'::{name}', '-']),
                 f'PI-DOS missing {name}')
+    setup_manual = subprocess.check_output([
+        str(mcopy), '-i', data_volume, '::c/DOCS/PIDOSCFG.TXT', '-'])
+    require(setup_manual == (ROOT / 'src/doscfg/README.DOS').read_text().replace(
+        '\n', '\r\n').encode('ascii'), 'PIDOSCFG manual missing/stale in PI-DOS')
+    watcom_notice = subprocess.check_output([
+        str(mcopy), '-i', data_volume, '::c/DOCS/WATCOM.TXT', '-'])
+    require(b'https://github.com/open-watcom/open-watcom-v2/tree/2026-10-01-Build'
+            in watcom_notice and (ROOT / 'LICENSES/OpenWatcom.txt').read_text().replace(
+                '\n', '\r\n').encode('ascii') in watcom_notice,
+            'Open Watcom runtime source/license notice missing in PI-DOS')
     # Existing user startup files are preserved, including intentionally empty ones.
     subprocess.check_call([str(mcopy), '-i', data_volume, '::c/AUTOEXEC.BAT', '-'],
                           stdout=subprocess.DEVNULL)
@@ -222,6 +249,8 @@ def main():
     if diagnostic:
         default_config = default_config.replace(b'diagnostics=false\r\n', b'diagnostics=true\r\n')
     require(packed_config == default_config, 'Editable PIDOS.CFG missing/stale in PI-DOS')
+    require(b'[cpu]\r\ncputype=pentium\r\ncore=dynamic_rec\r\ncycles=fixed 71240\r\n'
+            in packed_config, 'Fresh image must default to the Pentium 133 MHz profile')
     require(b'[pidos]\r\n' in packed_config and b'timezone=Europe/Madrid\r\n' in packed_config,
             'Missing custom timezone defaults')
     require(b'[config]\r\n' in packed_config and b'country=34\r\n' in packed_config,
@@ -304,6 +333,8 @@ def main():
                 'image_sha256': digest(disk), 'partitions': partitions,
                 'initramfs_bytes': (images / 'rootfs.cpio').stat().st_size,
                 'kernel_image_bytes': (images / 'Image').stat().st_size,
+                'pidoscfg_bytes': len(packed_setup),
+                'pidoscfg_sha256': hashlib.sha256(packed_setup).hexdigest(),
                 'mesa_gallium_drivers': drivers,
                 'kernel_config_sha256': digest(linux_dirs[0]),
                 'kernel_release': (linux_dirs[0].parent / 'include/config/kernel.release').read_text().strip(),

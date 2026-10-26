@@ -8,6 +8,8 @@ PI_DOS_INIT_DEPENDENCIES = util-linux parted dosfstools dhcpcd chrony tzdata
 define PI_DOS_INIT_BUILD_CMDS
 	$(TARGET_CC) $(TARGET_CFLAGS) -std=c11 -Wall -Wextra -Werror \
 		-DPI_DOS_VERSION='"$(PI_DOS_INIT_VERSION)"' \
+		-I$(BR2_EXTERNAL_PI_DOS_PATH)/../src/common \
+		$(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/cpu_profiles.c \
 		$(@D)/init.c $(@D)/startup.c $(@D)/storage.c $(@D)/diagnostics.c $(@D)/network.c $(@D)/timezone.c $(@D)/config.c -o $(@D)/pi-dos-init $(TARGET_LDFLAGS) \
 		-lfdisk -lparted-fs-resize -lparted
 	$(TARGET_CC) $(TARGET_CFLAGS) -std=c11 -Wall -Wextra -Werror \

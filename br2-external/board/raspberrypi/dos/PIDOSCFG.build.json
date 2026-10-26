@@ -1,0 +1,14 @@
+{
+  "target": "16-bit DOS MZ, 8086 instruction set, small memory model, no FPU/extender",
+  "source_sha256": {
+    "src/doscfg/main.c": "f35cfcd8e3237e16f14f61703bde1b9d58626052bf309a5103a9dce560ed110d",
+    "src/doscfg/config.c": "fbe4d22a94552bbc2c5c47f9c1b35cc74e4ae7b313c87f3f790905f8bf1c70a5",
+    "src/doscfg/config.h": "eaed29bfa0c78646f5b40790a55480a2aca7c5259deed5e081aeff529787f99b",
+    "src/common/cpu_profiles.c": "57d000c86fd12638f771e516d30ea80d541af838511f57487c409b9991c2a020",
+    "src/common/cpu_profiles.h": "30aa46d83b8e761b8ca0ee2371e90469b31e40be11b5d0be1b3427cc8bfb01b6",
+    "tools/dos/build.sh": "d6743ac82bd461cd0fe55c08e9c376e7929da58614f1d7eab5c3980848bf8e10",
+    "tools/dos/toolchain.json": "13cbef97b8c3607083dbe8cddc9e971705292942ae2f76e8c9cdf197a3b3bd50"
+  },
+  "compiler_driver_sha256": "9bf1c208df56c8c154e08a4c42b05183b39e1f3c21e2c3f3b4fa9a66b81aa071",
+  "executable_sha256": "a941d89f738b164c422901a607189ce8a3bb413c1d8f7da0b68f6d4199a225a8"
+}

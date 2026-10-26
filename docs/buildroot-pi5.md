@@ -337,6 +337,20 @@ loaded after the packaged defaults, before emulated hardware is initialized.
 For example, change `irq=7` to `irq=5` under `[sblaster]` to select IRQ 5. The
 startup table reflects effective settings, including partial override files.
 
+Run `PIDOSCFG` for the bundled CPU profile selector, with keyboard and optional
+mouse support. It sets the CPU model, execution core and speed budget while
+preserving other settings, and backs up the previous file as `PIDOS.BAK`.
+Run `REBOOT` after saving. See [the utility documentation](../src/doscfg/README.md)
+or `C:\DOCS\PIDOSCFG.TXT` for profiles, controls and command-line options.
+
+`Restore defaults` (F3) selects Pentium 133 MHz; Save is required to
+persist it. The boot table shows Date above Time in the left column and the
+configured DOS CPU model directly above DOS video on the right, without cycles.
+Recognized profiles display their names without a prefix.
+Fresh images default to Pentium 133 MHz (`cputype=pentium`, `core=dynamic_rec`,
+`cycles=fixed 71240`). Existing installations retain their configuration until
+changed with setup or an editor.
+
 Fresh images include a CRLF copy of the default configuration. Writable boots
 also create the file when missing on existing PI-DOS installations. Existing
 files, including empty ones, are preserved across BOOT updates. Without usable

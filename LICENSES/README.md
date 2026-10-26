@@ -37,3 +37,9 @@ The image includes the upstream license notice, the GPL v2 text, and the matchin
 unmodified source archive (`SOURCE.ZIP`) in `C:\PROGRAMS\DOSZIP`. Archive URLs
 and SHA-256 hashes are recorded in the adjacent `SOURCE.TXT` and
 [DOS payload documentation](../br2-external/board/raspberrypi/dos/README.md).
+
+`PIDOSCFG.EXE` is original Pi-DOS code compiled with the unmodified Open Watcom
+`2026-10-01-Build` toolchain. The compiler/runtime archive is pinned with its
+SHA-256 in `tools/dos/toolchain.json`. Its runtime license is retained as
+`LICENSES/OpenWatcom.txt` and installed with the upstream source URL as
+`C:\DOCS\WATCOM.TXT`. Utility sources and build instructions are in `src/doscfg/`.
