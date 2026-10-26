@@ -73,6 +73,9 @@ writable copy takes priority over the bundled editor and retains saved preferenc
 Edit `C:\SYSTEM\PIDOS.CFG` and reboot to change emulator settings persistently.
 The same file accepts `[pidos]` options, including `timezone=Europe/Madrid` for
 local time with automatic daylight saving.
+The default keyboard layout is Spanish (`keyboardlayout=sp` under `[dos]`).
+The boot summary displays the system date and local time;
+network time synchronization may correct the clock after startup.
 Edit `C:\AUTOEXEC.BAT` to customize environment variables, PATH or programs run
 after standard startup. A minimal template is created only when missing;
 existing files are preserved. `C:\README.TXT` explains both configuration files.

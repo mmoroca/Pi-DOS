@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/statvfs.h>
 #include <sys/sysinfo.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifndef PI_DOS_VERSION
@@ -157,6 +158,15 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     struct statvfs space;
     bool have_space = mounted && !statvfs("/dosdata", &space);
     if (have_space && (space.f_flag & ST_RDONLY)) writable = false;
+    char date[32] = "Unknown", clock[32] = "Unknown";
+    time_t now = time(NULL);
+    struct tm local;
+    if (now != (time_t)-1 && localtime_r(&now, &local)) {
+        if (!strftime(date, sizeof(date), "%Y-%m-%d", &local))
+            snprintf(date, sizeof(date), "Unknown");
+        if (!strftime(clock, sizeof(clock), "%H:%M:%S", &local))
+            snprintf(clock, sizeof(clock), "Unknown");
+    }
 
     border(out, 0xcd, 0xc9, 0, 0xbb);
     full_row(out, "                         System Configuration");
@@ -171,6 +181,7 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     pair_row(out, "Storage", disk, "DOS audio", sound);
     pair_row(out, "Access", !mounted ? "Unavailable" : writable ? "Read/write" : "Read-only",
              "Keyboard", keyboard);
+    pair_row(out, "Date", date, "Time", clock);
     border(out, 0xcd, 0xcc, 0xca, 0xb9);
     if (have_space) {
         char total[32], free_space[32];

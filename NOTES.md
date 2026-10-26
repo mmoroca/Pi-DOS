@@ -10,6 +10,7 @@
 - [ ] enable midi output
 - [ ] check external usb-floppy and usb-cd drives
 - [ ] first boot should ask for some defaults like time/zone,. country etc
+- [ ] support for safeboot available in Pi5 to allow using the power button
 
 ---------------------------------------------
 

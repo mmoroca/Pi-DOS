@@ -380,6 +380,9 @@ creates the template only when it is missing. Settings can also be read from
 a read-only C: volume. The supervisor passes the selected timezone to DOSBox
 and the network services, while the Linux clock and hardware RTC stay in UTC.
 
+The keyboard defaults to Spanish (`keyboardlayout=sp` under `[dos]` in
+`C:\SYSTEM\PIDOS.CFG`; DOSBox-X uses `sp` for Spanish). Existing configuration
+files retain their saved layout.
 Country and keyboard settings remain separate. For Spanish date/time formatting,
 put `country=34` in the `[config]` section of `C:\SYSTEM\PIDOS.CFG`. This controls
 formatting; `[pidos] timezone` controls the local clock offset and daylight saving.
