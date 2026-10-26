@@ -403,8 +403,12 @@ int main(void)
     /* Set the host process timezone before launching DOSBox and time services.
      * The kernel clock and hardware RTC remain in UTC. */
     pi_dos_timezone(user_config);
-    pi_dos_diagnostics_start(&diagnostics, storage == READ_WRITE);
-    pi_dos_network_start(&network, storage == READ_WRITE && pi_dos_diagnostics_enabled());
+    bool diagnostics_enabled = pi_dos_diagnostics_enabled(user_config);
+    pi_dos_diagnostics_start(&diagnostics, diagnostics_enabled, storage == READ_WRITE);
+    bool capture = diagnostics_enabled && storage == READ_WRITE;
+    pi_dos_network_start(&network, capture);
+    /* Internal handoff of the resolved setting to the emulator's video logger. */
+    setenv("PI_DOS_DIAGNOSTICS", capture ? "1" : "0", 1);
     if (!make_config(storage, user_config) ||
         (user_config && !pi_dos_runtime_config(user_config, "/run/pidos-user.conf"))) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");

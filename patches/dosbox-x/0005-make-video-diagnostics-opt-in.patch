@@ -1,7 +1,8 @@
 Pi-DOS: Make CRT video diagnostics an opt-in startup setting.
 
-[sdl] videodiagnostics=false skips mode tracing and presentation queries.
-Enabling it selects VIDEO.LOG when no explicit general logfile is configured.
+PID 1 passes the resolved PIDOS.CFG diagnostics setting to the emulator.
+Disabled capture skips mode tracing and presentation queries. Enabled capture
+selects VIDEO.LOG when no explicit general logfile is configured.
 The mode selection correction remains active independently of diagnostics.
 
 --- a/src/gui/sdlmain.cpp
@@ -63,29 +64,17 @@ The mode selection correction remains active independently of diagnostics.
          } else {
              SDL_GetWindowDisplayMode(sdl.window, &displayMode);
              displayMode.w = width;
-@@ -3822,6 +3825,9 @@
+@@ -3822,6 +3825,10 @@
  
      Section_prop * section=static_cast<Section_prop *>(control->GetSection("sdl"));
      assert(section != NULL);
 +#if defined(C_SDL2)
-+    pi_dos_video_diagnostics = section->Get_bool("videodiagnostics") && !control->opt_nolog;
++    const char *diagnostics = getenv("PI_DOS_DIAGNOSTICS");
++    pi_dos_video_diagnostics = diagnostics && !strcmp(diagnostics, "1") && !control->opt_nolog;
 +#endif
  
      maximize = section->Get_bool("maximize");
  
-@@ -6938,6 +6944,12 @@
-     Pstring = sdl_sec->Add_string("videodriver",Property::Changeable::OnlyAtStart, "");
-     Pstring->Set_help("Forces a video driver (e.g. windib/windows, directx, x11, fbcon, dummy, etc) for the SDL library to use.");
-     Pstring->SetBasic(true);
-+#if defined(C_SDL2)
-+    Pbool = sdl_sec->Add_bool("videodiagnostics",Property::Changeable::OnlyAtStart,false);
-+    Pbool->Set_help("Log KMS mode requests and presented sizes for CRT diagnosis. Disabled by default.\n"
-+                   "Uses [log] logfile if specified, otherwise /dosdata/c/SYSTEM/VIDEO.LOG.\n"
-+                   "This startup option requires restarting the emulator.");
-+#endif
- 
-     Pint = sdl_sec->Add_int("transparency", Property::Changeable::WhenIdle, 0);
-     Pint->Set_help("Set the transparency of the DOSBox-X screen (both windowed and full-screen modes, on SDL2 and Windows SDL1 builds).\n"
 --- a/src/debug/debug_gui.cpp
 +++ b/src/debug/debug_gui.cpp
 @@ -916,6 +916,12 @@
@@ -93,9 +82,9 @@ The mode selection correction remains active independently of diagnostics.
  	/* do we write to a logfile, or not? */
  	std::string logfile = sect->Get_string("logfile");
 +#if defined(C_SDL2)
-+    const Section_prop *sdl_section = static_cast<Section_prop *>(control->GetSection("sdl"));
-+    if (logfile.empty() && !control->opt_nolog && sdl_section &&
-+        sdl_section->Get_bool("videodiagnostics"))
++    const char *diagnostics = getenv("PI_DOS_DIAGNOSTICS");
++    if (logfile.empty() && !control->opt_nolog && diagnostics &&
++        !strcmp(diagnostics, "1"))
 +        logfile = "/dosdata/c/SYSTEM/VIDEO.LOG";
 +#endif
  	if (logfile.size()) {

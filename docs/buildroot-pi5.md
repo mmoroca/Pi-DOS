@@ -182,20 +182,20 @@ make -C output/buildroot-arm64 pi-dos-init-rebuild
 make image
 ```
 
-Video diagnostics are disabled by default with `videodiagnostics=false` in
-the `[sdl]` section of `configs/pi-dos.conf`. To enable them, set:
+File diagnostics are disabled by default. To enable video, boot, runtime and
+network logs together, edit `C:\SYSTEM\PIDOS.CFG` from DOS (`EDIT`) and set:
 
 ```ini
-[sdl]
-videodiagnostics=true
+[pidos]
+diagnostics=true
 ```
 
-This is a startup setting. Rebuild `Image` after changing the embedded
-configuration and restart the emulator. With diagnostics enabled, the log is
+Reboot to apply. No BOOT partition edit or rebuild is needed to change this
+setting on an image with unified diagnostics support. Video mode tracing is
 saved in `C:\SYSTEM\VIDEO.LOG` on writable PI-DOS and replaced at each
 emulator start. An explicit `[log] logfile` setting overrides that path.
-With diagnostics disabled and no explicit logfile, the video log is neither
-created nor updated; verbose mode tracing and presentation queries are skipped.
+Set `diagnostics=false` and reboot to stop capture. Existing logs remain
+untouched; verbose video mode tracing and presentation queries are skipped.
 Mode selection works identically with diagnostics enabled or disabled.
 Look for `Pi-DOS video request`
 and `Pi-DOS video presented`: these include guest raster/refresh, rendered
@@ -262,10 +262,10 @@ DHCP. The native `network-dns` hook writes validated DNS addresses under `/run`;
 no shell or conventional networking init scripts are required. Lease state is
 also kept under `/run`, so the root filesystem can remain read-only.
 The image supplies `/var/run -> /run` for dhcpcd's compiled PID/socket paths.
-With `pi-dos.diagnostics=1` in BOOT's `cmdline.txt` and writable C:, both services
-log to `C:\SYSTEM\NETWORK.LOG`, replaced on each diagnostic boot. It records
-DHCP leases, DNS failures and Chrony's clock corrections. Without the flag (or
-with `pi-dos.diagnostics=0`), no network log is created or modified; services
+With `diagnostics=true` under `[pidos]` in `C:\SYSTEM\PIDOS.CFG` and writable C:,
+both services log to `C:\SYSTEM\NETWORK.LOG`, replaced on each diagnostic boot. It records
+DHCP leases, DNS failures and Chrony's clock corrections. With the setting absent
+or `diagnostics=false`, no network log is created or modified; services
 continue running and send output to serial. Read the log before rebooting if
 network time does not update.
 
@@ -728,17 +728,20 @@ JOBS=4 make image-diagnostic
 The result is
 `output/buildroot-arm64/images/pi-dos-arm64-diagnostic-sdcard.img`.
 It reuses the ARM64 build cache and preserves the existing normal SD image.
-Its BOOT command line enables `pi-dos.diagnostics=1`, a 1 MiB kernel log buffer,
-and verbose console messages. The ordinary image leaves file logging disabled.
+Its `C:\SYSTEM\PIDOS.CFG` sets `[pidos] diagnostics=true`. Its BOOT command
+line requests a 1 MiB kernel log buffer and verbose console messages. The
+ordinary image defaults to `diagnostics=false`; both variants use the same
+configuration setting for all four logs.
 
-After writable C: is mounted, PID 1 creates these files, replacing the previous
-diagnostic boot's logs:
+After writable C: is mounted, PID 1 and the emulator create these files,
+replacing the previous diagnostic boot's logs:
 
 | DOS path | Contents |
 | --- | --- |
 | `C:\SYSTEM\BOOT.LOG` | Kernel-ring backlog and subsequent records, input-device names/capabilities, selected SDL/audio environment and evdev handles opened by the runtime |
 | `C:\SYSTEM\RUNTIME.LOG` | SDL/DOSBox standard output and standard error, including startup failures |
 | `C:\SYSTEM\NETWORK.LOG` | Wired DHCP and Chrony output, including leases, DNS failures and clock corrections |
+| `C:\SYSTEM\VIDEO.LOG` | Video mode requests, available host modes and presented dimensions |
 
 Kernel records retain their priority, sequence and microsecond timestamp prefix.
 Reading `/dev/kmsg` does not clear the kernel ring. Input snapshots are checked
@@ -751,18 +754,22 @@ The host check is `python3 tools/image/test-diagnostics.py`.
 For the Pi 4 keyboard test, boot with the keyboard attached, wait for the DOS
 prompt, then unplug and reconnect it. Wait another 15 seconds. Power down, using
 `POWEROFF` if input works, and open the SD card on your computer. Copy
-`c/SYSTEM/BOOT.LOG`, `c/SYSTEM/RUNTIME.LOG` and `c/SYSTEM/NETWORK.LOG` from its PI-DOS partition before
+`c/SYSTEM/BOOT.LOG`, `c/SYSTEM/RUNTIME.LOG`, `c/SYSTEM/NETWORK.LOG` and
+`c/SYSTEM/VIDEO.LOG` from its PI-DOS partition before
 booting it again. File flushing reduces missing output but does not make FAT32
 safe against interrupted power.
 
-An existing shared ARM64 card can retain its data: after building the diagnostic
-variant, replace BOOT's `Image` with `output/buildroot-arm64/images/Image` and
-BOOT's `cmdline.txt` with `output/buildroot-arm64/images/pi-dos-boot/cmdline.txt`.
-To disable all three logs on an existing card, change `pi-dos.diagnostics=1` to
-`pi-dos.diagnostics=0` in BOOT/cmdline.txt and reboot. Alternatively, restore the
-tracked `br2-external/board/raspberrypi/cmdline.txt`, which explicitly disables
-capture. Keep the updated kernel in place. Existing log files remain available
-but are no longer updated; they can be deleted when no longer needed.
+An existing shared ARM64 card can retain its data: replace BOOT's `Image` with
+the rebuilt `output/buildroot-arm64/images/Image`. Existing `PIDOS.CFG` files
+are preserved, so add `diagnostics=true` under `[pidos]` using DOS's `EDIT`
+command and reboot to enable all four logs. Set `diagnostics=false` and reboot
+to disable them. No BOOT command-line logging flag is used. Existing log files
+remain available but are no longer updated; they can be deleted when no longer
+needed.
+
+When first building this change with an existing Buildroot cache, run
+`make -C output/buildroot-arm64 pi-dos-runtime-dirclean` before `make image`
+or `make image-diagnostic` so the updated emulator patches are applied.
 
 The logger needs a writable C: volume. Missing/read-only storage uses serial
 diagnostics only. Kernel messages retained before mounting C: can be recovered;

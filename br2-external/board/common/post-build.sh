@@ -43,7 +43,9 @@ text = ('# Pi-DOS persistent configuration. Changes take effect after reboot.\n'
         '[pidos]\n'
         '# Local IANA timezone; daylight saving is automatic.\n'
         '# Examples: Europe/Madrid, Atlantic/Canary, America/New_York, Asia/Tokyo.\n'
-        'timezone=Europe/Madrid\n\n'
+        'timezone=Europe/Madrid\n'
+        '# Enable BOOT.LOG, RUNTIME.LOG, NETWORK.LOG and VIDEO.LOG; reboot to apply.\n'
+        'diagnostics=false\n\n'
         + source.read_text())
 destination.write_bytes(text.replace('\n', '\r\n').encode('ascii'))
 PY

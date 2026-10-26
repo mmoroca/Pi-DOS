@@ -6,7 +6,7 @@
     Dosbox mixer controls
     Keyboard lang selection
     country and timezone selection
-    enable/disable logging
+    enable/disable logging/diagnostics
 - [ ] enable midi output
 - [ ] check external usb-floppy and usb-cd drives
 - [ ] first boot should ask for some defaults like time/zone,. country etc

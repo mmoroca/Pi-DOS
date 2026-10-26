@@ -68,7 +68,7 @@ def main():
             'PID 1 does not load the editable DOSBox configuration')
     require(b'/dosdata/c/SYSTEM/DOSBOX.CFG' not in packed_init,
             'PID 1 still supports the obsolete DOSBOX.CFG path')
-    for value in (b'pi-dos.diagnostics=1', b'/dev/kmsg',
+    for value in (b'PI_DOS_DIAGNOSTICS', b'/dev/kmsg',
                   b'/dosdata/c/SYSTEM/BOOT.LOG', b'/dosdata/c/SYSTEM/RUNTIME.LOG'):
         require(value in packed_init, 'PID 1 lacks diagnostic file logging support')
     require(b'MOUNT C /dosdata/c -label SYSTEM' in packed_init,
@@ -77,6 +77,8 @@ def main():
             'PID 1 still creates or mounts the obsolete D: data directory')
     require(b'C:\\SYSTEM\\RUNTIME' not in (target / 'pi-dos/pi-dos').read_bytes(),
             'Reverted runtime-launcher patch is still present in the image')
+    require(b'PI_DOS_DIAGNOSTICS' in (target / 'pi-dos/pi-dos').read_bytes(),
+            'Runtime lacks unified video diagnostics; clean and rebuild pi-dos-runtime')
     for name in ('bin/sh', 'bin/busybox', 'sbin/init', 'usr/bin/bash', 'usr/sbin/sshd',
                  'usr/sbin/dropbear', 'sbin/e2fsck', 'sbin/resize2fs'):
         require(name not in names, f'Unexpected general-purpose runtime: {name}')
@@ -215,6 +217,10 @@ def main():
     packed_config = subprocess.check_output([
         str(mcopy), '-i', data_volume, '::c/SYSTEM/PIDOS.CFG', '-'])
     default_config = (target / 'pi-dos/PIDOS.CFG').read_bytes()
+    require(default_config.count(b'diagnostics=false\r\n') == 1,
+            'Missing/ambiguous diagnostics default in PIDOS.CFG')
+    if diagnostic:
+        default_config = default_config.replace(b'diagnostics=false\r\n', b'diagnostics=true\r\n')
     require(packed_config == default_config, 'Editable PIDOS.CFG missing/stale in PI-DOS')
     require(b'[pidos]\r\n' in packed_config and b'timezone=Europe/Madrid\r\n' in packed_config,
             'Missing custom timezone defaults')
@@ -278,8 +284,8 @@ def main():
             str(mcopy), '-i', f'{disk}@@{partitions[0]["start_sector"] * 512}', f'::{name}', '-'])
         expected = (ROOT / 'br2-external/board/raspberrypi' / name).read_bytes()
         if name == 'cmdline.txt' and diagnostic:
-            words = [word for word in expected.decode().split() if not word.startswith(('loglevel=', 'pi-dos.diagnostics='))]
-            words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M', 'pi-dos.diagnostics=1']
+            words = [word for word in expected.decode().split() if not word.startswith('loglevel=')]
+            words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M']
             expected = (' '.join(words) + '\n').encode()
         require(packed == expected,
                 f'BOOT configuration missing/stale: {name}')

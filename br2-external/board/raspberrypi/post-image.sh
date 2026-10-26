@@ -28,8 +28,8 @@ if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
 from pathlib import Path
 import sys
 path = Path(sys.argv[1])
-words = [word for word in path.read_text().split() if not word.startswith(('loglevel=', 'pi-dos.diagnostics='))]
-words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M', 'pi-dos.diagnostics=1']
+words = [word for word in path.read_text().split() if not word.startswith('loglevel=')]
+words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M']
 path.write_text(' '.join(words) + '\n')
 PY
 fi
@@ -41,6 +41,16 @@ install -m 0644 "$board/dos/EDIT.COM" "$data/c/PROGRAMS/TOOLS/EDIT.COM"
 rm -f "$data/c/SYSTEM/EDIT.COM" "$data/c/SYSTEM/DOSBOX.CONF" \
     "$data/c/SYSTEM/DOSBOX.CFG" "$data/c/SYSTEM/TIMEZONE.CFG"
 install -m 0644 "$TARGET_DIR/pi-dos/PIDOS.CFG" "$data/c/SYSTEM/PIDOS.CFG"
+if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
+    python3 - "$data/c/SYSTEM/PIDOS.CFG" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+config = path.read_bytes()
+assert config.count(b'diagnostics=false\r\n') == 1, 'Missing/ambiguous diagnostics default'
+path.write_bytes(config.replace(b'diagnostics=false\r\n', b'diagnostics=true\r\n'))
+PY
+fi
 if [[ ! -e "$data/c/AUTOEXEC.BAT" && ! -L "$data/c/AUTOEXEC.BAT" ]]; then
     install -m 0644 "$TARGET_DIR/pi-dos/AUTOEXEC.BAT" "$data/c/AUTOEXEC.BAT"
 fi
@@ -72,12 +82,18 @@ printf '%s\r\n' \
     'In C:\SYSTEM\PIDOS.CFG, set timezone=Europe/Madrid under [pidos]' \
     '(or another IANA timezone), then reboot. Daylight saving is automatic.' \
     'DOS country/date formatting uses country=34 under [config] in that file.' \
+    '' 'File logging:' \
+    'In C:\SYSTEM\PIDOS.CFG, set diagnostics=true under [pidos] and reboot.' \
+    'BOOT.LOG, RUNTIME.LOG, NETWORK.LOG and VIDEO.LOG are saved in C:\SYSTEM.' \
+    'Set diagnostics=false and reboot to stop capture; existing logs remain.' \
     > "$data/c/README.TXT"
 if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
     printf '%s\r\n' '' 'Diagnostic image:' \
         'SYSTEM\BOOT.LOG captures kernel messages and input-device snapshots.' \
         'SYSTEM\RUNTIME.LOG captures SDL/DOSBox standard output and errors.' \
         'SYSTEM\NETWORK.LOG captures wired DHCP and network time output.' \
+        'SYSTEM\VIDEO.LOG captures video mode selection and presentation details.' \
+        'This image enables diagnostics=true under [pidos] in SYSTEM\PIDOS.CFG.' \
         'Logs are replaced on every diagnostic boot and need writable C:.' \
         'After reconnecting the keyboard, wait 15 seconds before collecting logs.' \
         >> "$data/c/README.TXT"

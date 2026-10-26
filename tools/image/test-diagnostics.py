@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     with tempfile.TemporaryDirectory(prefix='pi-dos-diagnostics.') as temporary:
         work = Path(temporary)
-        cmdline, devices = work / 'cmdline', work / 'devices'
+        config, devices = work / 'PIDOS.CFG', work / 'devices'
         boot, runtime, kernel = work / 'BOOT.LOG', work / 'RUNTIME.LOG', work / 'kmsg'
         directory = work / 'fds/123'
         directory.mkdir(parents=True)
@@ -21,7 +21,6 @@ def main():
         stream = os.open(kernel, os.O_RDWR | os.O_NONBLOCK)
         source = (ROOT / 'src/init/diagnostics.c').read_text()
         replacements = {
-            '/proc/cmdline': str(cmdline),
             '/proc/bus/input/devices': str(devices),
             '/proc/%ld/fd/*': str(work / 'fds/%ld/*'),
             '/dosdata/c/SYSTEM/BOOT.LOG': str(boot),
@@ -38,10 +37,11 @@ def main():
 #include <sys/wait.h>
 int main(int argc, char **argv)
 {
-    assert(argc >= 2);
+    assert(argc >= 3);
     struct pi_dos_diagnostics log;
-    pi_dos_diagnostics_start(&log, atoi(argv[1]) != 0);
-    if (argc > 2) {
+    bool enabled = pi_dos_diagnostics_enabled(argv[2]);
+    pi_dos_diagnostics_start(&log, enabled, atoi(argv[1]) != 0);
+    if (argc > 3) {
         pid_t child = fork();
         assert(child >= 0);
         if (!child) {
@@ -78,10 +78,11 @@ int main(int argc, char **argv)
 ''')
         subprocess.run(['gcc', '-std=c11', '-Wall', '-Wextra', '-Werror',
                         '-I' + str(ROOT / 'src/init'), str(work / 'worker.c'),
+                        str(ROOT / 'src/init/config.c'),
                         '-o', str(work / 'worker')], check=True)
 
         def start(writable=True, redirect=False):
-            args = [str(work / 'worker'), str(int(writable))]
+            args = [str(work / 'worker'), str(int(writable)), str(config)]
             if redirect:
                 args.append('redirect')
             child = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -100,14 +101,19 @@ int main(int argc, char **argv)
             assert output.strip() == 'CLOSED', output
 
         try:
-            for flag in ('', 'pi-dos.diagnostics=0', 'xpi-dos.diagnostics=1',
-                         'pi-dos.diagnostics=1 pi-dos.diagnostics=0'):
-                cmdline.write_text(flag + '\n')
+            for setting in (None, '', '[pidos]\ndiagnostics=false\n',
+                            '[sdl]\ndiagnostics=true\n', '[pidos]\ndiagnostics=invalid\n',
+                            '[pidos]\ndiagnostics=' + 'x' * 100 + '\n',
+                            '[pidos]\ndiagnostics=true\ndiagnostics=false\n'):
+                if setting is None:
+                    config.unlink(missing_ok=True)
+                else:
+                    config.write_text(setting)
                 boot.write_text('keep boot')
                 runtime.write_text('keep runtime')
                 stop(start())
                 assert boot.read_text() == 'keep boot' and runtime.read_text() == 'keep runtime'
-            cmdline.write_text('pi-dos.diagnostics=1\n')
+            config.write_bytes(b'[PiDOS]\r\n diagnostics = TRUE # capture\r\n')
             stop(start(writable=False))
             assert boot.read_text() == 'keep boot' and runtime.read_text() == 'keep runtime'
             boot.unlink()
@@ -133,7 +139,7 @@ int main(int argc, char **argv)
             stop(child)
         finally:
             os.close(stream)
-    print('PASS: opt-in/read-only behavior, backlog/live capture, input snapshots, runtime output, size limit and descriptor cleanup.')
+    print('PASS: PIDOS.CFG opt-in/read-only behavior, backlog/live capture, input snapshots, runtime output, size limit and descriptor cleanup.')
 
 
 if __name__ == '__main__':

@@ -35,8 +35,10 @@ instead of its intermediate VGA dimensions. Exact-size HDMI modes are selected
 at the advertised refresh closest to the guest's rate. This avoids carrying
 the preceding mode's refresh into a game mode. Available modes, requested
 dimensions and the presented surface/renderer/display sizes can be logged for
-CRT diagnosis. The opt-in diagnostics patch adds `[sdl] videodiagnostics=false`
-as the default. Enabling it at startup writes to `C:\SYSTEM\VIDEO.LOG` when
-no explicit `[log] logfile` is specified. With diagnostics off, the verbose
-tracing and presentation queries are skipped. Other SDL video backends retain
-their selection behavior.
+CRT diagnosis. The opt-in diagnostics patch uses the unified `[pidos] diagnostics`
+setting in `C:\SYSTEM\PIDOS.CFG`, disabled by default. PID 1
+passes the resolved setting to the emulator through the internal
+`PI_DOS_DIAGNOSTICS` environment variable. Enabled capture writes to
+`C:\SYSTEM\VIDEO.LOG` when no explicit `[log] logfile` is specified. With
+diagnostics off, the verbose tracing and presentation queries are skipped.
+Other SDL video backends retain their selection behavior.

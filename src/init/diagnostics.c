@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 /* Original project code; license selection remains pending. */
 #include "diagnostics.h"
+#include "config.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -8,28 +9,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #define BOOT_LOG "/dosdata/c/SYSTEM/BOOT.LOG"
 #define RUNTIME_LOG "/dosdata/c/SYSTEM/RUNTIME.LOG"
 #define BOOT_LOG_LIMIT (4 * 1024 * 1024)
 
-bool pi_dos_diagnostics_enabled(void)
+bool pi_dos_diagnostics_enabled(const char *config)
 {
-    char buffer[4096];
-    FILE *input = fopen("/proc/cmdline", "r");
-    if (!input) return false;
-    bool valid = fgets(buffer, sizeof(buffer), input) != NULL;
-    fclose(input);
-    if (!valid) return false;
-    bool result = false;
-    char *save = NULL;
-    for (char *word = strtok_r(buffer, " \t\r\n", &save); word;
-         word = strtok_r(NULL, " \t\r\n", &save)) {
-        if (!strcmp(word, "pi-dos.diagnostics=1")) result = true;
-        if (!strcmp(word, "pi-dos.diagnostics=0")) result = false;
-    }
-    return result;
+    char value[16];
+    return pi_dos_config_value(config, "pidos", "diagnostics", value, sizeof(value)) &&
+           !strcasecmp(value, "true");
 }
 
 static void append(struct pi_dos_diagnostics *log, const char *data, size_t length)
@@ -145,10 +136,10 @@ static void snapshot(struct pi_dos_diagnostics *log, pid_t runtime, time_t now)
     free(text);
 }
 
-void pi_dos_diagnostics_start(struct pi_dos_diagnostics *log, bool writable)
+void pi_dos_diagnostics_start(struct pi_dos_diagnostics *log, bool enabled, bool writable)
 {
     *log = (struct pi_dos_diagnostics){.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
-    if (!pi_dos_diagnostics_enabled()) return;
+    if (!enabled) return;
     if (!writable) {
         dprintf(2, "Pi-DOS: diagnostics require writable C:; using serial output only\n");
         return;

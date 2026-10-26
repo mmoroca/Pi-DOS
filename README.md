@@ -32,10 +32,11 @@ JOBS=4 make image
 ```
 
 For troubleshooting without a serial adapter, run `JOBS=4 make image-diagnostic`.
-The separate `pi-dos-arm64-diagnostic-sdcard.img` saves kernel/input diagnostics
-to `C:\SYSTEM\BOOT.LOG` and SDL/DOSBox output to `C:\SYSTEM\RUNTIME.LOG`.
-Normal builds explicitly disable both logs with `pi-dos.diagnostics=0`.
-Both logs are replaced on each diagnostic boot. See the
+The separate `pi-dos-arm64-diagnostic-sdcard.img` enables all four logs in
+`C:\SYSTEM`: `BOOT.LOG`, `RUNTIME.LOG`, `NETWORK.LOG` and `VIDEO.LOG`.
+On either image, edit `C:\SYSTEM\PIDOS.CFG` from DOS and set `diagnostics=true`
+or `diagnostics=false` under `[pidos]`, then reboot. Normal images default to
+`false`. Logs are replaced on each enabled boot. See the
 [diagnostic procedure](docs/buildroot-pi5.md#diagnostic-image-with-logs-on-c).
 
 The initial 769 MiB development image is
