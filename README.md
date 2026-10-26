@@ -69,7 +69,9 @@ C: uses the data partition's available space; D: is left available for CD-ROM
 images. The image contains only the `c` data folder.
 The image includes a personalized editor at `C:\PROGRAMS\TOOLS\EDIT.COM`; this
 writable copy takes priority over the bundled editor and retains saved preferences.
-Edit `C:\SYSTEM\DOSBOX.CFG` and reboot to change emulator settings persistently.
+Edit `C:\SYSTEM\PIDOS.CFG` and reboot to change emulator settings persistently.
+The same file accepts `[pidos]` options, including `timezone=Europe/Madrid` for
+local time with automatic daylight saving.
 Edit `C:\AUTOEXEC.BAT` to customize environment variables, PATH or programs run
 after standard startup. A minimal template is created only when missing;
 existing files are preserved. `C:\README.TXT` explains both configuration files.

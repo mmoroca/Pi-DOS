@@ -24,11 +24,15 @@
 #include "storage.h"
 #include "startup.h"
 #include "diagnostics.h"
+#include "network.h"
+#include "timezone.h"
+#include "config.h"
 
 enum storage { NO_STORAGE, READ_ONLY, READ_WRITE };
 static struct pi_dos_diagnostics diagnostics = {.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
+static struct pi_dos_network network = {.dhcp = -1, .clock = -1};
 
-#define USER_CONFIG_PATH "/dosdata/c/SYSTEM/DOSBOX.CFG"
+#define USER_CONFIG_PATH "/dosdata/c/SYSTEM/PIDOS.CFG"
 
 static int open_device_events(void)
 {
@@ -231,9 +235,10 @@ static void seed_user_file(enum storage storage, const char *source, const char 
 
 static const char *user_config_path(enum storage storage)
 {
+    if (storage == NO_STORAGE) return NULL;
     struct stat status;
-    if (storage != NO_STORAGE && !stat(USER_CONFIG_PATH, &status) &&
-        S_ISREG(status.st_mode) && !access(USER_CONFIG_PATH, R_OK)) return USER_CONFIG_PATH;
+    if (!stat(USER_CONFIG_PATH, &status) && S_ISREG(status.st_mode) &&
+        !access(USER_CONFIG_PATH, R_OK)) return USER_CONFIG_PATH;
     return NULL;
 }
 
@@ -344,6 +349,7 @@ static void select_video(void)
 static void finish(enum storage storage, bool restart)
 {
     dprintf(2, "Pi-DOS: synchronizing storage before %s\n", restart ? "reboot" : "poweroff");
+    pi_dos_network_stop(&network);
     pi_dos_diagnostics_stop(&diagnostics);
     sync();
     if (storage != NO_STORAGE && umount("/dosdata")) {
@@ -391,11 +397,16 @@ int main(void)
     }
     enum storage storage = mount_data();
     prepare_dos_folders(storage);
-    seed_user_file(storage, "/pi-dos/DOSBOX.CFG", USER_CONFIG_PATH);
+    seed_user_file(storage, "/pi-dos/PIDOS.CFG", USER_CONFIG_PATH);
     seed_user_file(storage, "/pi-dos/AUTOEXEC.BAT", "/dosdata/c/AUTOEXEC.BAT");
-    pi_dos_diagnostics_start(&diagnostics, storage == READ_WRITE);
     const char *user_config = user_config_path(storage);
-    if (!make_config(storage, user_config)) {
+    /* Set the host process timezone before launching DOSBox and time services.
+     * The kernel clock and hardware RTC remain in UTC. */
+    pi_dos_timezone(user_config);
+    pi_dos_diagnostics_start(&diagnostics, storage == READ_WRITE);
+    pi_dos_network_start(&network, storage == READ_WRITE && pi_dos_diagnostics_enabled());
+    if (!make_config(storage, user_config) ||
+        (user_config && !pi_dos_runtime_config(user_config, "/run/pidos-user.conf"))) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");
         for (;;) pause();
     }
@@ -437,7 +448,7 @@ int main(void)
          * and its [autoexec] commands follow the generated system startup. */
         if (user_config) {
             arguments[argc++] = "-conf";
-            arguments[argc++] = (char *)user_config;
+            arguments[argc++] = "/run/pidos-user.conf";
         }
         arguments[argc++] = "-fastlaunch";
         arguments[argc++] = "-nomenu";
@@ -451,11 +462,12 @@ int main(void)
         for (;;) pause();
     }
     bool requested = false, restart = false;
-    time_t deadline = 0;
+    struct timespec deadline = {0};
     for (;;) {
         int status;
         pid_t child;
         while ((child = waitpid(-1, &status, WNOHANG)) > 0) {
+            pi_dos_network_reaped(&network, child, status);
             if (child != runtime) continue;
             if (!requested && (!WIFEXITED(status) || WEXITSTATUS(status) != 0)) {
                 dprintf(2, "Pi-DOS: runtime failed (wait status %d); keeping serial diagnostics available\n", status);
@@ -480,13 +492,18 @@ int main(void)
                 if (runtime < 0) finish(storage, restart);
                 if (!requested) {
                     requested = true;
-                    deadline = time(NULL) + 10;
+                    clock_gettime(CLOCK_MONOTONIC, &deadline);
+                    deadline.tv_sec += 10;
                     kill(runtime, SIGTERM);
                 }
             }
         }
         if (items[1].revents & POLLIN) forward_device_events(device_events);
         pi_dos_diagnostics_poll(&diagnostics, runtime);
-        if (requested && time(NULL) >= deadline) kill(runtime, SIGKILL);
+        struct timespec now;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        if (requested && (now.tv_sec > deadline.tv_sec ||
+            (now.tv_sec == deadline.tv_sec && now.tv_nsec >= deadline.tv_nsec)))
+            kill(runtime, SIGKILL);
     }
 }

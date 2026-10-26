@@ -38,8 +38,9 @@ printf '@ECHO OFF\r\nEXIT\r\n' > "$data/c/SYSTEM/POWEROFF.BAT"
 # Keep the personalized editor writable: PEDIT saves settings in its executable.
 install -m 0644 "$board/dos/EDIT.COM" "$data/c/PROGRAMS/TOOLS/EDIT.COM"
 # Remove the old generated copy from an incremental image staging tree only.
-rm -f "$data/c/SYSTEM/EDIT.COM" "$data/c/SYSTEM/DOSBOX.CONF"
-install -m 0644 "$TARGET_DIR/pi-dos/DOSBOX.CFG" "$data/c/SYSTEM/DOSBOX.CFG"
+rm -f "$data/c/SYSTEM/EDIT.COM" "$data/c/SYSTEM/DOSBOX.CONF" \
+    "$data/c/SYSTEM/DOSBOX.CFG" "$data/c/SYSTEM/TIMEZONE.CFG"
+install -m 0644 "$TARGET_DIR/pi-dos/PIDOS.CFG" "$data/c/SYSTEM/PIDOS.CFG"
 if [[ ! -e "$data/c/AUTOEXEC.BAT" && ! -L "$data/c/AUTOEXEC.BAT" ]]; then
     install -m 0644 "$TARGET_DIR/pi-dos/AUTOEXEC.BAT" "$data/c/AUTOEXEC.BAT"
 fi
@@ -65,13 +66,18 @@ printf '%s\r\n' \
     'a minimal template is created only when the file is missing.' \
     'PATH, TEMP, TMP and BLASTER defaults need no entries in this file.' \
     '' 'Emulated hardware settings:' \
-    'Edit C:\SYSTEM\DOSBOX.CFG and reboot to change emulator settings,' \
+    'Edit C:\SYSTEM\PIDOS.CFG and reboot to change emulator settings,' \
     'including Sound Blaster hardware. SET BLASTER alone does not change it.' \
+    '' 'Local timezone:' \
+    'In C:\SYSTEM\PIDOS.CFG, set timezone=Europe/Madrid under [pidos]' \
+    '(or another IANA timezone), then reboot. Daylight saving is automatic.' \
+    'DOS country/date formatting uses country=34 under [config] in that file.' \
     > "$data/c/README.TXT"
 if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
     printf '%s\r\n' '' 'Diagnostic image:' \
         'SYSTEM\BOOT.LOG captures kernel messages and input-device snapshots.' \
         'SYSTEM\RUNTIME.LOG captures SDL/DOSBox standard output and errors.' \
+        'SYSTEM\NETWORK.LOG captures wired DHCP and network time output.' \
         'Logs are replaced on every diagnostic boot and need writable C:.' \
         'After reconnecting the keyboard, wait 15 seconds before collecting logs.' \
         >> "$data/c/README.TXT"

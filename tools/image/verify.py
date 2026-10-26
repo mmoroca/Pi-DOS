@@ -40,8 +40,10 @@ def main():
     with (images / 'rootfs.cpio').open('rb') as stream:
         names = subprocess.check_output(['cpio', '-it', '--quiet'], stdin=stream, text=True).splitlines()
     names = {name.removeprefix('./') for name in names}
-    for name in ('init', 'pi-dos/pi-dos', 'pi-dos/pi-dos.conf', 'pi-dos/DOSBOX.CFG',
+    for name in ('init', 'pi-dos/pi-dos', 'pi-dos/pi-dos.conf', 'pi-dos/PIDOS.CFG',
                  'pi-dos/AUTOEXEC.BAT',
+                 'pi-dos/network-dns', 'sbin/dhcpcd', 'usr/sbin/chronyd',
+                 'etc/dhcpcd.conf', 'etc/chrony.conf', 'etc/resolv.conf', 'var/run',
                  'pi-dos/drivez/BIN/ARJ.EXE', 'dev/console',
                  'sbin/fsck.fat', 'lib/firmware/edid/dac-crt.bin'):
         require(name in names, f'Missing initramfs file: {name}')
@@ -62,8 +64,10 @@ def main():
     require(('SET PATH=' + default_path).encode() in packed_init, 'Default DOS PATH is incomplete')
     require(b'SET TEMP=C:\\TEMP\nSET TMP=C:\\TEMP\n' in packed_init,
             'PID 1 lacks the default DOS temporary directory')
-    require(b'/dosdata/c/SYSTEM/DOSBOX.CFG' in packed_init,
+    require(b'/dosdata/c/SYSTEM/PIDOS.CFG' in packed_init,
             'PID 1 does not load the editable DOSBox configuration')
+    require(b'/dosdata/c/SYSTEM/DOSBOX.CFG' not in packed_init,
+            'PID 1 still supports the obsolete DOSBOX.CFG path')
     for value in (b'pi-dos.diagnostics=1', b'/dev/kmsg',
                   b'/dosdata/c/SYSTEM/BOOT.LOG', b'/dosdata/c/SYSTEM/RUNTIME.LOG'):
         require(value in packed_init, 'PID 1 lacks diagnostic file logging support')
@@ -115,10 +119,27 @@ def main():
                     'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS', 'PRINTK',
                     'USB_HID', 'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
                     'MMC_BCM2835_MMC', 'MMC_SDHCI_IPROC', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
-                    'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC'):
+                    'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC',
+                    'INET', 'PACKET', 'NETDEVICES', 'BCMGENET', 'MACB',
+                    'USB_LAN78XX', 'USB_NET_SMSC95XX', 'RTC_HCTOSYS', 'RTC_DRV_RPI'):
         require(f'CONFIG_{setting}=y\n' in kernel, f'Required kernel option not built in: {setting}')
-    for setting in ('INET', 'IPV6', 'MODULES', 'MEDIA_SUPPORT', 'STAGING', 'BTRFS_FS', 'BCACHEFS_FS'):
+    for setting in ('IPV6', 'WLAN', 'WIRELESS', 'BT', 'MODULES', 'MEDIA_SUPPORT', 'STAGING', 'BTRFS_FS', 'BCACHEFS_FS'):
         require(f'CONFIG_{setting}=y\n' not in kernel, f'Unexpected kernel option: {setting}')
+    for name, source in (('etc/dhcpcd.conf', 'configs/dhcpcd.conf'),
+                         ('etc/chrony.conf', 'configs/chrony.conf')):
+        require((target / name).read_bytes() == (ROOT / source).read_bytes(),
+                f'Stale network configuration: {name}')
+    require((target / 'etc/resolv.conf').is_symlink()
+            and (target / 'etc/resolv.conf').readlink() == Path('/run/resolv.conf'),
+            'DHCP DNS must use writable /run state')
+    require((target / 'var/run').is_symlink()
+            and (target / 'var/run').readlink() == Path('/run'),
+            'dhcpcd requires /var/run -> /run for its PID file and control sockets')
+    require('synchronize time=true\n' in (target / 'pi-dos/pi-dos.conf').read_text(),
+            'DOSBox host clock synchronization is disabled')
+    for zone in ('Etc/UTC', 'Europe/Madrid', 'Atlantic/Canary', 'America/New_York', 'Asia/Tokyo'):
+        require((target / 'usr/share/zoneinfo' / zone).read_bytes().startswith(b'TZif'),
+                f'Missing timezone data: {zone}')
     config = next((OUT / 'build').glob('pi-dos-runtime-*/config.h')).read_text()
     for setting in ('C_SDL2', 'C_DYNREC'):
         require(f'#define {setting} 1' in config, f'Runtime missing {setting}')
@@ -188,12 +209,19 @@ def main():
         str(mdir), '-b', '-i', data_volume, '::c/SYSTEM/*'], text=True).upper().splitlines()
     require(not any(name.rstrip('/').endswith('/EDIT.COM') for name in system_files),
             'Obsolete C:/SYSTEM/EDIT.COM would duplicate the tools copy')
+    for obsolete in ('DOSBOX.CFG', 'TIMEZONE.CFG'):
+        require(not any(name.rstrip('/').endswith('/' + obsolete) for name in system_files),
+                f'Obsolete C:/SYSTEM/{obsolete} would duplicate PIDOS.CFG')
     packed_config = subprocess.check_output([
-        str(mcopy), '-i', data_volume, '::c/SYSTEM/DOSBOX.CFG', '-'])
-    default_config = (target / 'pi-dos/DOSBOX.CFG').read_bytes()
-    require(packed_config == default_config, 'Editable DOSBOX.CFG missing/stale in PI-DOS')
+        str(mcopy), '-i', data_volume, '::c/SYSTEM/PIDOS.CFG', '-'])
+    default_config = (target / 'pi-dos/PIDOS.CFG').read_bytes()
+    require(packed_config == default_config, 'Editable PIDOS.CFG missing/stale in PI-DOS')
+    require(b'[pidos]\r\n' in packed_config and b'timezone=Europe/Madrid\r\n' in packed_config,
+            'Missing custom timezone defaults')
+    require(b'[config]\r\n' in packed_config and b'country=34\r\n' in packed_config,
+            'Missing default Spanish country setting')
     require(b'lfn=true\r\n' in packed_config and
-            b'\n' not in packed_config.replace(b'\r\n', b''), 'Invalid DOSBOX.CFG defaults/line endings')
+            b'\n' not in packed_config.replace(b'\r\n', b''), 'Invalid PIDOS.CFG defaults/line endings')
     autoexec = (ROOT / 'br2-external/board/raspberrypi/dos/AUTOEXEC.BAT').read_text().replace('\n', '\r\n').encode('ascii')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_autoexec = subprocess.check_output([
@@ -280,7 +308,7 @@ def main():
                 'storage_source_sha256': digest(ROOT / 'src/init/storage.c'),
                 'editor_sha256': digest(editor),
                 'arj_sha256': digest(arj),
-                'user_config_default_sha256': digest(target / 'pi-dos/DOSBOX.CFG'),
+                'user_config_default_sha256': digest(target / 'pi-dos/PIDOS.CFG'),
                 'doszip_sha256': {p.name: digest(p) for p in sorted(doszip.iterdir())},
                 'crt_edid_sha256': digest(ROOT / 'dac-crt.bin'),
                 'patch_sha256': {str(p.relative_to(ROOT)): digest(p)

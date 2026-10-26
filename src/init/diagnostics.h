@@ -15,6 +15,7 @@ struct pi_dos_diagnostics {
     bool have_snapshot, dirty;
 };
 
+bool pi_dos_diagnostics_enabled(void);
 void pi_dos_diagnostics_start(struct pi_dos_diagnostics *log, bool writable);
 void pi_dos_diagnostics_poll(struct pi_dos_diagnostics *log, pid_t runtime);
 void pi_dos_diagnostics_redirect(const struct pi_dos_diagnostics *log);

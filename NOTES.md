@@ -1,7 +1,15 @@
 - [ ] defrag fails on both c and d with "Divide error"
 - [ ] command to display available video modes
-- [ ] dos utility to select hdmi, jack or external dac audio output. Also enable the dosbox mixer controls.
+- [ ] dos utility to select
+    hdmi, jack or external dac audio output
+    Soundblaster (and others) env configuration
+    Dosbox mixer controls
+    Keyboard lang selection
+    country and timezone selection
+    enable/disable logging
 - [ ] enable midi output
+- [ ] check external usb-floppy and usb-cd drives
+- [ ] first boot should ask for some defaults like time/zone,. country etc
 
 ---------------------------------------------
 
@@ -19,11 +27,11 @@
 - [v] Standard folder structure for the DOS file system
 - [v] DOS file managers (DosZip Commander)
 - [v] DOS text editors
-- [ ] DOS programming tools (BASIC, Pascal, C, Assembly)
+- [x] DOS programming tools (BASIC, Pascal, C, Assembly)
 - [v] DOS keyboard shortcuts
-- [ ] DOS error messages and exit codes
-- [ ] International keyboard layouts and code pages
-- [ ] DOS date and time management
+- [~] DOS error messages and exit codes
+- [v] International keyboard layouts and code pages
+- [v] DOS date and time management
 - [v] Configurable DOS version reporting
 
 ### CPU and Memory

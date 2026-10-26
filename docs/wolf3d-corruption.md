@@ -13,7 +13,7 @@ the normal interpreter and ARM64 dynrec.
 | Pi-DOS executable | AArch64 ELF, `C_TARGETCPU=ARMV8LE`, `C_DYNREC=1`, `C_FPU=1`, `C_FPU_X86` disabled |
 | Compiler | Buildroot/Bootlin GCC 14.3.0, `-O2`, strict aliasing enabled |
 | Production SDL | Native SDL2 2.32.10, KMS/DRM; no SDL3 |
-| Image default CPU core | `dynamic_rec`; persistent `C:\SYSTEM\DOSBOX.CFG` can override it |
+| Image default CPU core | `dynamic_rec`; persistent `C:\SYSTEM\PIDOS.CFG` can override it |
 | Working reference | Installed amd64 Snap, DOSBox-X 2026.08.31, SDL2 |
 | Game | `WOLF3D.EXE`, 98,402 bytes, LZEXE 0.91 compressed, `.WL6` data |
 | EXE SHA-256 | `0514e93d1c330b5acadd2865da84da1ad937056c5c8daef34a63726deb8e2a09` |

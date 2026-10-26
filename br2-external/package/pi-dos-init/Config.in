@@ -8,5 +8,8 @@ config BR2_PACKAGE_PI_DOS_INIT
 	select BR2_PACKAGE_PARTED
 	select BR2_PACKAGE_DOSFSTOOLS
 	select BR2_PACKAGE_DOSFSTOOLS_FSCK_FAT
+	select BR2_PACKAGE_DHCPCD
+	select BR2_PACKAGE_CHRONY
+	select BR2_TARGET_TZ_INFO
 	help
 	  Root PID 1 supervisor for the Pi-DOS appliance.

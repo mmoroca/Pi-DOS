@@ -15,8 +15,9 @@ historical filename. The earlier Pi 5-only build directory is not reused.
 The firmware chooses the board DTB; `config.txt` uses documented model filters
 to select its KMS overlay. Pi 3A+ shares the Pi 3B+ firmware DTB selection;
 500+ shares the Pi 500 family. Compute Modules require suitable carrier hardware
-and SD/eMMC provisioning; Zero 2 W needs a USB host adapter for input. Networking,
-DSI and composite display support are outside this HDMI/USB appliance profile.
+and SD/eMMC provisioning; Zero 2 W needs a USB host adapter for input. Wired
+Ethernet provides DHCP and network time. Wi-Fi, DSI and composite display support
+are outside this HDMI/USB appliance profile.
 Pi 1, original Zero/Zero W and Pi 2B rev 1.1 cannot run this AArch64 image.
 
 This is the intended board coverage, not a record of successful boots on every
@@ -217,7 +218,8 @@ revision `21b410140c47ffab5668399f6f143c7d7b935c8b`, using the `bcm2711` baselin
 plus 4 KiB pages and the Pi-DOS fragment. The release suffix is `-pi-dos-arm64`;
 static validation checks `CONFIG_ARM64_4K_PAGES=y` directly.
 Display, storage, USB, input and sound drivers are built in,
-with no module loader. The IP stacks, network interfaces, Wi-Fi, Bluetooth and
+with no module loader. IPv4 and the GENET, MACB, LAN78xx and SMSC95xx Ethernet
+drivers are built in for wired DHCP and network time. IPv6, Wi-Fi, Bluetooth and
 KVM are disabled. Camera/TV, staging drivers, IIO and unrelated general-purpose
 filesystems are also excluded, since the distribution defconfig's optional
 modules otherwise become built-ins when module support is disabled.
@@ -251,6 +253,41 @@ uses this overlay to adapt the base DTB for D0 silicon; providing the separate
 packages both forms and verifies all four DTB/overlay files by reading them
 back from the generated SD image. The user confirmed that adding the overlay
 gets the test Pi to the Pi-DOS prompt.
+
+### Wired networking and time
+
+PID 1 starts `dhcpcd` and Chrony in the background on every boot. Wired `eth*`
+and `en*` interfaces obtain an IPv4 address, default route and DNS servers through
+DHCP. The native `network-dns` hook writes validated DNS addresses under `/run`;
+no shell or conventional networking init scripts are required. Lease state is
+also kept under `/run`, so the root filesystem can remain read-only.
+The image supplies `/var/run -> /run` for dhcpcd's compiled PID/socket paths.
+With `pi-dos.diagnostics=1` in BOOT's `cmdline.txt` and writable C:, both services
+log to `C:\SYSTEM\NETWORK.LOG`, replaced on each diagnostic boot. It records
+DHCP leases, DNS failures and Chrony's clock corrections. Without the flag (or
+with `pi-dos.diagnostics=0`), no network log is created or modified; services
+continue running and send output to serial. Read the log before rebooting if
+network time does not update.
+
+Chrony uses `pool.ntp.org` to correct the Linux clock and continues retrying if
+the cable or Internet connection is initially unavailable. Initial large clock
+errors may be stepped during the first three clock updates. Its `rtcsync`
+setting also permits Linux to update an available RTC after synchronization.
+Chrony serves no NTP or monitoring UDP port. Both daemons stop during shutdown.
+The DOS prompt does not wait for DHCP or NTP: the displayed time can therefore
+be wrong briefly after boot until synchronization succeeds. Offline boot still
+uses the kernel's RTC restoration when a working RTC is available.
+
+The default `[dosbox] synchronize time=true` makes DOSBox-X follow the Linux
+clock, including corrections received after the DOS prompt appears. Existing
+`C:\SYSTEM\PIDOS.CFG` files are preserved; if one explicitly sets this option
+to `false`, change it to `true` and reboot. Manually changing the DOS date/time
+can suspend automatic synchronization in DOSBox-X; `DATE /S` re-enables it.
+
+Network time supplies UTC. Users select their local timezone using
+the `[pidos]` section of `C:\SYSTEM\PIDOS.CFG`, described below; NTP does not select it automatically.
+DHCP/NTP operation still requires validation on the physical Pi
+with a wired connection and Internet access (DNS and outbound UDP 123).
 
 ## PID 1, storage and DOS startup
 
@@ -289,10 +326,13 @@ On an existing writable installation, startup moves `C:\SYSTEM\EDIT.COM` to
 If the destination already exists, both files are kept and PATH selects the
 copy in TOOLS. Read-only boots leave existing files in place.
 
-### Editable DOSBox configuration
+### Editable Pi-DOS configuration
 
-`C:\SYSTEM\DOSBOX.CFG` is a persistent, editable DOSBox-X configuration file.
-Edit it with `EDIT C:\SYSTEM\DOSBOX.CFG`, then reboot to apply changes. It is
+`C:\SYSTEM\PIDOS.CFG` is the single persistent configuration file for Pi-DOS
+and DOSBox-X. Pi-DOS-specific options use `[pidos]`; all other sections retain
+their DOSBox-X meanings. The supervisor reads the custom options and passes
+the remaining sections to DOSBox-X.
+Edit it with `EDIT C:\SYSTEM\PIDOS.CFG`, then reboot to apply changes. It is
 loaded after the packaged defaults, before emulated hardware is initialized.
 For example, change `irq=7` to `irq=5` under `[sblaster]` to select IRQ 5. The
 startup table reflects effective settings, including partial override files.
@@ -303,14 +343,46 @@ files, including empty ones, are preserved across BOOT updates. Without usable
 persistent storage, the packaged defaults are used. Removing or renaming a bad
 configuration from the SD card restores the defaults on the next writable boot.
 
-`DOSBOX.CFG` uses a DOS-compatible 8.3 filename so older editors save the same
-file that startup loads. `DOSBOX.CONF` and `DOSBOX.CON` are not loaded or migrated.
+`PIDOS.CFG` uses a DOS-compatible 8.3 filename so older editors save the same
+file that startup loads. Startup reads only `PIDOS.CFG`; older configuration
+filenames are ignored. A missing file is created from the defaults on writable
+boots. Existing `PIDOS.CFG` files are preserved.
 
 Long filename support remains enabled for applications that support it.
 The default DOS compatibility version stays unchanged.
 The original Z: files, folders and runtime commands remain available. No C:\CONFIG.SYS parser,
 managed runtime-launcher directory or PIBOOT.BAT is added. An optional `[autoexec]`
-section in DOSBOX.CFG appends commands after system setup and `C:\AUTOEXEC.BAT`.
+section in PIDOS.CFG appends commands after system setup and `C:\AUTOEXEC.BAT`.
+
+### User-selectable timezone
+
+Edit `C:\SYSTEM\PIDOS.CFG` with `EDIT` and set an IANA timezone in the custom
+section, then run `REBOOT`:
+
+```ini
+[pidos]
+timezone=Europe/Madrid
+```
+
+The template uses DOS line endings and includes examples for other regions.
+Section and option names are case-insensitive; `#` and `;` start comments.
+The image includes
+the worldwide timezone database, including daylight saving rules. Changes to
+this file require no image rebuild. Zone rules can be updated through a future
+image update when governments change them.
+
+Examples: mainland Spain uses `Europe/Madrid`, the Canary Islands use
+`Atlantic/Canary`, and Japan uses `Asia/Tokyo`. Fresh configurations default to
+`Europe/Madrid` and DOS country `34` (Spain).
+Missing, empty or invalid settings fall back to `Etc/UTC` without stopping boot.
+Existing files are preserved, including during BOOT updates; writable startup
+creates the template only when it is missing. Settings can also be read from
+a read-only C: volume. The supervisor passes the selected timezone to DOSBox
+and the network services, while the Linux clock and hardware RTC stay in UTC.
+
+Country and keyboard settings remain separate. For Spanish date/time formatting,
+put `country=34` in the `[config]` section of `C:\SYSTEM\PIDOS.CFG`. This controls
+formatting; `[pidos] timezone` controls the local clock offset and daylight saving.
 
 ### User startup commands
 
@@ -323,7 +395,7 @@ create it. The template uses DOS CRLF line endings.
 Edit it with `EDIT C:\AUTOEXEC.BAT` to set environment variables, extend PATH or
 start programs automatically on the next boot. Pi-DOS calls it after its standard
 startup setup. The template leaves PATH, TEMP, TMP and BLASTER defaults in place.
-Emulated hardware settings belong in `C:\SYSTEM\DOSBOX.CFG`; changing
+Emulated hardware settings belong in `C:\SYSTEM\PIDOS.CFG`; changing
 `SET BLASTER` alone does not reconfigure the emulated Sound Blaster. The generated
 `C:\README.TXT` explains these roles.
 
@@ -666,6 +738,7 @@ diagnostic boot's logs:
 | --- | --- |
 | `C:\SYSTEM\BOOT.LOG` | Kernel-ring backlog and subsequent records, input-device names/capabilities, selected SDL/audio environment and evdev handles opened by the runtime |
 | `C:\SYSTEM\RUNTIME.LOG` | SDL/DOSBox standard output and standard error, including startup failures |
+| `C:\SYSTEM\NETWORK.LOG` | Wired DHCP and Chrony output, including leases, DNS failures and clock corrections |
 
 Kernel records retain their priority, sequence and microsecond timestamp prefix.
 Reading `/dev/kmsg` does not clear the kernel ring. Input snapshots are checked
@@ -678,14 +751,14 @@ The host check is `python3 tools/image/test-diagnostics.py`.
 For the Pi 4 keyboard test, boot with the keyboard attached, wait for the DOS
 prompt, then unplug and reconnect it. Wait another 15 seconds. Power down, using
 `POWEROFF` if input works, and open the SD card on your computer. Copy
-`c/SYSTEM/BOOT.LOG` and `c/SYSTEM/RUNTIME.LOG` from its PI-DOS partition before
+`c/SYSTEM/BOOT.LOG`, `c/SYSTEM/RUNTIME.LOG` and `c/SYSTEM/NETWORK.LOG` from its PI-DOS partition before
 booting it again. File flushing reduces missing output but does not make FAT32
 safe against interrupted power.
 
 An existing shared ARM64 card can retain its data: after building the diagnostic
 variant, replace BOOT's `Image` with `output/buildroot-arm64/images/Image` and
 BOOT's `cmdline.txt` with `output/buildroot-arm64/images/pi-dos-boot/cmdline.txt`.
-To disable both logs on an existing card, change `pi-dos.diagnostics=1` to
+To disable all three logs on an existing card, change `pi-dos.diagnostics=1` to
 `pi-dos.diagnostics=0` in BOOT/cmdline.txt and reboot. Alternatively, restore the
 tracked `br2-external/board/raspberrypi/cmdline.txt`, which explicitly disables
 capture. Keep the updated kernel in place. Existing log files remain available

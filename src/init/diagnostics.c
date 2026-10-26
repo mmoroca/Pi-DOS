@@ -14,7 +14,7 @@
 #define RUNTIME_LOG "/dosdata/c/SYSTEM/RUNTIME.LOG"
 #define BOOT_LOG_LIMIT (4 * 1024 * 1024)
 
-static bool enabled(void)
+bool pi_dos_diagnostics_enabled(void)
 {
     char buffer[4096];
     FILE *input = fopen("/proc/cmdline", "r");
@@ -148,7 +148,7 @@ static void snapshot(struct pi_dos_diagnostics *log, pid_t runtime, time_t now)
 void pi_dos_diagnostics_start(struct pi_dos_diagnostics *log, bool writable)
 {
     *log = (struct pi_dos_diagnostics){.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
-    if (!enabled()) return;
+    if (!pi_dos_diagnostics_enabled()) return;
     if (!writable) {
         dprintf(2, "Pi-DOS: diagnostics require writable C:; using serial output only\n");
         return;
