@@ -453,6 +453,8 @@ mappings are listed. DOS video, memory, audio and keyboard fields are read
 from the runtime configuration and editable configuration overrides, and the Pi-DOS version comes from the init
 package build version. Unavailable readings show `Unknown` or `Unavailable`.
 These describe configured emulated devices, not physical HDMI/audio detection.
+The table uses double-line borders shared by CP437 and CP850 so the Spanish
+keyboard layout also displays the border junctions correctly.
 The table fits the native 80x25 screen without a delay or keypress. Read-only
 and recovery warnings still appear below it, before the user's AUTOEXEC.BAT.
 

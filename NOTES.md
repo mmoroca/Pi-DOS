@@ -2,7 +2,6 @@
 - [ ] command to display available video modes
 - [ ] dos utility to select hdmi, jack or external dac audio output. Also enable the dosbox mixer controls.
 - [ ] enable midi output
-- [ ] info table on boot display some wrong character on the table double lines when chnaging the dosbox keyb lang to es
 
 ---------------------------------------------
 

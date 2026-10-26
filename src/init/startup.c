@@ -14,8 +14,10 @@
 #define PI_DOS_VERSION "Unknown"
 #endif
 
-/* 75 columns, leaving room for the DOS cursor without wrapping. CP437 box
- * characters also avoid the shell's ASCII pipe/redirection operators. */
+/* 75 columns, leaving room for the DOS cursor without wrapping. Use double-line
+ * box characters shared by CP437 and CP850 (Spanish); mixed single/double
+ * junctions become accented letters in CP850. These characters also avoid the
+ * shell's ASCII pipe/redirection operators. */
 enum { CELL = 36, WIDTH = CELL * 2 + 1 };
 
 static void safe_text(char *text)
@@ -99,7 +101,7 @@ static void full_row(FILE *out, const char *text)
 static void pair_row(FILE *out, const char *label, const char *value,
                      const char *other_label, const char *other_value)
 {
-    fprintf(out, "ECHO \xba %-10.10s : %-21.21s \xb3 %-10.10s : %-21.21s \xba\n",
+    fprintf(out, "ECHO \xba %-10.10s : %-21.21s \xba %-10.10s : %-21.21s \xba\n",
             label, value, other_label, other_value);
 }
 
@@ -158,18 +160,18 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
 
     border(out, 0xcd, 0xc9, 0, 0xbb);
     full_row(out, "                         System Configuration");
-    border(out, 0xc4, 0xc7, 0, 0xb6);
+    border(out, 0xcd, 0xcc, 0, 0xb9);
     char board_row[300];
     snprintf(board_row, sizeof(board_row), "Board      : %s", board);
     full_row(out, board_row);
-    border(out, 0xc4, 0xc7, 0xc2, 0xb6);
+    border(out, 0xcd, 0xcc, 0xcb, 0xb9);
     pair_row(out, "Processor", cpu, "System", "Pi-DOS " PI_DOS_VERSION);
     pair_row(out, "CPU cores", cores, "DOS video", graphics);
     pair_row(out, "Host RAM", ram, "DOS memory", summary);
     pair_row(out, "Storage", disk, "DOS audio", sound);
     pair_row(out, "Access", !mounted ? "Unavailable" : writable ? "Read/write" : "Read-only",
              "Keyboard", keyboard);
-    border(out, 0xc4, 0xc7, 0xc1, 0xb6);
+    border(out, 0xcd, 0xcc, 0xca, 0xb9);
     if (have_space) {
         char total[32], free_space[32];
         size_text(total, sizeof(total), (uint64_t)space.f_blocks * space.f_frsize);
