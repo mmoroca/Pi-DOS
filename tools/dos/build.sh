@@ -16,7 +16,9 @@ out="$root/output/doscfg"
 mkdir -p "$out"
 cd "$out"
 "$compiler" -q -bt=dos -l=dos -0 -ms -os -s -wx -i="$root/src/common" -fe=PIDOSCFG.EXE \
-    "$root/src/doscfg/main.c" "$root/src/doscfg/config.c" "$root/src/common/cpu_profiles.c"
+    "$root/src/doscfg/main.c" "$root/src/doscfg/config.c" "$root/src/doscfg/forms.c" \
+    "$root/src/doscfg/live.c" "$root/src/doscfg/midi.c" "$root/src/common/cpu_profiles.c" \
+    "$root/src/common/video_profiles.c" "$root/src/common/midi_profiles.c"
 install -m 0644 PIDOSCFG.EXE "$root/br2-external/board/raspberrypi/dos/PIDOSCFG.EXE"
 python3 - "$root" "$compiler" <<'PY'
 import hashlib
@@ -25,7 +27,12 @@ from pathlib import Path
 import sys
 root = Path(sys.argv[1])
 paths = ['src/doscfg/main.c', 'src/doscfg/config.c', 'src/doscfg/config.h',
+         'src/doscfg/forms.c', 'src/doscfg/forms.h',
+         'src/doscfg/live.c', 'src/doscfg/live.h',
+         'src/doscfg/midi.c', 'src/doscfg/midi.h',
          'src/common/cpu_profiles.c', 'src/common/cpu_profiles.h',
+         'src/common/video_profiles.c', 'src/common/video_profiles.h',
+         'src/common/midi_profiles.c', 'src/common/midi_profiles.h',
          'tools/dos/build.sh', 'tools/dos/toolchain.json']
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()

@@ -1,43 +1,18 @@
 - [ ] defrag fails on both c and d with "Divide error"
 - [ ] command to display available video modes
-- [ ] dos utility to select
-    - hdmi, jack or external dac audio output
-    - Soundblaster (and others) env configuration
-    - Dosbox mixer controls
-    - Keyboard lang selection
-    - country and timezone selection
-    - enable/disable logging/diagnostics
-    - option to set an specific CPU. Examples:
-        | Preset label | Cycles |
-        |---|---:|
-        | 286 8 MHz | 750 |
-        | 286 12 MHz | 1,510 |
-        | 286 25 MHz | 3,300 |
-        | 386DX 25 MHz | 4,595 |
-        | 386DX 33 MHz | 6,075 |
-        | 486DX 33 MHz | 12,010 |
-        | 486DX2 66 MHz | 23,880 |
-        | 486DX4 100 MHz | 33,445 |
-        | 486DX5 133 MHz | 47,810 |
-        | Pentium 60 MHz | 32,090 |
-        | Pentium 66 MHz | 35,620 |
-        | Pentium 75 MHz | 40,072 |
-        | Pentium 90 MHz | 48,087 |
-        | Pentium 100 MHz | 53,430 |
-        | Pentium 120 MHz | 64,180 |
-        | Pentium 133 MHz | 71,240 |
-        | Pentium 166 MHz MMX | 95,548 |
-        | Pentium 200 MHz MMX | 114,657 |
-        | AMD K6 200 MHz | 130,000 |
-        | AMD K6-2 300 MHz | 193,000 |
-        | AMD Athlon 600 MHz | 306,000 |
-        | Pentium III 866 MHz EB | 407,000 |
-        set this information on boot table
-    - Option to set RAM size
-- [ ] enable midi output
+- [ ] Add system option for audio output:
+    - hdmi - default
+    - jack (pi3/4)
+    - external usb dac
+- [ ] Add system option fot monitor type:
+    - CRT (it is the current configuration with native resolutions, frequencies and on the fly timing chahges)
+    - LCD - default (must use fixed native monitor resolution scaled 4:3 to keep native crt monitor aspect ratio)
+        shall LCD use force 60 by default? or add the option
 - [ ] check external usb-floppy and usb-cd drives
 - [ ] first boot should ask for some defaults like time/zone,. country etc
 - [ ] support for safeboot available in Pi5 to allow using the power button
+- [ ] set all references to Pi-DOS 0.1 to 1.0
+- [ ] Ctrl + Alt + Sup should invoke reboot command instead of the quick reset that does not apply any configuration
 
 ---------------------------------------------
 

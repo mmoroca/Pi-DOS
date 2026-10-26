@@ -1,14 +1,70 @@
-Pi-DOS CPU Setup
-===============
+Pi-DOS Setup
+============
 
-Run PIDOSCFG at the DOS prompt to open the CPU profile selector.
+Run PIDOSCFG at the DOS prompt. Click the CPU, Memory, Video, Sound, Mixer
+and System tabs, or use F5/F6. Tab/Shift+Tab moves focus; Enter edits a field.
+Up/Down or Home/End chooses a CPU profile or RAM size. Other lists support
+typing to search, arrows, Home/End and PgUp/PgDn. Click an item to select it.
+F2 or Alt+S saves ALL pages. Escape, Alt+C or Alt+X cancels.
+Restore defaults (F3 or Alt+R) resets the CURRENT page, pending Save.
+A mouse is optional. Enter activates the focused button.
 
-Use Up/Down or Home/End to choose a profile. Tab and Shift+Tab move focus.
-F2 or Alt+S saves. Escape, Alt+C or Alt+X cancels without writing anything.
-Restore defaults (F3 or Alt+R) selects Pentium 133 MHz. Save to write the defaults;
-Cancel still leaves the configuration unchanged.
-You can also click a profile and click Save or Cancel. A mouse is optional.
-Enter activates the focused control (and saves when a profile is selected).
+RAM: 1, 2, 4, 8, 16 (default), 32, 64 or 128 MiB. Above 16 MiB can break
+older programs; some need less. The selected CPU must address that RAM.
+
+Video: use the same selection list as Sound to choose IBM CGA, Hercules,
+Tandy, IBM EGA, IBM VGA, Tseng Labs ET4000, S3 Trio64 (default), VESA VBE 3.0
+or VESA VBE 2.0. The VESA options use DOSBox-X's virtual graphics adapter.
+The utility also supports Hercules monochrome text mode.
+The 3dfx Voodoo checkbox is checked by default. Checked enables software
+Voodoo with 12 MiB of video memory; unchecked disables the hardware.
+Toggling it saves voodoo_card=software (or false), voodoo_maxmem=true and
+glide=false. Glide passthrough stays disabled. Reboot to apply changes.
+
+Sound: None, Tandy sound, AdLib, Creative Game Blaster/CMS, Sound Blaster
+2.0, Sound Blaster Pro 2, Sound Blaster 16 (default), or GUS Classic.
+Choose matching port/IRQ/DMA in the game's setup. Applicable controls
+include SB16 high DMA, FM mode, and GUS sample RAM/patch directory.
+AdLib and Tandy ports are fixed. GUS patches are not bundled; some games
+need patch files under C:\ULTRASND\MIDI. Selecting a preset disables other
+managed cards. MIDI remains independent. PC speaker is separately enabled
+by default; PC Speaker is the first control and is checked when enabled.
+
+MIDI output is independent: None (default), Roland SC-55, Roland GM,
+Roland MT-32, Roland CM-32L or External USB MIDI. SC-55 and Roland GM use
+the supplied GM banks; MT-32/CM-32L use Munt with control and PCM ROMs.
+Internal MIDI plays through the same HDMI output as the sound card.
+Choose the corresponding music device in each game's setup.
+
+MIDI settings: MPU-401 Intelligent (default) or UART, port 330h (default)
+and automatic IRQ (default). For USB MIDI, choose the connected destination
+and optional SysEx delay for older modules. F5 or Rescan refreshes the
+destination list. Selections survive ALSA client-number changes; keep
+interfaces without a unique serial number on the same USB socket.
+Connect external modules' audio outputs to your own speakers or mixer.
+Internal MIDI volume does not control an external module's audio.
+Assets are in C:\SYSTEM\MIDI: SC55.SF2, GMROLAND.SF2, MT32 and CM32L.
+Missing assets/devices disable MIDI for that boot and appear in DOS MIDI.
+Reboot after changing MIDI output or interface settings.
+
+Mixer: left:right percentages, 0=mute, 100=normal, up to 200. Above 100 may
+clip. Use left/right arrows or [-]/[+] for 5% steps, or Enter for a preset
+or custom stereo value. Active channels apply IMMEDIATELY when the selected
+sound hardware matches the running setup. The page shows LIVE or AFTER
+REBOOT. Cancel restores starting live levels at whole-percent precision;
+Save keeps them and saves edited levels for later boots. Hardware changes
+suspend preview and restore the original live levels. Inactive channels
+and unavailable live control take effect after reboot. Live queries need
+a writable C:\TEMP or C:\. Temporary query files are removed automatically.
+Internal MIDI music controls FluidSynth/Munt alongside the other channels.
+
+System: search keyboard layouts, DOS countries and installed timezones.
+Keyboard, country and timezone are independent. Defaults are Spanish,
+Spain and Europe/Madrid. Daylight saving follows the selected timezone.
+Custom country values can include a code page, e.g. 1,437. Timezones must
+be in the installed list. Diagnostic logs is unchecked by default; check
+it to capture boot/runtime/network/video logs in C:\SYSTEM after reboot.
+These settings take effect after REBOOT.
 
 Profiles:
   Automatic             Automatically adjust CPU execution speed
@@ -23,18 +79,18 @@ Profiles:
 
 MHz labels describe approximate performance equivalents, not exact clocks.
 The Raspberry Pi must be fast enough to sustain the requested speed.
-At boot, Date and Time appear on the left of the system table; the CPU
-model appears on the right, directly above DOS video.
+At boot, Time appears directly below Date on the left.
+The right column lists System, DOS CPU, DOS memory, DOS video, DOS Voodoo,
+DOS sound and DOS MIDI. DOS Voodoo displays Enabled/Disabled.
+Keyboard, country and timezone are on the Regional line below the PI-DOS
+storage and Drives lines.
 
-Saving updates only cputype, core and cycles in C:\SYSTEM\PIDOS.CFG.
-Other settings and comments on separate lines are preserved. Existing CPU
-values are replaced; missing CPU keys are added. Custom settings are shown
-without changing them until you choose a profile and save.
-
-Run REBOOT after saving to apply your changes. RAM and other settings are
-not part of a CPU profile. The original file is backed up as PIDOS.BAK.
-Saving again replaces that backup with the immediately previous version.
-Read-only files are left unchanged. Files over 24 KiB cannot be edited.
+Saving updates only edited settings in C:\SYSTEM\PIDOS.CFG. Other settings
+and comments on separate lines are preserved. Custom settings remain until
+changed. Run REBOOT after saving hardware or regional changes.
+The original file is backed up as PIDOS.BAK. Saving again replaces that
+backup with the immediately previous version. Read-only files are left
+unchanged. Files over 24 KiB cannot be edited.
 
 If PIDOS.TMP exists after an interrupted save, check it and PIDOS.BAK before
 deleting or renaming recovery files. Setup will not overwrite an existing

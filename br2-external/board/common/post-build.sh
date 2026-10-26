@@ -44,6 +44,13 @@ text = ('# Pi-DOS persistent configuration. Changes take effect after reboot.\n'
         '# Local IANA timezone; daylight saving is automatic.\n'
         '# Examples: Europe/Madrid, Atlantic/Canary, America/New_York, Asia/Tokyo.\n'
         'timezone=Europe/Madrid\n'
+        '# MIDI profile: none, sc55, roland-gm, mt32, cm32l, external.\n'
+        'midi_profile=none\nmidi_port=\nmidi_delaysysex=false\n'
+        '# Mixer percentages, left:right (0=mute, 100=normal, maximum 200).\n'
+        'mixer_master=100:100\nmixer_sb=100:100\nmixer_fm=100:100\n'
+        'mixer_gus=100:100\nmixer_cms=100:100\nmixer_speaker=100:100\n'
+        'mixer_tandy=100:100\nmixer_tandydac=100:100\nmixer_disney=100:100\n'
+        'mixer_midi=100:100\n'
         '# Enable BOOT.LOG, RUNTIME.LOG, NETWORK.LOG and VIDEO.LOG; reboot to apply.\n'
         'diagnostics=false\n\n'
         + source.read_text())
@@ -59,6 +66,10 @@ install -D -m 0644 "$project/br2-external/board/raspberrypi/dos/ARJ.EXE" \
     "$target/pi-dos/drivez/BIN/ARJ.EXE"
 install -D -m 0644 "$project/br2-external/board/raspberrypi/dos/PIDOSCFG.EXE" \
     "$target/pi-dos/drivez/BIN/PIDOSCFG.EXE"
+python3 "$project/tools/dos/catalogs.py" \
+    "$BUILD_DIR"/pi-dos-runtime-*/include/dos_inc.h \
+    "$target/usr/share/zoneinfo" "$target/pi-dos/drivez/BIN"
+python3 "$project/tools/dos/midi-assets.py" --install "$target/pi-dos/midi-assets"
 install -D -m 0644 "$project/dac-crt.bin" "$target/lib/firmware/edid/dac-crt.bin"
 mkdir -p "$target/dosdata" "$target/run" "$target/tmp" "$target/proc" "$target/sys"
 # No system shell, getty, login or init scripts are needed by the C supervisor.

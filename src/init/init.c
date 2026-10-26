@@ -27,6 +27,9 @@
 #include "network.h"
 #include "timezone.h"
 #include "config.h"
+#include "mixer.h"
+#include "midi.h"
+#include "midi_profiles.h"
 
 enum storage { NO_STORAGE, READ_ONLY, READ_WRITE };
 static struct pi_dos_diagnostics diagnostics = {.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
@@ -184,7 +187,8 @@ static void prepare_dos_folders(enum storage storage)
 {
     if (storage != READ_WRITE) return;
     const char *directories[] = {"/dosdata/c/PROGRAMS", "/dosdata/c/PROGRAMS/TOOLS",
-                                 "/dosdata/c/GAMES", "/dosdata/c/DOCS", "/dosdata/c/TEMP"};
+                                 "/dosdata/c/GAMES", "/dosdata/c/DOCS", "/dosdata/c/TEMP",
+                                 MIDI_ASSET_ROOT, MIDI_ASSET_ROOT "/MT32", MIDI_ASSET_ROOT "/CM32L"};
     for (size_t i = 0; i < sizeof(directories) / sizeof(directories[0]); ++i)
         make_dir(directories[i], 0755);
     /* PEDIT saves its preferences inside EDIT.COM. Move the existing writable
@@ -274,6 +278,7 @@ static bool make_config(enum storage storage, const char *user_config)
                    storage == READ_WRITE, drive_c);
     if (diagnostics.boot_fd >= 0 || diagnostics.runtime_fd >= 0)
         fputs("ECHO Diagnostic capture enabled; logs are in C:\\SYSTEM.\n", output);
+    pi_dos_mixer(output, user_config);
     if (drive_c) {
         if (storage == READ_ONLY)
             fputs("ECHO WARNING: drive C: is read-only; storage requires recovery.\n", output);
@@ -399,6 +404,14 @@ int main(void)
     prepare_dos_folders(storage);
     seed_user_file(storage, "/pi-dos/PIDOS.CFG", USER_CONFIG_PATH);
     seed_user_file(storage, "/pi-dos/AUTOEXEC.BAT", "/dosdata/c/AUTOEXEC.BAT");
+    const char *midi_assets[] = {"SC55.SF2", "GMROLAND.SF2", "MT32/MT32_CONTROL.ROM", "MT32/MT32_PCM.ROM",
+                                "CM32L/CM32L_CONTROL.ROM", "CM32L/CM32L_PCM.ROM"};
+    for (size_t i = 0; i < sizeof(midi_assets) / sizeof(midi_assets[0]); ++i) {
+        char source[160], destination[160];
+        snprintf(source, sizeof(source), "/pi-dos/midi-assets/%s", midi_assets[i]);
+        snprintf(destination, sizeof(destination), MIDI_ASSET_ROOT "/%s", midi_assets[i]);
+        seed_user_file(storage, source, destination);
+    }
     const char *user_config = user_config_path(storage);
     /* Set the host process timezone before launching DOSBox and time services.
      * The kernel clock and hardware RTC remain in UTC. */
@@ -409,8 +422,9 @@ int main(void)
     pi_dos_network_start(&network, capture);
     /* Internal handoff of the resolved setting to the emulator's video logger. */
     setenv("PI_DOS_DIAGNOSTICS", capture ? "1" : "0", 1);
-    if (!make_config(storage, user_config) ||
-        (user_config && !pi_dos_runtime_config(user_config, "/run/pidos-user.conf"))) {
+    if ((user_config && (!pi_dos_runtime_config(user_config, "/run/pidos-user.conf") ||
+                         !pi_dos_midi_prepare(user_config, "/run/pidos-user.conf", MIDI_ASSET_ROOT))) ||
+        !make_config(storage, user_config)) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");
         for (;;) pause();
     }

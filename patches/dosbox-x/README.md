@@ -24,6 +24,14 @@ applied patches, and rejects mismatches. Upstream source archives retain their
 original hashes; this patch set is a separate input to the resulting runtime.
 Preserve the upstream component's license and notices when distributing changes.
 
+`0008-stable-midi-destinations.patch` resolves the persisted `pidos:` MIDI
+destination through the shared ALSA scanner in `src/common/midi_ports.h`.
+It lists machine-readable IDs for PIDOSCFG and uses subscriptions so an
+unplugged destination cannot redirect messages to a reused client number.
+Managed profiles disable MIDI if their backend fails to open. Internal GM
+uses the existing `synth` FluidSynth handler, which feeds DOSBox's SYNTH mixer
+channel; Munt feeds MT32. Both backends are enabled in the ARM64 build.
+
 `0007-preserve-overlapping-fpu-register-bits.patch` marks `RegBit` views as
 aliasing types. GCC 14 on AArch64 otherwise loses the x87 stack push when
 `FPTAN` or `FSINCOS` subsequently clears C2. Wolfenstein 3D builds incorrect

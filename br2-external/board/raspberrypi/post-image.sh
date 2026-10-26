@@ -55,6 +55,8 @@ PY
 rm -f "$data/c/SYSTEM/EDIT.COM" "$data/c/SYSTEM/DOSBOX.CONF" \
     "$data/c/SYSTEM/DOSBOX.CFG" "$data/c/SYSTEM/TIMEZONE.CFG"
 install -m 0644 "$TARGET_DIR/pi-dos/PIDOS.CFG" "$data/c/SYSTEM/PIDOS.CFG"
+mkdir -p "$data/c/SYSTEM/MIDI"
+cp -a "$TARGET_DIR/pi-dos/midi-assets/." "$data/c/SYSTEM/MIDI/"
 if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
     python3 - "$data/c/SYSTEM/PIDOS.CFG" <<'PY'
 from pathlib import Path
@@ -92,8 +94,10 @@ printf '%s\r\n' \
     '' 'Emulated hardware settings:' \
     'Edit C:\SYSTEM\PIDOS.CFG and reboot to change emulator settings,' \
     'including Sound Blaster hardware. SET BLASTER alone does not change it.' \
-    'Run PIDOSCFG for keyboard/mouse CPU profile setup, then REBOOT to apply.' \
-    'CPU setup preserves other settings and saves the previous file as PIDOS.BAK.' \
+    'Run PIDOSCFG for CPU, RAM, video, sound, MIDI, mixer and system setup.' \
+    'Save and REBOOT to apply hardware changes. Matching mixer channels apply live.' \
+    'Setup preserves other settings and saves the previous file as PIDOS.BAK.' \
+    'MIDI ROMs and GM banks are in C:\SYSTEM\MIDI. See DOCS\PIDOSCFG.TXT.' \
     '' 'Local timezone:' \
     'In C:\SYSTEM\PIDOS.CFG, set timezone=Europe/Madrid under [pidos]' \
     '(or another IANA timezone), then reboot. Daylight saving is automatic.' \

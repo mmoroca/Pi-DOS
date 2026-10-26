@@ -41,6 +41,9 @@ CONFIG_SND=y
 CONFIG_SND_SOC=y
 CONFIG_SND_SOC_HDMI_CODEC=y
 CONFIG_SND_USB_AUDIO=y
+CONFIG_SND_RAWMIDI=y
+CONFIG_SND_SEQUENCER=y
+CONFIG_SND_SEQ_MIDI=y
 CONFIG_UNIX=y
 # Wired IPv4 networking for DHCP and network time; netlink also serves libudev-zero.
 CONFIG_NET=y

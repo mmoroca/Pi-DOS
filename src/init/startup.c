@@ -2,6 +2,8 @@
 #define _GNU_SOURCE
 #include "startup.h"
 #include "cpu_profiles.h"
+#include "video_profiles.h"
+#include "midi.h"
 #include <ctype.h>
 #include <glob.h>
 #include <stdint.h>
@@ -103,11 +105,12 @@ static void full_row(FILE *out, const char *text)
 static void pair_row(FILE *out, const char *label, const char *value,
                      const char *other_label, const char *other_value)
 {
-    char other[35] = "";
+    char left[35] = "", other[35] = "";
+    if (*label)
+        snprintf(left, sizeof(left), "%-10.10s : %-21.21s", label, value);
     if (*other_label)
         snprintf(other, sizeof(other), "%-10.10s : %-21.21s", other_label, other_value);
-    fprintf(out, "ECHO \xba %-10.10s : %-21.21s \xba %-34.34s \xba\n",
-            label, value, other);
+    fprintf(out, "ECHO \xba %-34.34s \xba %-34.34s \xba\n", left, other);
 }
 
 void pi_dos_startup(FILE *out, const char *config, const char *user_config, const char *device,
@@ -144,6 +147,10 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     FILE *file = fopen(config, "r");
     char graphics[128] = "Unknown", memory[128] = "Unknown";
     char sound[128] = "Unknown", keyboard[128] = "Unknown";
+    char country[128] = "Unknown", voodoo[32] = "software", zone[128];
+    snprintf(zone, sizeof(zone), "%s", getenv("TZ") ? getenv("TZ") : "Etc/UTC");
+    safe_text(zone);
+    char gus[16] = "false", tandy[16] = "off", opl[16] = "auto";
     char dos_cpu[128], cycles[128], cpu_model[128];
     const CpuProfile *defaults = &cpu_profiles[cpu_profile_default()];
     snprintf(dos_cpu, sizeof(dos_cpu), "%s", defaults->type);
@@ -151,7 +158,12 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     setting(file, "dosbox", "machine", graphics, sizeof(graphics));
     setting(file, "dosbox", "memsize", memory, sizeof(memory));
     setting(file, "sblaster", "sbtype", sound, sizeof(sound));
+    setting(file, "sblaster", "oplmode", opl, sizeof(opl));
+    setting(file, "gus", "gus", gus, sizeof(gus));
+    setting(file, "speaker", "tandy", tandy, sizeof(tandy));
     setting(file, "dos", "keyboardlayout", keyboard, sizeof(keyboard));
+    setting(file, "config", "country", country, sizeof(country));
+    setting(file, "voodoo", "voodoo_card", voodoo, sizeof(voodoo));
     setting(file, "cpu", "cputype", dos_cpu, sizeof(dos_cpu));
     setting(file, "cpu", "cycles", cycles, sizeof(cycles));
     if (file) fclose(file);
@@ -159,7 +171,12 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     setting(file, "dosbox", "machine", graphics, sizeof(graphics));
     setting(file, "dosbox", "memsize", memory, sizeof(memory));
     setting(file, "sblaster", "sbtype", sound, sizeof(sound));
+    setting(file, "sblaster", "oplmode", opl, sizeof(opl));
+    setting(file, "gus", "gus", gus, sizeof(gus));
+    setting(file, "speaker", "tandy", tandy, sizeof(tandy));
     setting(file, "dos", "keyboardlayout", keyboard, sizeof(keyboard));
+    setting(file, "config", "country", country, sizeof(country));
+    setting(file, "voodoo", "voodoo_card", voodoo, sizeof(voodoo));
     setting(file, "cpu", "cputype", dos_cpu, sizeof(dos_cpu));
     setting(file, "cpu", "cycles", cycles, sizeof(cycles));
     if (file) fclose(file);
@@ -173,8 +190,26 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     else if (!strcasecmp(dos_cpu, "pentium"))
         snprintf(cpu_model, sizeof(cpu_model), "Pentium");
     else snprintf(cpu_model, sizeof(cpu_model), "%s", dos_cpu);
-    if (!strcasecmp(graphics, "svga_s3")) snprintf(graphics, sizeof(graphics), "S3 SVGA");
-    if (!strcasecmp(sound, "sb16")) snprintf(sound, sizeof(sound), "Sound Blaster 16");
+    bool gus_on = !strcasecmp(gus, "true");
+    bool tandy_on = !strcasecmp(tandy, "on") ||
+                    (!strcasecmp(tandy, "auto") && !strcasecmp(graphics, "tandy"));
+    bool sb_on = strcasecmp(sound, "none") && strcasecmp(sound, "Unknown");
+    bool adlib_on = !sb_on && strcasecmp(opl, "none") && strcasecmp(opl, "auto");
+    if ((int)gus_on + (int)tandy_on + (int)sb_on + (int)adlib_on > 1)
+        snprintf(sound, sizeof(sound), "Multiple devices");
+    else if (gus_on) snprintf(sound, sizeof(sound), "GUS Classic");
+    else if (tandy_on) snprintf(sound, sizeof(sound), "Tandy sound");
+    else if (adlib_on) snprintf(sound, sizeof(sound), "AdLib");
+    else if (!strcasecmp(sound, "sb16")) snprintf(sound, sizeof(sound), "Sound Blaster 16");
+    else if (!strcasecmp(sound, "sbpro2")) snprintf(sound, sizeof(sound), "Sound Blaster Pro 2");
+    else if (!strcasecmp(sound, "sb2.0")) snprintf(sound, sizeof(sound), "Sound Blaster 2.0");
+    else if (!strcasecmp(sound, "gb")) snprintf(sound, sizeof(sound), "Game Blaster / CMS");
+    else if (!strcasecmp(sound, "none")) snprintf(sound, sizeof(sound), "None");
+    int video = video_profile_find(graphics);
+    if (video >= 0) snprintf(graphics, sizeof(graphics), "%s", video_profiles[video].label);
+    const char *voodoo_status = !strcasecmp(voodoo, "software") || !strcasecmp(voodoo, "auto")
+                              ? "Enabled" : "Disabled";
+    char midi[80]; pi_dos_midi_label(user_config, midi, sizeof(midi)); safe_text(midi);
     if (!strcmp(memory, "Unknown")) snprintf(summary, sizeof(summary), "Unknown");
     else snprintf(summary, sizeof(summary), "%s MiB", memory);
     struct statvfs space;
@@ -199,12 +234,12 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     border(out, 0xcd, 0xcc, 0xcb, 0xb9);
     pair_row(out, "Processor", cpu, "System", "Pi-DOS " PI_DOS_VERSION);
     pair_row(out, "CPU cores", cores, "DOS CPU", cpu_model);
-    pair_row(out, "Host RAM", ram, "DOS video", graphics);
-    pair_row(out, "Storage", disk, "DOS memory", summary);
+    pair_row(out, "Host RAM", ram, "DOS memory", summary);
+    pair_row(out, "Storage", disk, "DOS video", graphics);
     pair_row(out, "Access", !mounted ? "Unavailable" : writable ? "Read/write" : "Read-only",
-             "DOS audio", sound);
-    pair_row(out, "Date", date, "Keyboard", keyboard);
-    pair_row(out, "Time", clock, "", "");
+             "DOS Voodoo", voodoo_status);
+    pair_row(out, "Date", date, "DOS sound", sound);
+    pair_row(out, "Time", clock, "DOS MIDI", midi);
     border(out, 0xcd, 0xcc, 0xca, 0xb9);
     if (have_space) {
         char total[32], free_space[32];
@@ -217,6 +252,9 @@ void pi_dos_startup(FILE *out, const char *config, const char *user_config, cons
     full_row(out, summary);
     full_row(out, !drive_c ? "Drives     : Z: built-in DOS utilities (recovery)" :
              "Drives     : C: on PI-DOS; Z: built-in DOS utilities");
+    char regional[512];
+    snprintf(regional, sizeof(regional), "Regional   : Keyboard %s / Country %s / %s", keyboard, country, zone);
+    full_row(out, regional);
     border(out, 0xcd, 0xc8, 0, 0xbc);
     fputs("ECHO.\nECHO Welcome to Pi-DOS\nECHO.\n", out);
 }

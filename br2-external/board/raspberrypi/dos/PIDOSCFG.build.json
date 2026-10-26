@@ -1,14 +1,24 @@
 {
   "target": "16-bit DOS MZ, 8086 instruction set, small memory model, no FPU/extender",
   "source_sha256": {
-    "src/doscfg/main.c": "f35cfcd8e3237e16f14f61703bde1b9d58626052bf309a5103a9dce560ed110d",
-    "src/doscfg/config.c": "fbe4d22a94552bbc2c5c47f9c1b35cc74e4ae7b313c87f3f790905f8bf1c70a5",
-    "src/doscfg/config.h": "eaed29bfa0c78646f5b40790a55480a2aca7c5259deed5e081aeff529787f99b",
+    "src/doscfg/main.c": "6ed14ee90e0247e607a4aaa31c71522e76501ce7f0f7501c86cf9437f4e159e3",
+    "src/doscfg/config.c": "8b132ea0f7c77da682d21c056880cfa73d0c72b2bc1d7277ba60e6aa4c875897",
+    "src/doscfg/config.h": "f9581e668b6d5746053eaa721d76d6138228967ea3b94d38a9564d9594fcf382",
+    "src/doscfg/forms.c": "fb330b9a5ad0fbde753a8488b16099d57d7809db3dd8c964a2526c7e932be821",
+    "src/doscfg/forms.h": "74afd08d286984ebd5bb89b976aff8652e7262f3731a82b6ee1dde0d700e20c3",
+    "src/doscfg/live.c": "88657e71177a3c61dabb74b366e6230239d1bd03636161f59b7f40430ec282e2",
+    "src/doscfg/live.h": "9955defaa71863402ee7d212effac4b46ffe8169aa076daf8906bc6cf3f62e38",
+    "src/doscfg/midi.c": "88ed06d67c4905534e28e05382c75b102eb77aa240cab8dc18dd8dc31ec76e78",
+    "src/doscfg/midi.h": "f3516d0183bbb875ed45514ce2a49665a0f3e3a22380fe6d45302260ca3cfb57",
     "src/common/cpu_profiles.c": "57d000c86fd12638f771e516d30ea80d541af838511f57487c409b9991c2a020",
     "src/common/cpu_profiles.h": "30aa46d83b8e761b8ca0ee2371e90469b31e40be11b5d0be1b3427cc8bfb01b6",
-    "tools/dos/build.sh": "d6743ac82bd461cd0fe55c08e9c376e7929da58614f1d7eab5c3980848bf8e10",
+    "src/common/video_profiles.c": "252b59072191701b5c516b82980dc09a6ef7b6e01124d75d43dcb7447904b470",
+    "src/common/video_profiles.h": "4df32d48174c0231bb127ea06b1dd6216598a57045429c03c31d2aeb49500791",
+    "src/common/midi_profiles.c": "a97c9f8eaf100d8418cc08510438994f5a6025c76b45607718962896aa2035ac",
+    "src/common/midi_profiles.h": "8174ea852bf36c077fa9a7019d62b242f8728c69aa31c11075e191c24558403a",
+    "tools/dos/build.sh": "a7aed724b2aaae43523450d901d9c6089fca5107cbbe73565cb9da8b57d0ce55",
     "tools/dos/toolchain.json": "13cbef97b8c3607083dbe8cddc9e971705292942ae2f76e8c9cdf197a3b3bd50"
   },
   "compiler_driver_sha256": "9bf1c208df56c8c154e08a4c42b05183b39e1f3c21e2c3f3b4fa9a66b81aa071",
-  "executable_sha256": "a941d89f738b164c422901a607189ce8a3bb413c1d8f7da0b68f6d4199a225a8"
+  "executable_sha256": "ddb70411557f82e7be75e11af632a9d3797d4e4f1aa06016af4831a6634cb709"
 }

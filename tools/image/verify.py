@@ -52,6 +52,10 @@ def main():
     require(packed_init == (target / 'init').read_bytes(), 'Stale PID 1 in initramfs')
     require(b'DOS CPU' in packed_init and b'DOS cycles' not in packed_init,
             'PID 1 must show the DOS CPU model without a cycles row')
+    require(b'DOS Voodoo' in packed_init and b'Regional   : Keyboard' in packed_init,
+            'PID 1 lacks the Voodoo status or regional footer')
+    require(b'DOS sound' in packed_init and b'DOS MIDI' in packed_init and b'DOS audio' not in packed_init,
+            'PID 1 lacks the updated sound/MIDI boot rows')
     setup_name = 'pi-dos/drivez/BIN/PIDOSCFG.EXE'
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_setup = subprocess.check_output([
@@ -61,12 +65,27 @@ def main():
             'Bundled PIDOSCFG.EXE missing/stale in initramfs')
     require(b'Restore defaults (F3)' in packed_setup,
             'PIDOSCFG lacks the Restore defaults button')
+    require(b'Diagnostic logs' in packed_setup and b'Video card' in packed_setup,
+            'PIDOSCFG lacks video/system configuration controls')
+    require(b'MIDI output' in packed_setup and b'MIDI settings' in packed_setup,
+            'PIDOSCFG lacks MIDI controls')
     setup_manifest = json.loads((ROOT /
         'br2-external/board/raspberrypi/dos/PIDOSCFG.build.json').read_text())
     require(hashlib.sha256(packed_setup).hexdigest() == setup_manifest['executable_sha256'],
             'PIDOSCFG.EXE does not match its build manifest')
     for source, expected in setup_manifest['source_sha256'].items():
         require(digest(ROOT / source) == expected, 'PIDOSCFG sources changed; run make dos-config')
+    for catalog in ('KEYBOARD.LST', 'COUNTRY.LST', 'TIMEZONE.LST'):
+        name = 'pi-dos/drivez/BIN/' + catalog
+        require(name in names, f'PIDOSCFG catalog missing: {catalog}')
+        with (images / 'rootfs.cpio').open('rb') as stream:
+            packed = subprocess.check_output([
+                'cpio', '-i', '--to-stdout', '--quiet', name], stdin=stream)
+        require(packed == (target / name).read_bytes() and b'\t' in packed,
+                f'PIDOSCFG catalog empty/stale: {catalog}')
+        if catalog == 'TIMEZONE.LST':
+            require(b'Europe/Madrid\t' in packed and b'Asia/Tokyo\t' in packed,
+                    'Missing installed timezone selections')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_edid = subprocess.check_output([
             'cpio', '-i', '--to-stdout', '--quiet', 'lib/firmware/edid/dac-crt.bin'], stdin=stream)
@@ -139,6 +158,7 @@ def main():
                     'USB_HID', 'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
                     'MMC_BCM2835_MMC', 'MMC_SDHCI_IPROC', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
                     'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC',
+                    'SND_USB_AUDIO', 'SND_RAWMIDI', 'SND_SEQUENCER', 'SND_SEQ_MIDI',
                     'INET', 'PACKET', 'NETDEVICES', 'BCMGENET', 'MACB',
                     'USB_LAN78XX', 'USB_NET_SMSC95XX', 'RTC_HCTOSYS', 'RTC_DRV_RPI'):
         require(f'CONFIG_{setting}=y\n' in kernel, f'Required kernel option not built in: {setting}')
@@ -160,7 +180,7 @@ def main():
         require((target / 'usr/share/zoneinfo' / zone).read_bytes().startswith(b'TZif'),
                 f'Missing timezone data: {zone}')
     config = next((OUT / 'build').glob('pi-dos-runtime-*/config.h')).read_text()
-    for setting in ('C_SDL2', 'C_DYNREC'):
+    for setting in ('C_SDL2', 'C_DYNREC', 'C_FLUIDSYNTH', 'C_MT32'):
         require(f'#define {setting} 1' in config, f'Runtime missing {setting}')
     require('#define C_SDL3 1' not in config, 'Runtime unexpectedly uses SDL3')
     require('#define C_TARGETCPU ARMV8LE' in config, 'Runtime lacks ARM64 CPU backend')
@@ -241,6 +261,8 @@ def main():
     for obsolete in ('DOSBOX.CFG', 'TIMEZONE.CFG'):
         require(not any(name.rstrip('/').endswith('/' + obsolete) for name in system_files),
                 f'Obsolete C:/SYSTEM/{obsolete} would duplicate PIDOS.CFG')
+    require([Path(name).name for name in system_files if name.endswith('.CFG')] == ['PIDOS.CFG'],
+            'C:/SYSTEM must contain only PIDOS.CFG for persistent settings')
     packed_config = subprocess.check_output([
         str(mcopy), '-i', data_volume, '::c/SYSTEM/PIDOS.CFG', '-'])
     default_config = (target / 'pi-dos/PIDOS.CFG').read_bytes()
@@ -253,6 +275,25 @@ def main():
             in packed_config, 'Fresh image must default to the Pentium 133 MHz profile')
     require(b'[pidos]\r\n' in packed_config and b'timezone=Europe/Madrid\r\n' in packed_config,
             'Missing custom timezone defaults')
+    require(b'mixer_master=100:100\r\n' in packed_config and
+            b'sbtype=sb16\r\n' in packed_config and b'memsize=16\r\n' in packed_config,
+            'Missing default mixer, SB16 or RAM settings')
+    require(b'midi_profile=none\r\n' in packed_config and b'mixer_midi=100:100\r\n' in packed_config,
+            'Missing MIDI profile/volume defaults')
+    assets = json.loads((ROOT / 'configs/midi-assets.json').read_text())['files']
+    for asset in assets:
+        relative = asset['destination']
+        name = 'pi-dos/midi-assets/' + relative
+        require(name in names, f'Missing initramfs MIDI asset: {relative}')
+        with (images / 'rootfs.cpio').open('rb') as stream:
+            packed = subprocess.check_output(['cpio', '-i', '--to-stdout', '--quiet', name], stdin=stream)
+        require(len(packed) == asset['bytes'] and hashlib.sha256(packed).hexdigest() == asset['sha256'],
+                f'Invalid initramfs MIDI asset: {relative}')
+        data_asset = subprocess.check_output([
+            str(mcopy), '-i', data_volume, '::c/SYSTEM/MIDI/' + relative, '-'])
+        require(data_asset == packed, f'Missing/stale PI-DOS MIDI asset: {relative}')
+    require(b'[voodoo]\r\nvoodoo_card=software\r\nvoodoo_maxmem=true\r\nglide=false\r\n'
+            in packed_config, 'Missing Voodoo software defaults')
     require(b'[config]\r\n' in packed_config and b'country=34\r\n' in packed_config,
             'Missing default Spanish country setting')
     require(b'lfn=true\r\n' in packed_config and

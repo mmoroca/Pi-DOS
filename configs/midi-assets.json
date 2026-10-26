@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "files": [
+    {
+      "source": "soundfonts/Roland_SC-55.sf2",
+      "destination": "SC55.SF2",
+      "bytes": 3283278,
+      "sha256": "fca3e514b635a21789d4224e84865d2954a2a914d46b64aa8219ddb565c44869"
+    },
+    {
+      "source": "soundfonts/GM_Roland.sf2",
+      "destination": "GMROLAND.SF2",
+      "bytes": 3367466,
+      "sha256": "b7b7abb9ece1ed9b169402b7eb76cc16286937683a548eedc2435a3b1804a1fb"
+    },
+    {
+      "source": "extra/MT32_CONTROL.ROM",
+      "destination": "MT32/MT32_CONTROL.ROM",
+      "bytes": 65536,
+      "sha256": "c088c026ad99e13204ac4aa157052f443c52424cbd6394a82abd60bab4c34b91"
+    },
+    {
+      "source": "extra/MT32_PCM.ROM",
+      "destination": "MT32/MT32_PCM.ROM",
+      "bytes": 524288,
+      "sha256": "d9164063f293410cf33f2f64cdcea6893b44723fe41938e07ec9aef58b406238"
+    },
+    {
+      "source": "extra/CM32L_CONTROL.ROM",
+      "destination": "CM32L/CM32L_CONTROL.ROM",
+      "bytes": 65536,
+      "sha256": "08d68695e5bff6bbcbb751d6e4453db9f5ead0b5f41e86480798a04376dfe090"
+    },
+    {
+      "source": "extra/CM32L_PCM.ROM",
+      "destination": "CM32L/CM32L_PCM.ROM",
+      "bytes": 1048576,
+      "sha256": "0dc50190bb7ea3fb212c970346b771a511772b528801e7eda6d27efda8c40698"
+    }
+  ]
+}
