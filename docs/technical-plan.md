@@ -179,7 +179,7 @@ separately over repeated cold boots before assigning time/RAM targets.
 
 Do not begin OS-specific customization until Phase 0 integration problems are
 understood. Establish a functional SDL2 engine first, direct KMS/DRM second,
-and the minimal boot image third. Pi-DOS 0.1 is the self-contained Pi 5 bootable
+and the minimal boot image third. Pi-DOS 1.0 is the self-contained Pi 5 bootable
 SD image meeting Phases 0–2 with COM/EXE/BAT and persistent C:.
 
 ## Validation and risks

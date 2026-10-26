@@ -11,7 +11,6 @@
 - [ ] check external usb-floppy and usb-cd drives
 - [ ] first boot should ask for some defaults like time/zone,. country etc
 - [ ] support for safeboot available in Pi5 to allow using the power button
-- [ ] set all references to Pi-DOS 0.1 to 1.0
 - [ ] Ctrl + Alt + Sup should invoke reboot command instead of the quick reset that does not apply any configuration
 
 ---------------------------------------------
