@@ -43,7 +43,7 @@ const CfgSpec cfg_specs[K_COUNT] = {
 };
 const char *card_names[CARD_COUNT] = {"None", "Tandy sound", "AdLib",
  "Creative Game Blaster / CMS", "Sound Blaster 2.0", "Sound Blaster Pro 2",
- "Sound Blaster 16", "Gravis Ultrasound Classic"};
+ "Sound Blaster 16 (default)", "Gravis Ultrasound Classic"};
 char cfg_error[160], cfg_type[CFG_VALUE_SIZE], cfg_core[CFG_VALUE_SIZE], cfg_cycles[CFG_VALUE_SIZE];
 static char values[K_COUNT][CFG_VALUE_SIZE], contents[CFG_CAPACITY + 1];
 static unsigned char dirty[K_COUNT];
