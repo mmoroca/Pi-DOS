@@ -3,7 +3,9 @@
 #include "config.h"
 #include "midi_profiles.h"
 #include "midi_ports.h"
+#include <errno.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 void pi_dos_midi_label(const char *config, char *label, unsigned int size) {
@@ -25,6 +27,19 @@ static bool asset(const char *root, const char *relative, bool soundfont) {
     if (!f) return false;
     bool valid = fread(header, 1, sizeof(header), f) == sizeof(header) && !memcmp(header, "RIFF", 4) && !memcmp(header + 8, "sfbk", 4);
     fclose(f); return valid;
+}
+static bool external_ready(const char *id) {
+    /* USB and ALSA sequencer registration can finish after PID 1 starts.
+     * Retry only the saved identity; never choose a different destination. */
+    for (int attempt = 0; attempt <= 50; ++attempt) {
+        int client, endpoint;
+        if (pidos_midi_resolve(id, &client, &endpoint)) return true;
+        if (attempt == 50) break;
+        if (!attempt) fprintf(stderr, "Pi-DOS: waiting up to 5 seconds for USB MIDI %s\n", id);
+        struct timespec delay = {0, 100000000};
+        while (nanosleep(&delay, &delay) && errno == EINTR) {}
+    }
+    return false;
 }
 bool pi_dos_midi_prepare(const char *source, const char *runtime, const char *root) {
     char value[80];
@@ -48,9 +63,9 @@ bool pi_dos_midi_prepare(const char *source, const char *runtime, const char *ro
         snprintf(romdir, sizeof(romdir), "%s/%s", root, p->asset);
         if (!available) status = "Missing MIDI ROMs";
     } else if (profile == MIDI_EXTERNAL) {
-        int client, endpoint;
         available = pi_dos_config_value(source, "pidos", "midi_port", port, sizeof(port)) &&
-                    !strncmp(port, "pidos:", 6) && strlen(port) == 22 && pidos_midi_resolve(port, &client, &endpoint);
+                    !strncmp(port, "pidos:", 6) && strlen(port) == 22;
+        if (available && strcasecmp(mode, "none")) available = external_ready(port);
         snprintf(config, sizeof(config), "%s%s", port,
                  pi_dos_config_value(source, "pidos", "midi_delaysysex", value, sizeof(value)) && !strcasecmp(value, "true") ? " delaysysex" : "");
         if (!available) status = "USB MIDI unavailable";

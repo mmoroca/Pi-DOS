@@ -426,13 +426,6 @@ int main(void)
     pi_dos_network_start(&network, capture);
     /* Internal handoff of the resolved setting to the emulator's video logger. */
     setenv("PI_DOS_DIAGNOSTICS", capture ? "1" : "0", 1);
-    if ((user_config && (!pi_dos_runtime_config(user_config, "/run/pidos-user.conf") ||
-                         !pi_dos_midi_prepare(user_config, "/run/pidos-user.conf", MIDI_ASSET_ROOT))) ||
-        !make_config(storage, user_config) ||
-        !pi_dos_video_prepare(user_config, "/run/pidos-video.conf")) {
-        dprintf(2, "Pi-DOS: runtime configuration failed\n");
-        for (;;) pause();
-    }
     setenv("HOME", "/run", 1);
     setenv("XDG_CONFIG_HOME", "/run", 1);
     setenv("XDG_CACHE_HOME", "/run", 1);
@@ -446,6 +439,15 @@ int main(void)
     setenv("SDL_RENDER_VSYNC", "1", 1);
     select_video();
     select_audio();
+    /* Give USB enumeration the existing display/audio readiness waits before
+     * resolving MIDI and freezing its status into the boot table. */
+    if ((user_config && (!pi_dos_runtime_config(user_config, "/run/pidos-user.conf") ||
+                         !pi_dos_midi_prepare(user_config, "/run/pidos-user.conf", MIDI_ASSET_ROOT))) ||
+        !make_config(storage, user_config) ||
+        !pi_dos_video_prepare(user_config, "/run/pidos-video.conf")) {
+        dprintf(2, "Pi-DOS: runtime configuration failed\n");
+        for (;;) pause();
+    }
     if (mount(NULL, "/", NULL, MS_REMOUNT | MS_RDONLY, NULL))
         dprintf(2, "Pi-DOS: root read-only remount unavailable: %s (root is volatile initramfs)\n", strerror(errno));
 

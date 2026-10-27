@@ -93,6 +93,8 @@ Connect the interface, open the picker, and press F5 or click Rescan to refresh.
 The saved identity survives ALSA client-number changes; interfaces without a
 unique serial number should stay on the same USB socket. Missing or ambiguous
 destinations disable MIDI for that boot rather than choosing another device.
+Boot waits up to five seconds for the saved USB MIDI destination to appear
+after display and audio detection, allowing USB enumeration to finish.
 External MIDI sends messages only: connect the module's own audio output to
 speakers or a mixer. DOSBox's internal MIDI volume does not control that audio.
 
