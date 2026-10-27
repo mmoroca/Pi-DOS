@@ -17,11 +17,13 @@ with tempfile.TemporaryDirectory(prefix='pi-dos-reboot.') as temporary:
 #include <string.h>
 #include <unistd.h>
 static pid_t parent = 2, target = -1;
-static int calls = 0, sent = 0, result = 0, logs = 0;
+static int calls = 0, sent = 0, result = 0, logs = 0, marker = -1;
 static pid_t fake_getppid() { return parent; }
 static int fake_kill(pid_t pid, int sig) { ++calls; target = pid; sent = sig; errno = EPERM; return result; }
+static int fake_access(const char *path, int mode) { assert(!strcmp(path, "/run/pi-dos-stop") && mode == F_OK); return marker; }
 #define getppid fake_getppid
 #define kill fake_kill
+#define access fake_access
 #define LOG_MSG(...) (++logs)
 #define LINUX 1
 #define C_SDL2 1
@@ -30,10 +32,16 @@ int main() {
     SDL_Event event = {};
     event.type = SDL_KEYDOWN; event.key.keysym.scancode = SDL_SCANCODE_DELETE;
     unsetenv("PI_DOS_SUPERVISED");
+    assert(!pi_dos_supervisor_stopping());
     assert(!pi_dos_reboot_shortcut(event, true, true));
     setenv("PI_DOS_SUPERVISED", "1", 1);
     assert(!pi_dos_reboot_shortcut(event, true, true)); // desktop parent
+    marker = 0;
+    assert(!pi_dos_supervisor_stopping());
     parent = 1;
+    assert(pi_dos_supervisor_stopping());
+    marker = -1;
+    assert(!pi_dos_supervisor_stopping());
     assert(!pi_dos_reboot_shortcut(event, false, false));
     assert(!pi_dos_reboot_shortcut(event, true, false));
     assert(!pi_dos_reboot_shortcut(event, false, true));
@@ -57,6 +65,8 @@ int main() {
     event.type = SDL_QUIT;
     assert(!pi_dos_reboot_shortcut(event, true, true));
     unsetenv("PI_DOS_SUPERVISED"); event.type = SDL_KEYDOWN;
+    marker = 0;
+    assert(!pi_dos_supervisor_stopping());
     assert(!pi_dos_reboot_shortcut(event, true, true));
 }
 ''')

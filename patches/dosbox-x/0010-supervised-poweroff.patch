@@ -1,0 +1,18 @@
+From: Pi-DOS project
+Subject: [PATCH] Allow supervised shutdown without a guest quit dialog
+
+PID 1 creates a volatile /run marker before signalling the runtime. Only the
+supervised direct child of PID 1 accepts it, including during games and
+read-only storage recovery. Normal standalone quit warnings are unchanged.
+
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -1349,7 +1349,7 @@
+ 
+ bool CheckQuit(void) {
+ #if defined(LINUX) && defined(C_SDL2)
+-    if (pi_dos_reboot_requested) return true;
++    if (pi_dos_reboot_requested || pi_dos_supervisor_stopping()) return true;
+ #endif
+ #if !defined(HX_DOS)
+     Section_prop *section = static_cast<Section_prop *>(control->GetSection("dosbox"));

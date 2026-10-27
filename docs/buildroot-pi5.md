@@ -592,6 +592,33 @@ restart, and `POWEROFF` on the appliance. This confirms the requested functional
 checks; it does not establish power-loss recovery or the deferred ALSA playback
 teardown behavior.
 
+### Pi 5 power button
+
+A short press of the onboard power button requests the same clean poweroff as
+`POWEROFF`, including while a game is running or C: is read-only/unavailable.
+PID 1 listens for `KEY_POWER` on the host-bus `pwr_button` evdev device; USB
+keyboard power keys are ignored. No systemd, desktop service or GPIO overlay is
+needed. GPIO keyboard and evdev support are built into the kernel.
+
+The listener ignores repeats and a button already held when it is discovered.
+It rescans for late device enumeration and resynchronises after lost events
+without inventing a shutdown request. The first supervised stop request keeps
+its chosen action, even if a DOS `CONTROL.REQ` file is also present.
+Before signalling DOSBox, PID 1 creates a volatile `/run/pi-dos-stop` marker.
+The supervised runtime uses it to bypass quit confirmation dialogs and exit
+through its normal teardown. PID 1 then syncs/unmounts storage and powers off.
+Save application data before pressing the button.
+
+Pressing the button while off boots the Pi through firmware. A long hold retains
+the hardware forced-poweroff behavior. For lower standby consumption,
+`POWER_OFF_ON_HALT=1` is an optional EEPROM setting; this implementation does
+not modify EEPROM configuration. See the [official power-button documentation](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#power-button).
+
+`python3 tools/image/test-power-button.py` checks device filtering and evdev
+event handling using simulated input, without powering off the test machine.
+`test-reboot-shortcut.py` also checks isolation of the shutdown marker from
+standalone runs. Physical Pi 5 button shutdown/wake validation remains pending.
+
 ## Validation and first hardware test
 
 The build runs `tools/image/verify.py` after image generation. It checks the

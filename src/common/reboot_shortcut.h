@@ -10,6 +10,13 @@
 
 static bool pi_dos_reboot_requested = false;
 
+static bool pi_dos_supervisor_stopping(void)
+{
+    const char *supervised = getenv("PI_DOS_SUPERVISED");
+    return supervised && !strcmp(supervised, "1") && getppid() == 1 &&
+           access("/run/pi-dos-stop", F_OK) == 0;
+}
+
 static bool pi_dos_reboot_shortcut(const SDL_Event &event, bool ctrl, bool alt)
 {
     const char *supervised = getenv("PI_DOS_SUPERVISED");

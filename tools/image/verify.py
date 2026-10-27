@@ -118,6 +118,9 @@ def main():
     require(b'PI_DOS_SUPERVISED' in packed_init and
             b'Ctrl+Alt+Delete requested a supervised reboot' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Image lacks the supervised Ctrl+Alt+Delete reboot path')
+    require(b'power button requested a clean poweroff' in packed_init and
+            b'/run/pi-dos-stop' in (target / 'pi-dos/pi-dos').read_bytes(),
+            'Image lacks the power-button listener or supervised quit-dialog bypass')
     for name in ('bin/sh', 'bin/busybox', 'sbin/init', 'usr/bin/bash', 'usr/sbin/sshd',
                  'usr/sbin/dropbear', 'sbin/e2fsck', 'sbin/resize2fs'):
         require(name not in names, f'Unexpected general-purpose runtime: {name}')
@@ -156,7 +159,7 @@ def main():
     linux_dirs = list((OUT / 'build').glob('linux-*/.config'))
     require(len(linux_dirs) == 1, 'Cannot identify kernel build configuration')
     kernel = linux_dirs[0].read_text()
-    for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'INPUT_EVDEV',
+    for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'INPUT_EVDEV', 'KEYBOARD_GPIO',
                     'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS', 'PRINTK',
                     'USB_HID', 'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
                     'MMC_BCM2835_MMC', 'MMC_SDHCI_IPROC', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
@@ -385,6 +388,7 @@ def main():
                 'buildroot_config_sha256': digest(OUT / '.config'),
                 'source_lock': json.loads((ROOT / 'sources.lock.json').read_text()),
                 'init_source_sha256': digest(ROOT / 'src/init/init.c'),
+                'power_button_source_sha256': digest(ROOT / 'src/init/power_button.c'),
                 'diagnostics_source_sha256': digest(ROOT / 'src/init/diagnostics.c'),
                 'storage_source_sha256': digest(ROOT / 'src/init/storage.c'),
                 'editor_sha256': digest(editor),

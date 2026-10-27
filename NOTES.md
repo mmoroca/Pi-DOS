@@ -10,7 +10,7 @@
         shall LCD use force 60 by default? or add the option
 - [ ] check external usb-floppy and usb-cd drives
 - [ ] first boot should ask for some defaults like time/zone,. country etc
-- [ ] support for safeboot available in Pi5 to allow using the power button
+- [x] Support clean shutdown using the Pi 5 power button
 
 ---------------------------------------------
 

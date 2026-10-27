@@ -30,10 +30,12 @@
 #include "mixer.h"
 #include "midi.h"
 #include "midi_profiles.h"
+#include "power_button.h"
 
 enum storage { NO_STORAGE, READ_ONLY, READ_WRITE };
 static struct pi_dos_diagnostics diagnostics = {.kernel_fd = -1, .boot_fd = -1, .runtime_fd = -1};
 static struct pi_dos_network network = {.dhcp = -1, .clock = -1};
+static struct pi_dos_power_button power_button = {.fd = -1};
 
 #define USER_CONFIG_PATH "/dosdata/c/SYSTEM/PIDOS.CFG"
 
@@ -354,6 +356,7 @@ static void select_video(void)
 static void finish(enum storage storage, bool restart)
 {
     dprintf(2, "Pi-DOS: synchronizing storage before %s\n", restart ? "reboot" : "poweroff");
+    pi_dos_power_button_close(&power_button);
     pi_dos_network_stop(&network);
     pi_dos_diagnostics_stop(&diagnostics);
     sync();
@@ -496,26 +499,40 @@ int main(void)
             }
             char request[32];
             if (storage == READ_WRITE && read_line("/dosdata/c/SYSTEM/CONTROL.REQ", request, sizeof(request))) {
-                restart = !strcmp(request, "reboot");
+                if (!requested) restart = !strcmp(request, "reboot");
                 unlink("/dosdata/c/SYSTEM/CONTROL.REQ");
             }
             finish(storage, restart);
         }
+        pi_dos_power_button_scan(&power_button);
         struct pollfd items[] = {{signals, POLLIN, 0}, {device_events, POLLIN, 0},
-                                 {diagnostics.kernel_fd, POLLIN, 0}};
-        if (poll(items, 3, 100) > 0 && (items[0].revents & POLLIN)) {
+                                 {diagnostics.kernel_fd, POLLIN, 0}, {power_button.fd, POLLIN, 0}};
+        bool stop = false, want_restart = false;
+        if (poll(items, 4, 100) > 0 && (items[0].revents & POLLIN)) {
             struct signalfd_siginfo info;
             if (read(signals, &info, sizeof(info)) == sizeof(info) &&
                 (info.ssi_signo == SIGTERM || info.ssi_signo == SIGINT)) {
-                restart = info.ssi_signo == SIGINT;
-                if (runtime < 0) finish(storage, restart);
-                if (!requested) {
-                    requested = true;
-                    clock_gettime(CLOCK_MONOTONIC, &deadline);
-                    deadline.tv_sec += 10;
-                    kill(runtime, SIGTERM);
-                }
+                stop = true;
+                want_restart = info.ssi_signo == SIGINT;
             }
+        }
+        if ((items[3].revents & (POLLIN | POLLHUP | POLLERR | POLLNVAL)) &&
+            pi_dos_power_button_read(&power_button)) {
+            if (!requested) dprintf(2, "Pi-DOS: power button requested a clean poweroff\n");
+            stop = true;
+            want_restart = false;
+        }
+        if (stop && !requested) {
+            restart = want_restart;
+            if (runtime < 0) finish(storage, restart);
+            requested = true;
+            clock_gettime(CLOCK_MONOTONIC, &deadline);
+            deadline.tv_sec += 10;
+            /* The runtime uses this volatile marker to bypass quit dialogs. */
+            int marker = open("/run/pi-dos-stop", O_WRONLY | O_CREAT | O_CLOEXEC, 0600);
+            if (marker >= 0) close(marker);
+            else dprintf(2, "Pi-DOS: shutdown marker failed: %s\n", strerror(errno));
+            kill(runtime, SIGTERM);
         }
         if (items[1].revents & POLLIN) forward_device_events(device_events);
         pi_dos_diagnostics_poll(&diagnostics, runtime);

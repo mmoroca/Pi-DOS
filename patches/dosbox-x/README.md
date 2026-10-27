@@ -39,6 +39,11 @@ After a successful request, quit confirmation is bypassed for the supervisor's
 shutdown. Only the opted-in direct child of PID 1 enables this behavior.
 The native and Buildroot helpers install the shared header before compiling.
 
+`0010-supervised-poweroff.patch` lets PID 1 bypass guest quit warnings after
+creating `/run/pi-dos-stop` and sending SIGTERM. This keeps power-button
+shutdown on the normal runtime teardown path while a game is running.
+The shared helper accepts the marker only for the supervised child of PID 1.
+
 `0007-preserve-overlapping-fpu-register-bits.patch` marks `RegBit` views as
 aliasing types. GCC 14 on AArch64 otherwise loses the x87 stack push when
 `FPTAN` or `FSINCOS` subsequently clears C2. Wolfenstein 3D builds incorrect
