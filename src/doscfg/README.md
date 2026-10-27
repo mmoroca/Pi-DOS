@@ -155,7 +155,8 @@ the new file into place. A failed replacement attempts to restore the original.
 Existing temporary recovery files are never overwritten. Read errors, DOS
 read-only attributes, size limits (24 KiB), invalid input and write/rename errors
 are reported. Hardware and regional changes apply after reboot; mixer changes can also be
-previewed immediately as described above.
+previewed immediately as described above. `REBOOT` or Ctrl+Alt+Delete performs
+a full Pi reboot and reloads the saved configuration. Save application data first.
 
 When the current three settings do not match a profile, the interface shows
 Custom settings with no profile preselected. Cancel never saves. Missing keys

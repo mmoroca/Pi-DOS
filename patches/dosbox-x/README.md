@@ -32,6 +32,13 @@ Managed profiles disable MIDI if their backend fails to open. Internal GM
 uses the existing `synth` FluidSynth handler, which feeds DOSBox's SYNTH mixer
 channel; Munt feeds MT32. Both backends are enabled in the ARM64 build.
 
+`0009-supervised-ctrl-alt-delete.patch` intercepts Ctrl+Alt+Delete in SDL2 before
+the guest keyboard reset. `src/common/reboot_shortcut.h` requests the existing
+PID 1 SIGINT reboot protocol and consumes repeat/Delete-release events.
+After a successful request, quit confirmation is bypassed for the supervisor's
+shutdown. Only the opted-in direct child of PID 1 enables this behavior.
+The native and Buildroot helpers install the shared header before compiling.
+
 `0007-preserve-overlapping-fpu-register-bits.patch` marks `RegBit` views as
 aliasing types. GCC 14 on AArch64 otherwise loses the x87 stack push when
 `FPTAN` or `FSINCOS` subsequently clears C2. Wolfenstein 3D builds incorrect

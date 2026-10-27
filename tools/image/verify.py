@@ -115,6 +115,9 @@ def main():
             'Reverted runtime-launcher patch is still present in the image')
     require(b'PI_DOS_DIAGNOSTICS' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Runtime lacks unified video diagnostics; clean and rebuild pi-dos-runtime')
+    require(b'PI_DOS_SUPERVISED' in packed_init and
+            b'Ctrl+Alt+Delete requested a supervised reboot' in (target / 'pi-dos/pi-dos').read_bytes(),
+            'Image lacks the supervised Ctrl+Alt+Delete reboot path')
     for name in ('bin/sh', 'bin/busybox', 'sbin/init', 'usr/bin/bash', 'usr/sbin/sshd',
                  'usr/sbin/dropbear', 'sbin/e2fsck', 'sbin/resize2fs'):
         require(name not in names, f'Unexpected general-purpose runtime: {name}')

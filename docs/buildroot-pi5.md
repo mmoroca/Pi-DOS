@@ -578,6 +578,15 @@ missing or read-only. PID 1 also handles SIGINT as reboot and SIGTERM as powerof
 allowing ten seconds for a supervised runtime to stop before forcing termination.
 Unexpected runtime crashes preserve serial diagnostics without a restart loop.
 
+Ctrl+Alt+Delete (including keypad Delete) uses the supervised reboot path.
+The SDL2 runtime intercepts the combination before it reaches the DOS keyboard,
+then sends SIGINT to PID 1. PID 1 records the reboot request before asking the
+runtime to stop; shutdown then syncs/unmounts storage and reboots the Pi.
+This reloads `C:\SYSTEM\PIDOS.CFG`, works while a game is running, and does not
+depend on C: being writable. Unsaved application data is still lost.
+The shortcut is enabled only for the child launched by Pi-DOS PID 1 through
+`PI_DOS_SUPERVISED=1`; standalone desktop runs keep their existing behavior.
+
 The user confirmed successful `REBOOT`, persistence of the test file after
 restart, and `POWEROFF` on the appliance. This confirms the requested functional
 checks; it does not establish power-loss recovery or the deferred ALSA playback

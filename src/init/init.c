@@ -446,6 +446,7 @@ int main(void)
 
     pid_t runtime = fork();
     if (runtime == 0) {
+        setenv("PI_DOS_SUPERVISED", "1", 1);
         pi_dos_diagnostics_redirect(&diagnostics);
         sigprocmask(SIG_UNBLOCK, &blocked, NULL);
         setsid();

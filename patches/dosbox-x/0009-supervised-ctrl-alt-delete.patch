@@ -1,0 +1,35 @@
+From: Pi-DOS project
+Subject: [PATCH] Route supervised Ctrl+Alt+Delete through PID 1
+
+Intercept physical Delete/keypad Delete before guest input. The shared helper
+requests PID 1's existing SIGINT reboot protocol and waits for its SIGTERM,
+so teardown cannot race the reboot request. Skip quit confirmation once the
+request has succeeded. Desktop runtimes retain their existing behavior.
+
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -1345,7 +1345,12 @@
+ #endif
+ }
+ 
++#include "pidos_reboot_shortcut.h"
++
+ bool CheckQuit(void) {
++#if defined(LINUX) && defined(C_SDL2)
++    if (pi_dos_reboot_requested) return true;
++#endif
+ #if !defined(HX_DOS)
+     Section_prop *section = static_cast<Section_prop *>(control->GetSection("dosbox"));
+     std::string warn = section->Get_string("quit warning");
+@@ -6356,6 +6361,11 @@
+ #endif
+         case SDL_KEYDOWN:
+         case SDL_KEYUP:
++#if defined(LINUX)
++            if (pi_dos_reboot_shortcut(event,
++                    sdl.lctrlstate == SDL_KEYDOWN || sdl.rctrlstate == SDL_KEYDOWN,
++                    sdl.laltstate == SDL_KEYDOWN || sdl.raltstate == SDL_KEYDOWN)) break;
++#endif
+             if (sdl.desktop.type == SCREEN_GAMELINK) break;
+ #if defined (WIN32) || defined(MACOSX) || defined(C_SDL2)
+             if (event.key.keysym.sym==SDLK_LALT) sdl.laltstate = event.key.type;

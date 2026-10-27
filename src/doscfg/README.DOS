@@ -87,7 +87,9 @@ storage and Drives lines.
 
 Saving updates only edited settings in C:\SYSTEM\PIDOS.CFG. Other settings
 and comments on separate lines are preserved. Custom settings remain until
-changed. Run REBOOT after saving hardware or regional changes.
+changed. Run REBOOT or press Ctrl+Alt+Delete after saving hardware or
+regional changes. The shortcut reboots the Pi and reloads saved settings;
+save application data first.
 The original file is backed up as PIDOS.BAK. Saving again replaces that
 backup with the immediately previous version. Read-only files are left
 unchanged. Files over 24 KiB cannot be edited.

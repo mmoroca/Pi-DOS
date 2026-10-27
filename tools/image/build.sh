@@ -44,6 +44,7 @@ import hashlib, sys
 root = Path(sys.argv[1])
 digest = hashlib.sha256()
 paths = [root / 'VERSION', root / 'src/common/midi_ports.h',
+         root / 'src/common/reboot_shortcut.h',
          root / 'br2-external/package/pi-dos-runtime/pi-dos-runtime.mk']
 paths += sorted((root / 'patches/dosbox-x').glob('*.patch'))
 for path in paths:

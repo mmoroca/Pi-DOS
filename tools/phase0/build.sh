@@ -52,6 +52,7 @@ if [[ "$sdl_only" == 1 ]]; then
 fi
 
 install -m 0644 "$root/src/common/midi_ports.h" "$dosbox/src/gui/pidos_midi_ports.h"
+install -m 0644 "$root/src/common/reboot_shortcut.h" "$dosbox/src/gui/pidos_reboot_shortcut.h"
 for source_patch in "$root"/patches/dosbox-x/*.patch; do
     [[ -f "$source_patch" ]] || continue
     if patch --batch --forward --fuzz=0 --dry-run -p1 -d "$dosbox" -i "$source_patch" >/dev/null 2>&1; then
