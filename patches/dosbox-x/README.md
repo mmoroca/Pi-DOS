@@ -62,3 +62,12 @@ passes the resolved setting to the emulator through the internal
 `C:\SYSTEM\VIDEO.LOG` when no explicit `[log] logfile` is specified. With
 diagnostics off, the verbose tracing and presentation queries are skipped.
 Other SDL video backends retain their selection behavior.
+
+`0011-fixed-lcd-monitor.patch` adds a managed SDL2 surface path for fixed LCD
+output. PID 1 validates the manual mode and passes it through `PI_DOS_LCD_MODE`;
+the host resolution/refresh no longer follows guest mode changes in that profile.
+A separate RGB source surface receives the DOS raster, then
+fits into a centered 4:3 or original-pixel viewport using `src/common/lcd_video.h`.
+The existing SDL surface/GLES presentation handles the final window surface.
+Guest video timing and the existing CRT mode-switch path remain separate. This patch needs physical
+LCD validation; host checks cover configuration and viewport geometry.

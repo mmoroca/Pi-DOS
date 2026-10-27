@@ -150,7 +150,38 @@ available for a fresh flash. Placing the EDID binary on BOOT alone does not
 make it available to the kernel's firmware loader.
 Pi 5's EEPROM supplies its boot firmware; this image does not update EEPROM.
 
-The DOS prompt starts in VGA 80x25 text mode with 9x16 character cells, giving
+### Monitor profiles
+
+PIDOSCFG's System page selects LCD (the fresh-install default) or CRT. LCD
+uses a manually selected fixed output: 640x480, 800x600, 832x624, **1024x768**
+(default), 1280x720 or 1920x1080. These resolutions come from the supplied EDID,
+which remains installed for both profiles. No physical-monitor detection is
+added. SDL selects an advertised refresh for the chosen resolution independently
+of the guest's refresh; the mode remains fixed across guest changes. A closest
+available resolution fallback is recorded when video diagnostics are enabled.
+
+LCD aspect is 4:3 by default, or Original pixels (the uncorrected source raster
+ratio). A separate source surface is fitted into the fixed window, centered with
+black borders. This also handles DOS modes larger than the selected output.
+VGA doublescan and software scalers are disabled for this profile. Final
+nearest-neighbor fitting runs on the CPU; SDL's existing GLES presentation
+and VSync remain enabled.
+No integer-scaling control or forced-refresh option is added.
+
+The settings live under `[pidos]` as `monitor=lcd`, `lcd_mode=1024x768`,
+`lcd_aspect=4:3` (or `original`).
+PID 1 strips that section from the guest configuration and writes the resolved
+profile to `/run/pidos-video.conf`, loaded after user settings. Internal
+`PI_DOS_LCD_MODE` and `PI_DOS_LCD_ASPECT` variables enable the SDL2 patch.
+Explicit CRT restores the baseline below and ignores retained LCD preferences.
+Existing files without `monitor` preserve their advanced settings unchanged.
+Save and reboot to apply; boot can initially show the kernel's 720x400 mode
+before LCD switches once to its fixed output. The new LCD rendering path still
+needs physical display testing, including aspect fitting and mode changes.
+
+### CRT baseline
+
+In CRT mode the DOS prompt starts in VGA 80x25 text mode with 9x16 character cells, giving
 a native 720x400 raster at 70 Hz. BOOT's single-line `cmdline.txt` requests
 `video=HDMI-A-1:720x400@70 video=HDMI-A-2:720x400@70` for either HDMI port.
 The runtime uses `fullresolution=original`, `char9=true`,
@@ -343,12 +374,12 @@ preserving other settings, and backs up the previous file as `PIDOS.BAK`.
 Run `REBOOT` after saving. See [the utility documentation](../src/doscfg/README.md)
 or `C:\DOCS\PIDOSCFG.TXT` for profiles, controls and command-line options.
 
-`Restore defaults` (F3) selects Pentium 133 MHz; Save is required to
+`Restore defaults` (F3) selects Automatic; Save is required to
 persist it. The boot table shows Date above Time in the left column and the
 configured DOS CPU model directly above DOS video on the right, without cycles.
 Recognized profiles display their names without a prefix.
-Fresh images default to Pentium 133 MHz (`cputype=pentium`, `core=dynamic_rec`,
-`cycles=fixed 71240`). Existing installations retain their configuration until
+Fresh images default to Automatic (`cputype=auto`, `core=dynamic_rec`,
+`cycles=auto`). Existing installations retain their configuration until
 changed with setup or an editor.
 
 Fresh images include a CRLF copy of the default configuration. Writable boots

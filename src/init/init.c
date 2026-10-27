@@ -27,6 +27,7 @@
 #include "network.h"
 #include "timezone.h"
 #include "config.h"
+#include "video.h"
 #include "mixer.h"
 #include "midi.h"
 #include "midi_profiles.h"
@@ -427,7 +428,8 @@ int main(void)
     setenv("PI_DOS_DIAGNOSTICS", capture ? "1" : "0", 1);
     if ((user_config && (!pi_dos_runtime_config(user_config, "/run/pidos-user.conf") ||
                          !pi_dos_midi_prepare(user_config, "/run/pidos-user.conf", MIDI_ASSET_ROOT))) ||
-        !make_config(storage, user_config)) {
+        !make_config(storage, user_config) ||
+        !pi_dos_video_prepare(user_config, "/run/pidos-video.conf")) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");
         for (;;) pause();
     }
@@ -466,12 +468,15 @@ int main(void)
         char *arguments[14] = {"pi-dos", "-defaultmapper", "-nopromptfolder",
                               "-defaultdir", "/pi-dos", "-conf", "/run/pi-dos.conf"};
         size_t argc = 7;
-        /* Load the editable file last: hardware settings override defaults,
-         * and its [autoexec] commands follow the generated system startup. */
+        /* User hardware settings override defaults, and user [autoexec]
+         * commands follow system startup. The monitor profile is resolved last. */
         if (user_config) {
             arguments[argc++] = "-conf";
             arguments[argc++] = "/run/pidos-user.conf";
         }
+        /* Managed monitor profiles take precedence over low-level display settings. */
+        arguments[argc++] = "-conf";
+        arguments[argc++] = "/run/pidos-video.conf";
         arguments[argc++] = "-fastlaunch";
         arguments[argc++] = "-nomenu";
         arguments[argc] = NULL;

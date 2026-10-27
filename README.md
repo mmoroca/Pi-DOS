@@ -71,6 +71,11 @@ images. The image contains only the `c` data folder.
 The image includes a personalized editor at `C:\PROGRAMS\TOOLS\EDIT.COM`; this
 writable copy takes priority over the bundled editor and retains saved preferences.
 Edit `C:\SYSTEM\PIDOS.CFG` and reboot to change emulator settings persistently.
+PIDOSCFG's System page selects LCD or CRT output. Fresh installations use fixed
+1024x768 LCD output and 4:3 aspect. LCD offers manual resolutions and
+Original pixels aspect; CRT follows DOS video modes.
+Save and reboot to apply. Existing configurations keep their display behavior
+until a monitor type is selected. See the [monitor controls](src/doscfg/README.md#monitor-output).
 The same file accepts `[pidos]` options, including `timezone=Europe/Madrid` for
 local time with automatic daylight saving.
 The default keyboard layout is Spanish (`keyboardlayout=sp` under `[dos]`).

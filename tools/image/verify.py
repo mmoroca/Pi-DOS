@@ -277,8 +277,8 @@ def main():
     if diagnostic:
         default_config = default_config.replace(b'diagnostics=false\r\n', b'diagnostics=true\r\n')
     require(packed_config == default_config, 'Editable PIDOS.CFG missing/stale in PI-DOS')
-    require(b'[cpu]\r\ncputype=pentium\r\ncore=dynamic_rec\r\ncycles=fixed 71240\r\n'
-            in packed_config, 'Fresh image must default to the Pentium 133 MHz profile')
+    require(b'[cpu]\r\ncputype=auto\r\ncore=dynamic_rec\r\ncycles=auto\r\n'
+            in packed_config, 'Fresh image must default to the Automatic CPU profile')
     require(b'[pidos]\r\n' in packed_config and b'timezone=Europe/Madrid\r\n' in packed_config,
             'Missing custom timezone defaults')
     require(b'mixer_master=100:100\r\n' in packed_config and
@@ -286,6 +286,8 @@ def main():
             'Missing default mixer, SB16 or RAM settings')
     require(b'midi_profile=none\r\n' in packed_config and b'mixer_midi=100:100\r\n' in packed_config,
             'Missing MIDI profile/volume defaults')
+    require(b'monitor=lcd\r\nlcd_mode=1024x768\r\nlcd_aspect=4:3\r\n'
+            in packed_config, 'Missing fresh-install LCD monitor defaults')
     assets = json.loads((ROOT / 'configs/midi-assets.json').read_text())['files']
     for asset in assets:
         relative = asset['destination']

@@ -15,9 +15,38 @@ Six pages configure CPU, Memory, Video, Sound, Mixer and System settings. F5/F6
 change pages; Tab/Shift+Tab move focus; Enter edits; F2 saves all pages; Esc
 cancels. Selection dialogs support typing to filter, arrows and page keys.
 **Restore defaults** (F3 or Alt+R) resets the current page only, pending Save.
-The CPU default remains Pentium 133 MHz (`pentium`, `dynamic_rec`, fixed 71240),
+The CPU default is Automatic (`auto`, `dynamic_rec`, `auto`),
 marked `(default)` in the profile list.
 Existing installations retain their configuration until explicitly changed.
+
+## Monitor output
+
+System offers **Monitor type: LCD / CRT**. Fresh installations default to LCD,
+1024x768 and 4:3 aspect. Select an LCD resolution from 640x480,
+800x600, 832x624, 1024x768, 1280x720 or 1920x1080, as advertised by the supplied
+EDID. The selected output mode stays fixed when DOS applications change modes;
+SDL chooses its advertised refresh without changing the emulated video clock.
+The output resolution is manual, without monitor-native detection.
+
+LCD aspect can be **4:3** or **Original pixels**, which preserves the source
+raster ratio (for example, 320x200 is 8:5). Both fit the screen with centered
+black borders as needed. Guests larger than the output are reduced to fit.
+These controls are shown only for LCD, and their preferences survive
+switching to CRT. There is no integer scaling or refresh selector.
+
+CRT retains native DOS raster/refresh switching, with no aspect correction or
+software scaler. Existing configurations without `[pidos] monitor` keep their
+previous advanced display settings until a monitor type is explicitly selected.
+Selecting a profile makes it authoritative over low-level `[sdl]` and `[render]`
+display settings. Save and reboot to apply. Physical LCD/CRT validation remains
+necessary for the new profile path.
+
+```ini
+[pidos]
+monitor=lcd
+lcd_mode=1024x768
+lcd_aspect=4:3
+```
 
 ## Memory, video, sound and system
 
@@ -111,14 +140,14 @@ captures the existing boot, runtime, network and video logs after reboot.
 
 | ID | Label | cputype | core | cycles |
 | --- | --- | --- | --- | --- |
-| auto | Automatic | auto | dynamic_rec | auto |
+| auto | Automatic (default) | auto | dynamic_rec | auto |
 | 286-12 | 286 12 MHz | 286 | normal | fixed 1510 |
 | 386-33 | 386DX 33 MHz | 386 | dynamic_rec | fixed 6075 |
 | 486-33 | 486DX 33 MHz | 486 | dynamic_rec | fixed 12010 |
 | 486-66 | 486DX2 66 MHz | 486 | dynamic_rec | fixed 23880 |
 | 486-100 | 486DX4 100 MHz | 486 | dynamic_rec | fixed 33445 |
 | pentium-100 | Pentium 100 MHz | pentium | dynamic_rec | fixed 53430 |
-| pentium-133 | Pentium 133 MHz (default) | pentium | dynamic_rec | fixed 71240 |
+| pentium-133 | Pentium 133 MHz | pentium | dynamic_rec | fixed 71240 |
 | mmx-200 | Pentium MMX 200 MHz | pentium_mmx | dynamic_rec | fixed 114657 |
 
 MHz values are approximate speed equivalents, using the pinned DOSBox-X speed

@@ -11,8 +11,8 @@
 #define CFG_CAPACITY 24576
 #define S(section,key,value,page) {section,key,value,page}
 const CfgSpec cfg_specs[K_COUNT] = {
- S("cpu","cputype","pentium",PAGE_CPU), S("cpu","core","dynamic_rec",PAGE_CPU),
- S("cpu","cycles","fixed 71240",PAGE_CPU),
+ S("cpu","cputype","auto",PAGE_CPU), S("cpu","core","dynamic_rec",PAGE_CPU),
+ S("cpu","cycles","auto",PAGE_CPU),
  S("dosbox","memsize","16",PAGE_MEMORY), S("dosbox","memsizekb","0",PAGE_MEMORY),
  S("dosbox","machine","svga_s3",PAGE_VIDEO),
  S("sblaster","sbtype","sb16",PAGE_SOUND), S("sblaster","sbbase","220",PAGE_SOUND),
@@ -39,7 +39,10 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("midi","mpuirq","-1",PAGE_SOUND), S("midi","mididevice","none",PAGE_SOUND),
  S("midi","midiconfig","",PAGE_SOUND), S("midi","mt32.model","auto",PAGE_SOUND),
  S("midi","mt32.romdir","",PAGE_SOUND), S("pidos","midi_port","",PAGE_SOUND),
- S("pidos","midi_delaysysex","false",PAGE_SOUND)
+ S("pidos","midi_delaysysex","false",PAGE_SOUND),
+ S("pidos","monitor","lcd",PAGE_SYSTEM),
+ S("pidos","lcd_mode","1024x768",PAGE_SYSTEM),
+ S("pidos","lcd_aspect","4:3",PAGE_SYSTEM)
 };
 const char *card_names[CARD_COUNT] = {"None", "Tandy sound", "AdLib",
  "Creative Game Blaster / CMS", "Sound Blaster 2.0", "Sound Blaster Pro 2",
@@ -84,6 +87,9 @@ int cfg_set(int key, const char *value) {
  if(valid) for(i=0;value[i];++i) if((unsigned char)value[i]<32 || (unsigned char)value[i]>126) valid=0;
  if(!valid) { strcpy(cfg_error,"Invalid or overlong configuration value."); return 0; }
  switch(key) {
+ case K_MONITOR: valid=one_of(value,"lcd|crt"); break;
+ case K_LCD_MODE: valid=lcd_mode_find(value)>=0; break;
+ case K_LCD_ASPECT: valid=one_of(value,"4:3|original"); break;
  case K_RAM: valid=one_of(value,"1|2|4|8|16|32|64|128"); break;
  case K_RAM_KB: valid=!strcmp(value,"0"); break;
  case K_MACHINE: valid=video_profile_find(value)>=0; break;
@@ -131,6 +137,8 @@ int cfg_set(int key, const char *value) {
  }
  if(!valid) { strcpy(cfg_error,"Value is outside the supported range. Check the field's help."); return 0; }
  if(strcmp(values[key],value)) { strcpy(values[key],value); dirty[key]=1; }
+ /* Selecting a monitor or LCD option materializes the managed profile. */
+ if(key>=K_MONITOR && key<=K_LCD_ASPECT) dirty[K_MONITOR]=1;
  sync_cpu(); cfg_error[0]=0; return 1;
 }
 int cfg_profile(void) { return cpu_profile_find(values[K_CPU_TYPE],values[K_CPU_CORE],values[K_CPU_CYCLES]); }
@@ -246,7 +254,7 @@ static int load_contents(const char *path) {
  contents[content_size]=0; return 1;
 }
 int cfg_load(const char *path) {
- unsigned int start,end,equals; int key,i; char section[CFG_VALUE_SIZE]="";
+ unsigned int start,end,equals; int key,i,monitor_found=0; char section[CFG_VALUE_SIZE]="";
  const CpuProfile *p=&cpu_profiles[cpu_profile_default()];
  for(i=0;i<K_COUNT;++i) { strcpy(values[i],cfg_specs[i].default_value); dirty[i]=0; }
  strcpy(values[K_CPU_TYPE],p->type); strcpy(values[K_CPU_CORE],p->core); strcpy(values[K_CPU_CYCLES],p->cycles);
@@ -254,9 +262,12 @@ int cfg_load(const char *path) {
  for(start=0;start<content_size;start=end) {
   for(end=start;end<content_size && contents[end]!='\n';++end) {}
   key=parse_line(start,end,section,&equals);
+  if(key==K_MONITOR) monitor_found=1;
   if(key>=0) span(equals+1,end,values[key],CFG_VALUE_SIZE);
   if(end<content_size) ++end;
  }
+ /* Existing files without a monitor setting retain their previous CRT setup. */
+ if(file_exists && !monitor_found) strcpy(values[K_MONITOR],"crt");
  sync_cpu(); return 1;
 }
 static int write_span(FILE *out,unsigned int start,unsigned int end) {
@@ -301,6 +312,8 @@ int cfg_save_changes(const char *path) {
  }
  /* Only pending keys are changed; reload raw bytes to retain unrelated external edits. */
  if(!load_contents(path)) return 0;
+ /* A newly created file must not become a legacy CRT file after its first save. */
+ if(!file_exists) dirty[K_MONITOR]=1;
 #ifdef __WATCOMC__
  if(file_exists && (_dos_getfileattr(path,&attributes) || (attributes&_A_RDONLY))) {
   strcpy(cfg_error,"Configuration is read-only or inaccessible. No changes saved."); return 0;

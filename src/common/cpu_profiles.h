@@ -2,7 +2,7 @@
 #define PI_DOS_CPU_PROFILES_H
 
 #define PROFILE_COUNT 9
-#define DEFAULT_CPU_PROFILE_ID "pentium-133"
+#define DEFAULT_CPU_PROFILE_ID "auto"
 
 typedef struct {
     const char *id;

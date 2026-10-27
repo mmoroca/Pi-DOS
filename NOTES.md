@@ -4,10 +4,20 @@
     - hdmi - default
     - jack (pi3/4)
     - external usb dac
-- [ ] Add system option fot monitor type:
+- [ ] Add a new system option in pidoscfg for monitor type selection:
     - CRT (it is the current configuration with native resolutions, frequencies and on the fly timing chahges)
-    - LCD - default (must use fixed native monitor resolution scaled 4:3 to keep native crt monitor aspect ratio)
-        shall LCD use force 60 by default? or add the option
+    - LCD - default:
+    - must use fixed native monitor resolution
+    - must enable sub options for selecting 4:3 or native aspect ratio
+    - must enable sub option to allow selecting force 60 or native frequency (only if dosbox has this option)
+    - must enable sub option to enable integer scaling (only available if native aspect ratio is also enabled)
+    - must enable an option for scanline effects (only if dosbox has this option)
+
+
+- [ ] USB midi unavailable but it is displayed in the device list and selected
+- [ ] midi emulated audio has some issues when using the crt mode only. Maybe the refresh rate ?
+
+
 - [ ] check external usb-floppy and usb-cd drives
 - [ ] first boot should ask for some defaults like time/zone,. country etc
 
@@ -55,30 +65,30 @@
 
 ### Graphics and Video
 
-- [ ] MDA, Hercules, CGA, EGA and VGA emulation
-- [ ] SVGA / VESA VBE modes
-- [ ] DOS text modes (80×25, etc.)
-- [ ] Custom text fonts
-- [ ] VGA Mode 13h (320×200)
-- [ ] High-resolution DOS graphics
-- [ ] Accurate VGA palettes
-- [ ] Hardware palette cycling
+- [v] MDA, Hercules, CGA, EGA and VGA emulation
+- [v] SVGA / VESA VBE modes
+- [v] DOS text modes (80×25, etc.)
+- [v] Custom text fonts
+- [v] VGA Mode 13h (320×200)
+- [v] High-resolution DOS graphics
+- [v] Accurate VGA palettes
+- [v] Hardware palette cycling
 - [ ] Correct 4:3 aspect ratios
 - [ ] Integer scaling
 - [ ] Pixel-perfect rendering
 - [ ] CRT shaders
 - [ ] Scanline effects
-- [ ] Phosphor and shadow-mask simulation
-- [ ] VGA 70 Hz output
-- [ ] CGA/EGA video timing
-- [ ] Direct DRM/KMS output
-- [ ] OpenGL ES acceleration
-- [ ] VSync
-- [ ] Low-latency video output
-- [ ] Fullscreen mode
-- [ ] HDMI resolution switching
-- [ ] Real CRT-compatible video modes
-- [ ] 3dfx Voodoo emulation
+- [x] Phosphor and shadow-mask simulation
+- [v] VGA 70 Hz output
+- [v] CGA/EGA video timing
+- [v] Direct DRM/KMS output
+- [~] OpenGL ES acceleration
+- [v] VSync
+- [v] Low-latency video output
+- [v] Fullscreen mode
+- [v] HDMI resolution switching
+- [v] Real CRT-compatible video modes
+- [v] 3dfx Voodoo emulation
 
 ### Audio and Music
 

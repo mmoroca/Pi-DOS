@@ -1,0 +1,142 @@
+Pi-DOS: Present LCD profiles in one fixed SDL2 mode with aspect fitting.
+
+Keep the CRT path unchanged. Software TV/scan effects run before the final
+nearest-neighbor fit into a centered 4:3 or original-pixel viewport.
+
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -1800,6 +1800,54 @@
+ SDL_Window* GFX_SetSDLWindowMode(uint16_t width, uint16_t height, SCREEN_TYPES screenType)
+ {
+     static SCREEN_TYPES lastType = SCREEN_SURFACE;
++    /* A managed LCD session keeps one advertised host mode, independently of
++     * guest raster/refresh changes. CRT and unmanaged sessions use the path below. */
++    const char *lcd = getenv("PI_DOS_LCD_MODE");
++    int lcd_width = 0, lcd_height = 0;
++    if (screenType == SCREEN_SURFACE && GFX_IsFullscreen() && lcd &&
++        sscanf(lcd, "%dx%d", &lcd_width, &lcd_height) == 2 &&
++        lcd_width >= 160 && lcd_width <= 4096 && lcd_height >= 100 && lcd_height <= 2160) {
++        if (!sdl.window) {
++            sdl.window = SDL_CreateWindow("Pi-DOS",
++                SDL_WINDOWPOS_UNDEFINED_DISPLAY(sdl.displayNumber ? sdl.displayNumber - 1 : 0),
++                SDL_WINDOWPOS_UNDEFINED_DISPLAY(sdl.displayNumber ? sdl.displayNumber - 1 : 0),
++                lcd_width, lcd_height, SDL_WINDOW_SHOWN);
++            if (!sdl.window) E_Exit("Pi-DOS LCD window: %s", SDL_GetError());
++        }
++        SDL_DisplayMode target = {}, selected = {}, previous = {};
++        target.w = lcd_width;
++        target.h = lcd_height;
++        const int display = SDL_GetWindowDisplayIndex(sdl.window);
++        if (!SDL_GetClosestDisplayMode(display, &target, &selected))
++            E_Exit("Pi-DOS LCD mode %s unavailable: %s", lcd, SDL_GetError());
++        SDL_GetWindowDisplayMode(sdl.window, &previous);
++        /* Refresh zero lets SDL select an advertised rate once; never follow guest fps. */
++        if (previous.w != selected.w || previous.h != selected.h ||
++            previous.refresh_rate != selected.refresh_rate) {
++            if (SDL_SetWindowDisplayMode(sdl.window, &selected) != 0)
++                E_Exit("Pi-DOS LCD display mode: %s", SDL_GetError());
++        }
++        if (!(SDL_GetWindowFlags(sdl.window) & SDL_WINDOW_FULLSCREEN) &&
++            SDL_SetWindowFullscreen(sdl.window, SDL_WINDOW_FULLSCREEN) != 0)
++            E_Exit("Pi-DOS LCD fullscreen: %s", SDL_GetError());
++        int actual_width = 0, actual_height = 0;
++        SDL_GetWindowSize(sdl.window, &actual_width, &actual_height);
++        sdl.surface = SDL_GetWindowSurface(sdl.window);
++        if (!sdl.surface) E_Exit("Pi-DOS LCD surface: %s", SDL_GetError());
++        sdl.window_desired_width = actual_width;
++        sdl.window_desired_height = actual_height;
++        currentWindowWidth = actual_width;
++        currentWindowHeight = actual_height;
++        sdl.update_display_contents = true;
++        lastType = SCREEN_SURFACE;
++        pi_dos_video_audit_pending = pi_dos_video_diagnostics;
++        if (pi_dos_video_diagnostics)
++            LOG_MSG("Pi-DOS LCD request: configured=%s selected=%dx%d@%d guest=%ux%u@%.3f%s",
++                lcd, selected.w, selected.h, selected.refresh_rate,
++                (unsigned)vga.draw.width, (unsigned)vga.draw.height, (double)render.src.fps,
++                selected.w == lcd_width && selected.h == lcd_height ? "" : " (resolution fallback)");
++        return sdl.window;
++    }
+     if (sdl.renderer) {
+         SDL_DestroyRenderer(sdl.renderer);
+         sdl.renderer = nullptr;
+--- a/src/output/output_surface.cpp
++++ b/src/output/output_surface.cpp
+@@ -8,6 +8,9 @@
+ #include "sdlmain.h"
+ #include "render.h"
+ #include "vga.h"
++#if defined(C_SDL2)
++#include "pidos_lcd_video.h"
++#endif
+ 
+ #include <output/output_tools.h>
+ #include <output/output_tools_xbrz.h>
+@@ -52,8 +55,34 @@
+ }
+ 
+ #if defined(C_SDL2)
++static SDL_Surface *pidos_lcd_surface = nullptr;
+ Bitu OUTPUT_SURFACE_SetSize()
+ {
++    SDL_FreeSurface(pidos_lcd_surface);
++    pidos_lcd_surface = nullptr;
++    if (getenv("PI_DOS_LCD_MODE") && GFX_IsFullscreen()) {
++        sdl.window = GFX_SetSDLWindowMode(sdl.desktop.full.width,
++                                         sdl.desktop.full.height, SCREEN_SURFACE);
++        if (!sdl.window) E_Exit("Pi-DOS LCD window unavailable");
++        sdl.surface = SDL_GetWindowSurface(sdl.window);
++        if (!sdl.surface) E_Exit("Pi-DOS LCD surface: %s", SDL_GetError());
++        pidos_lcd_surface = SDL_CreateRGBSurfaceWithFormat(0, sdl.draw.width,
++                            sdl.draw.height, 32, SDL_PIXELFORMAT_RGB888);
++        if (!pidos_lcd_surface) E_Exit("Pi-DOS LCD source surface: %s", SDL_GetError());
++        SDL_SetSurfaceBlendMode(pidos_lcd_surface, SDL_BLENDMODE_NONE);
++        const char *aspect = getenv("PI_DOS_LCD_ASPECT");
++        const PidosViewport viewport = pidos_lcd_fit(sdl.surface->w, sdl.surface->h,
++            render.src.width, render.src.height, !aspect || strcmp(aspect, "original"));
++        sdl.clip.x = viewport.x;
++        sdl.clip.y = viewport.y;
++        sdl.clip.w = viewport.w;
++        sdl.clip.h = viewport.h;
++        sdl.window_too_small = false;
++        sdl.deferred_resize = false;
++        sdl.must_redraw_all = true;
++        SDL_FillRect(sdl.surface, nullptr, SDL_MapRGB(sdl.surface->format, 0, 0, 0));
++        return GFX_CAN_32;
++    }
+     Bitu bpp = 0;
+     Bitu retFlags = 0;
+     (void)bpp;
+@@ -598,6 +627,14 @@
+ 
+ bool OUTPUT_SURFACE_StartUpdate(uint8_t* &pixels, Bitu &pitch)
+ {
++#if defined(C_SDL2)
++    if (pidos_lcd_surface) {
++        pixels = (uint8_t *)pidos_lcd_surface->pixels;
++        pitch = pidos_lcd_surface->pitch;
++        sdl.updating = true;
++        return true;
++    }
++#endif
+ #if C_XBRZ
+     if (sdl_xbrz.enable && sdl_xbrz.scale_on)
+     {
+@@ -642,6 +679,17 @@
+ 
+ void OUTPUT_SURFACE_EndUpdate(const uint16_t *changedLines)
+ {
++#if defined(C_SDL2)
++    if (pidos_lcd_surface) {
++        if (changedLines) {
++            SDL_Rect destination = sdl.clip;
++            if (SDL_BlitScaled(pidos_lcd_surface, nullptr, sdl.surface, &destination) != 0 ||
++                SDL_UpdateWindowSurface(sdl.window) != 0)
++                E_Exit("Pi-DOS LCD presentation: %s", SDL_GetError());
++        }
++        return;
++    }
++#endif
+ #if DOSBOXMENU_TYPE == DOSBOXMENU_SDLDRAW
+     GFX_DrawSDLMenu(mainMenu, mainMenu.display_list);
+ #endif

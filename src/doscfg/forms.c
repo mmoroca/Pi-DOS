@@ -1,4 +1,5 @@
 #include "forms.h"
+#include <string.h>
 const char *page_names[PAGE_COUNT] = {"CPU", "Memory", "Video", "Sound", "Mixer", "System"};
 const char *memory_sizes[MEMORY_COUNT] = {"1", "2", "4", "8", "16", "32", "64", "128"};
 #define ADD(k,t,l,c,f,h) do { fields[n].key=k; fields[n].type=t; fields[n].label=l; fields[n].choices=c; fields[n].catalog=f; fields[n].help=h; ++n; } while(0)
@@ -39,6 +40,11 @@ int form_fields(int page, Field *fields)
        "Left:right percent. 0=mute, 100=normal; above 100 may clip.");
   }
  } else if(page==PAGE_SYSTEM) {
+  ADD(K_MONITOR,FIELD_CHOICE,"Monitor type","lcd=LCD (default)|crt=CRT",0,"LCD uses a fixed mode. CRT follows DOS resolutions and refresh rates.");
+  if(!strcmp(cfg_get(K_MONITOR),"lcd")) {
+   ADD(K_LCD_MODE,FIELD_CHOICE,"LCD resolution","640x480|800x600|832x624|1024x768=1024x768 (default)|1280x720|1920x1080",0,"Fixed output resolution from the supplied EDID; reboot to apply.");
+   ADD(K_LCD_ASPECT,FIELD_CHOICE,"LCD aspect ratio","4:3=4:3 (default)|original=Original pixels",0,"4:3 corrects DOS geometry. Original pixels preserves the source raster ratio.");
+  }
   ADD(K_KEYBOARD,FIELD_CHOICE,"Keyboard layout",0,"KEYBOARD.LST","Keyboard translation is independent of country and timezone.");
   ADD(K_COUNTRY,FIELD_CHOICE,"DOS country",0,"COUNTRY.LST","Country controls DOS date, number and currency formatting.");
   ADD(K_TIMEZONE,FIELD_CHOICE,"Local timezone",0,"TIMEZONE.LST","Installed IANA timezones; daylight saving changes are automatic.");
