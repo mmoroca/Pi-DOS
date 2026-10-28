@@ -179,6 +179,37 @@ Save and reboot to apply; boot can initially show the kernel's 720x400 mode
 before LCD switches once to its fixed output. The new LCD rendering path still
 needs physical display testing, including aspect fitting and mode changes.
 
+### Listing available video modes
+
+From the DOS prompt, run:
+
+```dos
+VIDEOMOD /P
+VIDEOMOD /HOST
+VIDEOMOD /DOS /P
+VIDEOMOD > C:\TEMP\MODES.TXT
+```
+
+`VIDEOMOD` lists both groups by default. `/HOST` lists the active SDL display's
+resolutions and integer refresh rates in Hz, marking the current output mode.
+Entries differing only in pixel format are combined. These are the modes exposed
+to the runtime by SDL/KMS, including the supplied EDID override; they do not
+prove that the attached monitor accepts every timing.
+
+`/DOS` lists the emulated adapter's BIOS modes and its advertised, supported
+VESA modes with hexadecimal mode numbers, sizes and color depths. Text sizes
+are columns by rows, with pixel dimensions shown separately. The VESA list
+respects the active adapter, video memory and configured mode restrictions.
+Applications can also program custom timings directly, which cannot be fully
+enumerated here. Hercules graphics is identified separately because it is
+selected through registers rather than a BIOS mode number.
+
+`/P` pauses each screen; press Esc or Q to stop. Omit `/P` for file redirection.
+`VIDEOMOD /?` displays help. The command is built into `Z:\SYSTEM\VIDEOMOD.COM`
+and is available on the normal PATH without enabling diagnostics. Listing modes
+does not change the display or configuration. It requires a runtime/image built
+with patch `0020`; existing images must be rebuilt to include the command.
+
 ### CRT baseline
 
 In CRT mode the DOS prompt starts in VGA 80x25 text mode with 9x16 character cells, giving

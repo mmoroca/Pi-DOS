@@ -1,5 +1,5 @@
 - [ ] defrag fails on both c and d with "Divide error"
-- [ ] command to display available video modes
+- [x] command to display available video modes (`VIDEOMOD`, `/HOST`, `/DOS`, `/P`)
 - [ ] tool to measure disk/disc w/r speed
 - [ ] Add system option for audio output:
     - hdmi - default

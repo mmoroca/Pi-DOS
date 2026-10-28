@@ -83,6 +83,8 @@ PIDOSCFG's System page selects LCD or CRT output. Fresh installations use fixed
 Original pixels aspect; CRT follows DOS video modes.
 Save and reboot to apply. Existing configurations keep their display behavior
 until a monitor type is selected. See the [monitor controls](src/doscfg/README.md#monitor-output).
+Type `VIDEOMOD /P` to list host display and DOS BIOS/VESA modes a screen at a time.
+Use `/HOST` or `/DOS` to list either group, or `VIDEOMOD /?` for help.
 The same file accepts `[pidos]` options, including `timezone=Europe/Madrid` for
 local time with automatic daylight saving.
 The default keyboard layout is Spanish (`keyboardlayout=sp` under `[dos]`).

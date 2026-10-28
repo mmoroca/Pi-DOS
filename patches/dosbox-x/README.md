@@ -170,3 +170,11 @@ data CDs, audio CDs and mixed-mode game discs in USB CD/DVD/Blu-ray units;
 reading DVD/Blu-ray media is not an acceptance target. See
 [USB optical drive D:](../../docs/buildroot-pi5.md#usb-optical-drive-d) for the
 host checks and outstanding physical validation.
+
+`0020-list-video-modes.patch` adds `VIDEOMOD.COM` under `Z:\SYSTEM`. It lists
+both the active SDL2 display's output modes and the emulated adapter's BIOS/VESA
+modes. `/HOST` and `/DOS` filter the output, `/P` pages it and `/?` shows help.
+The host list combines duplicate pixel formats and marks the current timing.
+The guest list reads the adapter's legacy tables and the existing VESA ROM list,
+checking VBE support flags without switching modes. It needs no diagnostics or
+host shell. See [command usage](../../docs/buildroot-pi5.md#listing-available-video-modes).

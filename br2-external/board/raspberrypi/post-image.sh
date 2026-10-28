@@ -97,6 +97,8 @@ printf '%s\r\n' \
     'Run PIDOSCFG for CPU, RAM, video, sound, MIDI, mixer and system setup.' \
     'Save and REBOOT to apply hardware changes. Matching mixer channels apply live.' \
     'Setup preserves other settings and saves the previous file as PIDOS.BAK.' \
+    'Run VIDEOMOD /P to list host display and DOS BIOS/VESA video modes.' \
+    'Use VIDEOMOD /HOST or /DOS to filter the list; /? displays help.' \
     'MIDI ROMs and GM banks are in C:\SYSTEM\MIDI. See DOCS\PIDOSCFG.TXT.' \
     '' 'Local timezone:' \
     'In C:\SYSTEM\PIDOS.CFG, set timezone=Europe/Madrid under [pidos]' \

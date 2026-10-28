@@ -1,0 +1,225 @@
+List host display and emulated BIOS/VESA modes with VIDEOMOD.COM.
+
+--- a/src/ints/int10_modes.cpp
++++ b/src/ints/int10_modes.cpp
+@@ -3141,3 +3141,202 @@
+ void VESAMOED_ProgramStart(Program * * make) {
+ 	*make=new VESAMOED;
+ }
++
++
++/* Read-only Pi-DOS mode inventory; keep this beside the BIOS mode tables. */
++#if defined(C_SDL2)
++extern SDL_Window* GFX_GetSDLWindow(void);
++#endif
++
++class PidosVideoModes : public Program {
++    std::vector<std::string> lines;
++
++    void host_modes() {
++        lines.emplace_back("Host display modes (resolution @ refresh):\n");
++#if defined(C_SDL2)
++        SDL_Window *window = GFX_GetSDLWindow();
++        const int display = window ? SDL_GetWindowDisplayIndex(window) : -1;
++        const int count = display >= 0 ? SDL_GetNumDisplayModes(display) : -1;
++        if (count < 0) {
++            lines.emplace_back("  Host display modes unavailable.\n");
++            exit_status = 1;
++            return;
++        }
++        SDL_DisplayMode current = {};
++        const bool have_current = SDL_GetCurrentDisplayMode(display, &current) == 0;
++        std::vector<SDL_DisplayMode> seen;
++        for (int i = 0; i < count; ++i) {
++            SDL_DisplayMode mode = {};
++            if (SDL_GetDisplayMode(display, i, &mode) != 0) {
++                lines.emplace_back("  Could not query a host mode.\n");
++                exit_status = 1;
++                continue;
++            }
++            bool duplicate = false;
++            for (const auto &previous : seen)
++                if (previous.w == mode.w && previous.h == mode.h &&
++                    previous.refresh_rate == mode.refresh_rate) duplicate = true;
++            if (duplicate) continue;
++            seen.push_back(mode);
++            char line[128], refresh[32];
++            if (mode.refresh_rate > 0)
++                snprintf(refresh, sizeof(refresh), "%d Hz", mode.refresh_rate);
++            else
++                snprintf(refresh, sizeof(refresh), "unknown refresh");
++            const bool active = have_current && current.w == mode.w &&
++                current.h == mode.h && current.refresh_rate == mode.refresh_rate;
++            snprintf(line, sizeof(line), "  %4dx%-4d @ %s%s\n", mode.w, mode.h,
++                     refresh, active ? "  (current)" : "");
++            lines.emplace_back(line);
++        }
++        if (!count) lines.emplace_back("  No host modes advertised.\n");
++        lines.emplace_back("Modes reflect SDL/KMS and any installed EDID override.\n");
++#else
++        lines.emplace_back("  Host mode listing requires SDL2.\n");
++        exit_status = 1;
++#endif
++    }
++
++    void dos_mode(const VideoModeBlock &mode, const char *kind) {
++        const char *depth = "";
++        switch (mode.type) {
++        case M_TEXT: case M_HERC_TEXT: case M_TANDY_TEXT: depth = "text"; break;
++        case M_CGA2: case M_TANDY2: case M_HERC_GFX: case M_DCGA: depth = "1 bpp"; break;
++        case M_CGA4: case M_TANDY4: depth = "2 bpp"; break;
++        case M_EGA: depth = (mode.mode == 0x0f || mode.mode == 0x11) ? "1 bpp" : "4 bpp"; break;
++        case M_LIN4: case M_PACKED4: case M_TANDY16: case M_CGA16: depth = "4 bpp"; break;
++        case M_VGA: case M_LIN8: depth = "8 bpp"; break;
++        case M_LIN15: depth = "15 bpp"; break;
++        case M_LIN16: depth = "16 bpp"; break;
++        case M_LIN24: depth = "24 bpp"; break;
++        case M_LIN32: depth = "32 bpp"; break;
++        default: depth = "graphics"; break;
++        }
++        char line[128];
++        if (mode.type == M_TEXT || mode.type == M_HERC_TEXT || mode.type == M_TANDY_TEXT)
++            snprintf(line, sizeof(line), "  %04Xh  %-4s %4ux%-4u text (%ux%u pixels)\n",
++                     unsigned(mode.mode), kind, unsigned(mode.twidth), unsigned(mode.theight),
++                     unsigned(mode.swidth), unsigned(mode.sheight));
++        else
++            snprintf(line, sizeof(line), "  %04Xh  %-4s %4ux%-4u %s\n", unsigned(mode.mode),
++                     kind, unsigned(mode.swidth), unsigned(mode.sheight), depth);
++        lines.emplace_back(line);
++    }
++
++    void dos_modes() {
++        lines.emplace_back("DOS BIOS/VESA modes (hex mode, type, size, depth):\n");
++        // Use the active adapter's tables without setting any video mode.
++        VideoModeBlock *table = ModeList_OTHER;
++        unsigned limit = 6;
++        if (IS_VGA_ARCH) {
++            table = ModeList_VGA;
++            limit = svgaCard == SVGA_None ? 0x13 : 0xff;
++            if (svgaCard == SVGA_TsengET4K || svgaCard == SVGA_TsengET3K)
++                table = ModeList_VGA_Tseng;
++            else if (svgaCard == SVGA_ParadisePVGA1A)
++                table = ModeList_VGA_Paradise;
++        } else if (machine == MCH_EGA) {
++            table = ega200 ? ModeList_EGA_200 : ModeList_EGA;
++            limit = 0x10;
++        } else if (machine == MCH_MCGA) {
++            table = ModeList_MCGA;
++            limit = 0x13;
++        } else if (IS_TANDY_ARCH) {
++            limit = 0x0a;
++        }
++        if (machine == MCH_HERC || machine == MCH_MDA) {
++            dos_mode(Hercules_Mode, "BIOS");
++            if (machine == MCH_HERC)
++                lines.emplace_back("  Hercules also supports 720x348 monochrome graphics by registers.\n");
++        } else {
++            for (VideoModeBlock *mode = table; mode->mode != 0xffff; ++mode) {
++                if (mode->mode > limit || mode->type == M_ERROR ||
++                    (mode->special & (_USER_DISABLED | _BIOS_DISABLED))) continue;
++                if (IS_TANDY_ARCH && mode->mode == 7) continue;
++                if (IS_VGA_ARCH && svga.accepts_mode && !svga.accepts_mode(mode->mode)) continue;
++                if (IS_VGA_ARCH && VideoModeMemSize(mode, mode->mode) > vga.mem.memsize) continue;
++                VideoModeBlock selected = *mode;
++                if (IS_VGA_ARCH && table == ModeList_VGA && (mode->mode <= 3 || mode->mode == 7)) {
++                    const uint8_t scan = real_readb(BIOSMEM_SEG, BIOSMEM_MODESET_CTL) & 0x90;
++                    if (scan == 0x80 && mode->mode <= 3)
++                        selected = ModeList_VGA_Text_200lines[mode->mode];
++                    else if (scan == 0x00 || (scan == 0x80 && mode->mode == 7))
++                        selected = ModeList_VGA_Text_350lines[mode->mode == 7 ? 4 : mode->mode];
++                }
++                dos_mode(selected, "BIOS");
++            }
++        }
++        unsigned count = 0;
++        // The ROM list already reflects adapter, depth, resolution and VBE limits.
++        if (IS_VGA_ARCH && int10.rom.vesa_modes) {
++            uint16_t segment = 0, blocks = 16;
++            if (!DOS_AllocateMemory(&segment, &blocks)) {
++                lines.emplace_back("  Not enough DOS memory to query VESA modes.\n");
++                exit_status = 1;
++                return;
++            }
++            const PhysPt buffer = PhysMake(segment, 0);
++            const PhysPt list = Real2Phys(int10.rom.vesa_modes);
++            for (unsigned i = 0; i < 0x1000; ++i) {
++                const uint16_t number = mem_readw(list + i * 2);
++                if (number == 0xffff) break;
++                if (VESA_GetSVGAModeInformation(number, segment, 0) != 0 ||
++                    !(mem_readw(buffer) & 1)) continue;
++                for (VideoModeBlock *mode = ModeList_VGA; mode->mode != 0xffff; ++mode) {
++                    if (mode->mode != number || mode->type == M_ERROR) continue;
++                    if (number <= 0x11f && !(mode->special & _USER_MODIFIED) &&
++                        ((mode->type == M_LIN32 && !vesa12_modes_32bpp) ||
++                         (mode->type == M_LIN24 && vesa12_modes_32bpp))) continue;
++                    dos_mode(*mode, "VESA");
++                    ++count;
++                    break;
++                }
++            }
++            DOS_FreeMemory(segment);
++        }
++        if (!count) lines.emplace_back("  No VESA modes advertised by this adapter.\n");
++        lines.emplace_back("Text sizes are columns x rows; graphics sizes are pixels.\n");
++        lines.emplace_back("Programs can also program custom timings directly.\n");
++    }
++
++public:
++    void Run(void) override {
++        exit_status = 0;
++        const bool help = cmd->FindExist("/?", true);
++        const bool host = cmd->FindExist("/HOST", true);
++        const bool dos = cmd->FindExist("/DOS", true);
++        const bool page = cmd->FindExist("/P", true);
++        if (help || cmd->GetCount()) {
++            WriteOut("VIDEOMOD [/HOST | /DOS] [/P]\n"
++                     "List host output and DOS BIOS/VESA modes (default: both).\n"
++                     "/HOST  Host display resolutions and refresh rates only.\n"
++                     "/DOS   Emulated adapter's BIOS/VESA modes only.\n"
++                     "/P     Pause each screen; Esc or Q stops the listing.\n"
++                     "Example: VIDEOMOD > C:\\TEMP\\MODES.TXT\n");
++            if (!help) exit_status = 1;
++            return;
++        }
++        if (host || !dos) host_modes();
++        if ((host || !dos) && (dos || !host)) lines.emplace_back("\n");
++        if (dos || !host) dos_modes();
++        const unsigned rows = unsigned(mem_readb(BIOS_ROWS_ON_SCREEN_MINUS_1)) + 1;
++        const unsigned page_size = rows > 3 ? rows - 2 : 23;
++        for (size_t i = 0; i < lines.size(); ++i) {
++            WriteOut_NoParsing(lines[i].c_str());
++            if (page && (i + 1) % page_size == 0 && i + 1 < lines.size()) {
++                WriteOut("Press a key to continue (Esc/Q to quit)...");
++                uint8_t key = 0;
++                uint16_t size = 1;
++                if (!DOS_ReadFile(STDIN, &key, &size) || size != 1) break;
++                // Consume the scan code after a DOS extended-key prefix.
++                if (!key) { size = 1; DOS_ReadFile(STDIN, &key, &size); key = 0; }
++                WriteOut("\n");
++                if (key == 27 || key == 'q' || key == 'Q' || key == 3) break;
++            }
++        }
++    }
++};
++
++void PidosVideoModes_ProgramStart(Program **make) {
++    *make = new PidosVideoModes;
++}
+--- a/src/dos/dos_programs.cpp
++++ b/src/dos/dos_programs.cpp
+@@ -8096,6 +8096,7 @@
+ void PARALLEL_ProgramStart(Program * * make);
+ void PC98UTIL_ProgramStart(Program * * make);
+ void VESAMOED_ProgramStart(Program * * make);
++void PidosVideoModes_ProgramStart(Program **make);
+ void VFRCRATE_ProgramStart(Program * * make);
+ 
+ #if defined C_DEBUG
+@@ -10149,6 +10150,7 @@
+ #if !defined(OSFREE)
+ 	PROGRAMS_MakeFile("HELP.COM",HELP_ProgramStart,"/SYSTEM/");
+ 	PROGRAMS_MakeFile("INTRO.COM",INTRO_ProgramStart,"/SYSTEM/");
++	PROGRAMS_MakeFile("VIDEOMOD.COM",PidosVideoModes_ProgramStart,"/SYSTEM/");
+ #endif
+ 	PROGRAMS_MakeFile("IMGMOUNT.COM", IMGMOUNT_ProgramStart,"/SYSTEM/");
+ #if !defined(OSFREE)
