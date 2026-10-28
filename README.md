@@ -66,8 +66,11 @@ labelled `DOSDATA` must be relabelled before using the updated system.
 
 The default DOS PATH includes all bundled utility directories.
 DOS volume labels default to `SYSTEM` for C: and `PI-DOS` for Z:.
-C: uses the data partition's available space; D: is left available for CD-ROM
-images. The image contains only the `c` data folder.
+C: uses the data partition's available space. D: is reserved for an automatic
+USB optical drive; CD/DVD/Blu-ray units can read regular CDs, including digital
+CD audio and mixed-mode game discs. The image contains only the `c` data folder.
+Host checks pass; physical optical-drive validation is pending. See
+[USB CD-ROM support](docs/buildroot-pi5.md#usb-optical-drive-d).
 USB floppy drives automatically use `A:`, including when connected after boot.
 Use `DIR A:`, `COPY`, or `FORMAT A:` normally; disk changes and write protection
 are handled on access. Reads are batched by track. Physical drive validation is pending;

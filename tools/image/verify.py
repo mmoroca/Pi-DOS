@@ -129,6 +129,11 @@ def main():
             'Runtime lacks the USB floppy COPY buffer policy; rebuild pi-dos-runtime')
     require(b'Pi-DOS USB floppy DPB: drive=' in packed_runtime,
             'Runtime lacks USB floppy DPB support for FORMAT; rebuild pi-dos-runtime')
+    require(b'Z:\\SYSTEM\\PICDROM.COM\n' in packed_init and b'PI_DOS_USB_CDROM' in packed_init,
+            'PID 1 lacks automatic USB CD-ROM startup; rebuild pi-dos-init')
+    for value in (b'PICDROM.COM', b'USB CD-ROM D: automatic discovery enabled (digital audio)',
+                  b'Pi-DOS USB CD-ROM: media=', b'USBCD'):
+        require(value in packed_runtime, 'Runtime lacks USB CD-ROM/digital audio support; rebuild pi-dos-runtime')
     require(b'PI_DOS_SUPERVISED' in packed_init and
             b'Ctrl+Alt+Delete requested a supervised reboot' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Image lacks the supervised Ctrl+Alt+Delete reboot path')
@@ -177,7 +182,7 @@ def main():
             'Kernel lacks the shared UFI/CBI USB floppy polling cap; rebuild linux')
     for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'INPUT_EVDEV', 'KEYBOARD_GPIO',
                     'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS', 'PRINTK',
-                    'USB_HID', 'SCSI', 'BLK_DEV_SD', 'USB_STORAGE',
+                    'USB_HID', 'SCSI', 'BLK_DEV_SD', 'BLK_DEV_SR', 'USB_STORAGE',
                     'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
                     'MMC_BCM2835_MMC', 'MMC_SDHCI_IPROC', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
                     'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC',

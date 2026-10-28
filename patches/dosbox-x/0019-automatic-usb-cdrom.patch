@@ -1,0 +1,390 @@
+Automatic USB optical drive D: with direct MMC reads and digital CD audio.
+
+--- a/src/dos/cdrom.h
++++ b/src/dos/cdrom.h
+@@ -105,7 +105,8 @@
+ 	enum INTERFACE_TYPE {
+ 		ID_BASE=0,
+ 		ID_FAKE,
+-		ID_IMAGE
++		ID_IMAGE,
++		ID_USB
+ 	};
+ 
+ //	CDROM_Interface						(void);
+@@ -155,6 +156,9 @@
+ 
+     //! \brief TODO?
+ 	virtual void	InitNewMedia		(void) {};
++
++	virtual uint64_t MediaGeneration() const { return 0; }
++	virtual bool IsAudioOnly() const { return false; }
+ 
+ 	INTERFACE_TYPE class_id = ID_BASE;
+ 	uint8_t                subUnit = 0xFF;
+--- a/src/dos/dos_mscdex.cpp
++++ b/src/dos/dos_mscdex.cpp
+@@ -32,6 +32,7 @@
+ #include "cpu.h"
+ 
+ #include "cdrom.h"
++#include "pidos_usb_cdrom_backend.h"
+ 
+ #define MSCDEX_LOG LOG(LOG_MISC, LOG_DEBUG)
+ #define MSCDEX_LOG_ERROR LOG(LOG_MISC, LOG_ERROR)
+@@ -430,6 +431,13 @@
+ 	if (*cdrom) (*cdrom)->Release();
+ 	*cdrom = NULL;
+ 
++#if defined(LINUX) && !defined(OSFREE)
++	const char *usb = getenv("PI_DOS_USB_CDROM");
++	if (usb && !strcmp(usb, "1") && !strcmp(physicalPath, "pidos-usb-cdrom")) {
++		(*cdrom = new pidos_cdrom::Interface)->Addref();
++		return 0;
++	}
++#endif
+ 	// Get Mounttype and init needed cdrom interface
+ 	switch (CDROM_GetMountType(physicalPath,forceCD)) {
+ 		case 0x00: {	
+@@ -998,6 +1006,15 @@
+ 	result = GetMediaStatus(subUnit,media,changed,open);
+ 	status = changed ? 0xFF : 0x01;
+ 	return result; */
++	if (cdrom[subUnit]->class_id == CDROM_Interface::ID_USB) {
++		bool media = false, changed = false, open = false;
++		if (!cdrom[subUnit]->GetMediaTrayStatus(media, changed, open)) return false;
++		static uint64_t usb_epoch[MSCDEX_MAX_DRIVES] = {};
++		const uint64_t epoch = cdrom[subUnit]->MediaGeneration();
++		status = epoch != usb_epoch[subUnit] || !media ? 0xFF : 0x01;
++		usb_epoch[subUnit] = epoch;
++		return true;
++	}
+ 	status = getSwapRequest() ? 0xFF : 0x01;
+ 	return true;
+ }
+@@ -1684,6 +1701,14 @@
+ bool MSCDEX_HasMediaChanged(uint8_t subUnit)
+ {
+ 	static TMSF leadOut[MSCDEX_MAX_DRIVES];
++	static uint64_t usb_epoch[MSCDEX_MAX_DRIVES] = {};
++	if (subUnit < numDrives && cdrom[subUnit]->class_id == CDROM_Interface::ID_USB) {
++		bool media = false, changed = false, tray = false;
++		cdrom[subUnit]->GetMediaTrayStatus(media, changed, tray);
++		const uint64_t epoch = cdrom[subUnit]->MediaGeneration();
++		changed = epoch != usb_epoch[subUnit]; usb_epoch[subUnit] = epoch;
++		return changed || !media;
++	}
+ 
+ 	TMSF leadnew;
+ 	uint8_t tr1,tr2;
+--- a/src/dos/dos_programs.cpp
++++ b/src/dos/dos_programs.cpp
+@@ -72,6 +72,7 @@
+ #include "../output/output_opengl.h"
+ #include "paging.h"
+ #include "pidos_usb_floppy_dos.h"
++#include "pidos_usb_cdrom_dos.h"
+ 
+ #if defined(OS2)
+ #define INCL DOSFILEMGR
+@@ -10158,6 +10159,7 @@
+ 	PROGRAMS_MakeFile("MOUNT.COM",MOUNT_ProgramStart,"/SYSTEM/");
+ #if defined(LINUX)
+ 	PROGRAMS_MakeFile("PIFLOPPY.COM",pidos_floppy::program,"/SYSTEM/");
++	PROGRAMS_MakeFile("PICDROM.COM",pidos_cdrom::program,"/SYSTEM/");
+ #endif
+ #endif
+ 	PROGRAMS_MakeFile("BOOT.COM",BOOT_ProgramStart,"/SYSTEM/");
+--- a/src/dos/drives.h
++++ b/src/dos/drives.h
+@@ -1142,7 +1142,13 @@
+ #endif
+ 	bool readSector(uint8_t *buffer, uint32_t sector) const;
+ 	void setFileName(const char* fileName);
+-	char const* GetLabel(void) override {return discLabel;};
++	char const* GetLabel(void) override;
++	bool USBReady(uint64_t expected = 0);
++	uint64_t USBGeneration() const;
++private:
++	uint64_t usb_generation = 0;
++	bool usb_loading = false, usb_ready = false;
++public:
+ 	void Activate(void) override;
+ private:
+ #if !defined(OSFREE)
+--- a/src/dos/drive_iso.cpp
++++ b/src/dos/drive_iso.cpp
+@@ -912,6 +912,7 @@
+ 	bool udf = false;
+ private:
+ 	isoDrive *drive;
++	uint64_t usb_generation = 0;
+     uint8_t buffer[ISO_FRAMESIZE] = {};
+     int cachedSector = -1;
+ 	uint32_t fileBegin;
+@@ -923,6 +924,7 @@
+ 
+ #if !defined(OSFREE)
+ isoFile::isoFile(isoDrive* drive, const char* name, const FileStat_Block* stat, uint32_t offset) : drive(drive), fileBegin(offset) {
++	usb_generation = drive->USBGeneration();
+ 	time = stat->time;
+ 	date = stat->date;
+ 	attr = stat->attr;
+@@ -936,8 +938,12 @@
+ 
+ #if !defined(OSFREE)
+ bool isoFile::Read(uint8_t *data, uint16_t *size) {
++	if (!drive->USBReady(usb_generation)) { *size = 0; return false; }
+ 	if (udf) {
+ 		*size = (uint16_t)(drive->UDFextent_read(udffext,data,*size));
++		if (usb_generation && drive->USBGeneration() != usb_generation) {
++			*size = 0; DOS_SetError(DOSERR_DRIVE_NOT_READY); return false;
++		}
+ 		filePos = *size;
+ 		return true;
+ 	}
+@@ -951,7 +957,10 @@
+ 	
+ 	if (sector != cachedSector) {
+ 		if (drive->readSector(buffer, (unsigned int)sector)) cachedSector = sector;
+-		else { *size = 0; cachedSector = -1; }
++		else {
++			*size = 0; cachedSector = -1;
++			if (usb_generation) { DOS_SetError(DOSERR_DRIVE_NOT_READY); return false; }
++		}
+ 	}
+ 	while (nowSize < *size) {
+ 		uint16_t remSector = ISO_FRAMESIZE - sectorPos;
+@@ -965,6 +974,7 @@
+ 			if (!drive->readSector(buffer, (unsigned int)sector)) {
+ 				*size = nowSize;
+ 				cachedSector = -1;
++				if (usb_generation) { DOS_SetError(DOSERR_DRIVE_NOT_READY); return false; }
+ 			}
+ 		} else {
+ 			memcpy(&data[nowSize], &buffer[sectorPos], remSize);
+@@ -973,6 +983,9 @@
+ 			
+ 	}
+ 	
++	if (usb_generation && drive->USBGeneration() != usb_generation) {
++		*size = 0; DOS_SetError(DOSERR_DRIVE_NOT_READY); return false;
++	}
+ 	*size = nowSize;
+ 	filePos += *size;
+ 	return true;
+@@ -987,6 +1000,7 @@
+ 
+ #if !defined(OSFREE)
+ bool isoFile::Seek(uint32_t *pos, uint32_t type) {
++	if (!drive->USBReady(usb_generation)) return false;
+ 	switch (type) {
+ 		case DOS_SEEK_SET:
+ 			filePos = fileBegin + *pos;
+@@ -1053,6 +1067,7 @@
+ }
+ 
+ bool CDROM_IsAudioOnly(CDROM_Interface *cd) {
++	if (cd->IsAudioOnly()) return true;
+ 	if (cd->class_id == CDROM_Interface::ID_IMAGE) {
+ 		CDROM_Interface_Image *cdimg = (CDROM_Interface_Image*)cd;
+ 		if (cdimg->HasDataTrack() == false && cdimg->HasAudioTrack() == true)
+@@ -1116,6 +1131,12 @@
+ 	safe_strncpy(this->fileName, fileName, CROSS_LEN);
+ 	error = UpdateMscdex(driveLetter, fileName, subUnit);
+ 	UpdateCDROMRef();
++	if (!error && cdrom && cdrom->class_id == CDROM_Interface::ID_USB) {
++		// Reserve the letter at startup, even without a connected drive/disc.
++		this->driveLetter = driveLetter; this->mediaid = mediaid;
++		strcpy(info, "USB CD-ROM (automatic)");
++		return;
++	}
+ 
+ 	if (!error) {
+ 		if (loadImage()) {
+@@ -1180,6 +1201,7 @@
+ }
+ 
+ void isoDrive::Activate(void) {
++	if (cdrom && cdrom->class_id == CDROM_Interface::ID_USB) return;
+ 	UpdateMscdex(driveLetter, fileName, subUnit);
+ 	UpdateCDROMRef();
+ }
+@@ -1196,6 +1218,7 @@
+ }
+ 
+ bool isoDrive::FileOpen(DOS_File **file, const char *name, uint32_t flags) {
++	if (!USBReady()) return false;
+ #if !defined(OSFREE)
+ 	FileStat_Block file_stat;
+ 	bool success;
+@@ -1266,6 +1289,8 @@
+ }
+ 
+ bool isoDrive::TestDir(const char *dir) {
++	if (!USBReady()) return false;
++	if (cdrom && cdrom->class_id == CDROM_Interface::ID_USB && !dataCD) return !*dir;
+ #if !defined(OSFREE)
+ 	if (is_udf) {
+ 		UDFFileIdentifierDescriptor fid;
+@@ -1283,6 +1308,16 @@
+ }
+ 
+ bool isoDrive::FindFirst(const char *dir, DOS_DTA &dta, bool fcb_findfirst) {
++	if (!USBReady()) return false;
++	if (cdrom && cdrom->class_id == CDROM_Interface::ID_USB && !dataCD) {
++		uint8_t attr; char pattern[CROSS_LEN];
++		dta.GetSearchParams(attr, pattern, false);
++		if (!*dir && (attr & DOS_ATTR_VOLUME) && WildFileCmp(discLabel, pattern)) {
++			dta.SetResult(discLabel, discLabel, 0, 0, 0, 0, DOS_ATTR_VOLUME);
++			return true;
++		}
++		DOS_SetError(DOSERR_NO_MORE_FILES); return false;
++	}
+ #if !defined(OSFREE)
+ 	if (is_udf) {
+ 		UDFFileIdentifierDescriptor fid;
+@@ -1358,6 +1393,11 @@
+ }
+ 
+ bool isoDrive::FindNext(DOS_DTA &dta) {
++	const uint64_t previous = usb_generation;
++	if (!USBReady()) return false;
++	if (USBGeneration() && (previous != usb_generation || !dataCD)) {
++		DOS_SetError(DOSERR_NO_MORE_FILES); return false;
++	}
+ #if !defined(OSFREE)
+ 	uint8_t attr;
+ 	char fname[LFN_NAMELENGTH];
+@@ -1455,6 +1495,7 @@
+ }
+ 
+ bool isoDrive::GetFileAttr(const char *name, uint16_t *attr) {
++	if (!USBReady()) return false;
+ 	*attr = 0;
+ 
+ #if !defined(OSFREE)
+@@ -1485,6 +1526,7 @@
+ }
+ 
+ bool isoDrive::GetFileAttrEx(char* name, struct stat *status) {
++	if (!USBReady()) return false;
+ 	(void)name;
+ 	(void)status;
+ 	return false;
+@@ -1504,6 +1546,7 @@
+ #endif
+ 
+ bool isoDrive::AllocationInfo(uint16_t *bytes_sector, uint8_t *sectors_cluster, uint16_t *total_clusters, uint16_t *free_clusters) {
++	if (!USBReady()) return false;
+ 	*bytes_sector = 2048;
+ 	*sectors_cluster = 1; // cluster size for cdroms ?
+ 	*total_clusters = 65535;
+@@ -1512,6 +1555,7 @@
+ }
+ 
+ bool isoDrive::FileExists(const char *name) {
++	if (!USBReady()) return false;
+ #if !defined(OSFREE)
+ 	if (is_udf) {
+ 		UDFFileIdentifierDescriptor fid;
+@@ -1529,6 +1573,7 @@
+ }
+ 
+ bool isoDrive::FileStat(const char *name, FileStat_Block *const stat_block) {
++	if (!USBReady()) return false;
+ #if !defined(OSFREE)
+ 	if (is_udf) {
+ 		UDFFileIdentifierDescriptor fid;
+@@ -1874,6 +1919,7 @@
+ 		if (!cdrom->ReadSectorsHost(he.data, false, sector, 1)) {
+ 			return false;
+ 		}
++		if (USBGeneration() && USBGeneration() != usb_generation) return false;
+ 		he.valid = true;
+ 		he.sector = sector;
+ 	}
+@@ -1885,7 +1931,8 @@
+ 
+ inline bool isoDrive :: readSector(uint8_t *buffer, uint32_t sector) const {
+     if(cdrom == nullptr) return false;
+-    return cdrom->ReadSectorsHost(buffer, false, sector, 1);
++    const bool ok = cdrom->ReadSectorsHost(buffer, false, sector, 1);
++    return ok && (!USBGeneration() || USBGeneration() == usb_generation);
+ }
+ 
+ #if !defined(OSFREE)
+@@ -2283,7 +2330,7 @@
+ 	/* scan the volume descriptors */
+ 	while (sector < 256) {
+ 		pvd[0] = 0xFF;
+-		readSector(pvd,sector);
++		if (!readSector(pvd,sector)) return false;
+ 
+ 		if (pvd[0] == 1) { // primary volume
+ 			if (!strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1) {
+@@ -2542,6 +2589,7 @@
+ }
+ 
+ void isoDrive :: EmptyCache(void) {
++	if (cdrom && cdrom->class_id == CDROM_Interface::ID_USB) { USBReady(); return; }
+ #if !defined(OSFREE)
+ 	// Magical Girl Pretty Sammy installer
+ 	// Installer copies files found by FindFirst/FindNext with "command /c copy",
+@@ -2580,3 +2628,56 @@
+ 	loadImage();
+ #endif
+ }
++
++// Native optical media are replaceable while the DOS drive stays registered.
++uint64_t isoDrive::USBGeneration() const {
++	return cdrom && cdrom->class_id == CDROM_Interface::ID_USB ? cdrom->MediaGeneration() : 0;
++}
++
++bool isoDrive::USBReady(uint64_t expected) {
++	if (!cdrom || cdrom->class_id != CDROM_Interface::ID_USB) return true;
++	if (usb_loading) return true;
++	bool present = false, changed = false, tray = false;
++	cdrom->GetMediaTrayStatus(present, changed, tray);
++	const uint64_t generation = USBGeneration();
++	if (generation != usb_generation || (present && !usb_ready)) {
++		usb_generation = generation; usb_ready = false;
++		curdir[0] = discLabel[0] = 0;
++#if !defined(OSFREE)
++		nextFreeDirIterator = 0;
++		for (auto &iterator : dirIterators) iterator = DirIterator{};
++		memset(sectorHashEntries, 0, sizeof(sectorHashEntries));
++		memset(&rootEntry, 0, sizeof(rootEntry));
++#endif
++		dataCD = false; iso = false;
++#if !defined(OSFREE)
++		is_joliet = is_udf = is_rock_ridge = false;
++#endif
++		usb_loading = true;
++		try {
++			if (present) {
++				if (CDROM_IsAudioOnly(cdrom)) {
++					strcpy(discLabel, "Audio_CD"); usb_ready = true;
++				} else {
++					usb_ready = loadImage();
++					if (usb_ready) {
++						char label[32] = {};
++						MSCDEX_GetVolumeName(subUnit, label);
++						Set_Label(label, discLabel, true);
++					}
++				}
++			}
++		} catch (...) { usb_loading = false; throw; }
++		usb_loading = false;
++	}
++	if (!present || !usb_ready || USBGeneration() != usb_generation ||
++	    (expected && expected != usb_generation)) {
++		DOS_SetError(DOSERR_DRIVE_NOT_READY); return false;
++	}
++	return true;
++}
++
++char const *isoDrive::GetLabel() {
++	if (!USBReady()) return "";
++	return discLabel;
++}

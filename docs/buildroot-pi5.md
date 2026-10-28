@@ -661,6 +661,78 @@ On an existing writable installation, startup moves `C:\SYSTEM\EDIT.COM` to
 If the destination already exists, both files are kept and PATH selects the
 copy in TOOLS. Read-only boots leave existing files in place.
 
+### USB optical drive D:
+
+Appliance startup reserves `D:` for a USB optical drive. USB CD, DVD and Blu-ray
+units qualify as hardware; this feature targets regular data CDs, audio CDs
+and mixed-mode DOS game discs. Reading DVD/Blu-ray media, burning discs and
+copy-protection compatibility are outside this initial scope.
+
+Connect the drive before or after boot, insert a CD, and use `DIR D:`,
+`COPY D:\FILE.TXT C:\` or a game's installer normally. D: remains registered
+with MSCDEX when the drive is disconnected or empty; file access then reports
+drive not ready. Discovery happens on access, with a 500 ms retry interval
+when no drive is available. The first eligible device in Linux device-name
+order is retained until it disconnects. Additional optical units do not get
+automatic letters. Swapping discs or reconnecting does not require a manual
+mount or reboot. A disc change clears the current directory, volume label,
+directory iterators and sector caches. Old file handles cannot read cached
+sectors or replacement-disc data after a detected change, even if both discs
+have the same length.
+
+`PICDROM.COM` is an internal startup command enabled by PID 1 through
+`PI_DOS_USB_CDROM=1`. It installs a persistent DOSBox-X ISO/CD drive with a
+native USB backend. Discovery requires SCSI peripheral type 5 on a USB
+mass-storage interface; USB sticks, floppy drives and non-USB optical devices
+are excluded. The kernel explicitly includes `BLK_DEV_SR`. Linux ISO/UDF
+filesystem drivers are not required: sector reads go directly through the
+read-only device using SCSI `SG_IO`, with CD track information supplied to
+the existing MSCDEX implementation. Native development builds do not reserve
+D: unless this environment variable and startup command are used explicitly.
+
+CD music uses MMC digital audio extraction, rather than asking the drive to
+play through an analogue audio connector. A worker serializes device I/O and
+prefetches at most 32 CD audio sectors (about 0.43 seconds); the mixer never
+waits for hardware. Stereo 44.1 kHz samples feed the `USBCD` mixer channel and
+follow the configured Pi-DOS audio output. Games can play, stop, pause, resume,
+query track/position information and control channel routing/volume through
+MSCDEX. Data-track playback and ranges crossing into a data track are rejected.
+If the drive rejects digital audio reads, playback stops; there is no silent
+fallback to drive-controlled analogue playback. Audio extraction timing,
+underruns and compatibility still need physical-drive testing.
+
+Disc changes use SCSI unit attention, Linux's media-change indication and
+device identity, rather than relying on the CD's lead-out time. Hardware
+commands run on the worker with a three-second SG_IO timeout. DOS-side waits
+continue servicing emulator video/timers without allowing DOS interrupt
+handlers to reenter the pending operation. Audio prefetch stops and discards
+its buffer after detecting removal, replacement or a read failure.
+
+`MOUNT -U D` releases the automatic drive if D: is needed for an image or
+another explicit mount. Run `Z:\SYSTEM\PICDROM.COM` with D: free to reinstall
+automatic discovery. Startup never replaces an existing D: drive.
+
+With diagnostic capture enabled, `C:\SYSTEM\RUNTIME.LOG` includes
+`Pi-DOS USB CD-ROM: device=... model=...` on discovery and
+`Pi-DOS USB CD-ROM: media=... tracks=... sectors=...` when a disc becomes ready.
+
+`python3 tools/image/test-usb-cdrom.py` exercises the production Linux backend,
+audio worker/mixer adapter, media refresh and DOS file-read methods using fake
+sysfs/MMC responses. Coverage includes device filtering, data/raw reads and
+short transfers, equal-length disc changes, stale cached file handles,
+mid-read media changes, mixed-mode audio bounds, stereo sample decoding,
+pause/resume, position reporting, volume/routing, eject, reconnect and an
+empty/disconnected drive. The changed runtime code is cross-compiled for ARM64;
+these checks do not establish physical compatibility.
+
+Physical acceptance remains pending: connect before/after boot; list and copy
+files from a real data CD and compare their contents; install and play a
+mixed-mode DOS game with its CD soundtrack; check audio-CD playback,
+pause/resume/volume and track transitions; swap equal-length discs; eject and
+unplug/reconnect during reads and playback. Check at least a USB CD/DVD unit
+and a USB Blu-ray unit. Rebuild with `make image`; an existing installation can
+use the rebuilt BOOT `Image` without replacing C:.
+
 ### Editable Pi-DOS configuration
 
 `C:\SYSTEM\PIDOS.CFG` is the single persistent configuration file for Pi-DOS

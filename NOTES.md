@@ -1,10 +1,10 @@
 - [ ] defrag fails on both c and d with "Divide error"
 - [ ] command to display available video modes
+- [ ] tool to measure disk/disc w/r speed
 - [ ] Add system option for audio output:
     - hdmi - default
     - jack (pi3/4)
     - external usb dac
-- [ ] check external usb-cd drives
 - [ ] first boot should ask for some defaults like time/zone,. country etc
 
 ---------------------------------------------

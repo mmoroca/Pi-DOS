@@ -57,6 +57,9 @@ install -m 0644 "$root/src/common/lcd_video.h" "$dosbox/include/pidos_lcd_video.
 install -m 0644 "$root/src/runtime/usb_floppy_linux.h" "$dosbox/src/dos/pidos_usb_floppy_linux.h"
 install -m 0644 "$root/src/runtime/usb_floppy_dos.h" "$dosbox/src/dos/pidos_usb_floppy_dos.h"
 install -m 0644 "$root/src/runtime/usb_floppy_api.h" "$dosbox/include/pidos_usb_floppy_api.h"
+for name in linux player backend dos; do
+    install -m 0644 "$root/src/runtime/usb_cdrom_$name.h" "$dosbox/src/dos/pidos_usb_cdrom_$name.h"
+done
 for source_patch in "$root"/patches/dosbox-x/*.patch; do
     [[ -f "$source_patch" ]] || continue
     if patch --batch --forward --fuzz=0 --dry-run -p1 -d "$dosbox" -i "$source_patch" >/dev/null 2>&1; then

@@ -156,3 +156,17 @@ cause of the invalid-BPB warnings rather than suppressing their text.
 Diagnostics report `Pi-DOS USB floppy DPB: drive=N valid=0/1`. Host checks
 exercise the patched DOS dispatcher and actual FAT DPB serializer; physical
 quick-format validation remains pending for this image.
+
+`0019-automatic-usb-cdrom.patch` registers `PICDROM.COM` and reserves D: for a
+read-only USB optical backend when enabled by appliance PID 1. The headers in
+`src/runtime/usb_cdrom_*.h` discover USB SCSI type-5 devices, issue direct MMC
+sector/TOC commands and digitally extract CD audio through the `USBCD` mixer
+channel. A worker serializes hardware access and maintains a bounded audio
+prefetch buffer. The existing ISO drive gains USB-specific media generations
+so disc changes retire caches and old DOS file handles, including equal-length
+disc swaps. Image mounts retain their normal media/cache policy. MSCDEX media
+queries track changes independently of filesystem accesses. Scope is regular
+data CDs, audio CDs and mixed-mode game discs in USB CD/DVD/Blu-ray units;
+reading DVD/Blu-ray media is not an acceptance target. See
+[USB optical drive D:](../../docs/buildroot-pi5.md#usb-optical-drive-d) for the
+host checks and outstanding physical validation.

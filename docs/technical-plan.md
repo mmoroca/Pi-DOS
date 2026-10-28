@@ -139,7 +139,9 @@ directives and x86 drivers rather than asserting complete MS-DOS compatibility.
 | BOOT | FAT32 | Pi firmware, kernel and device trees |
 | PI-DOS | FAT32 | DOS files and user configuration |
 
-Map `C:\` to `/dosdata/c` and leave `D:\` available for CD-ROM images. Preserve upstream
+Map `C:\` to `/dosdata/c` and reserve `D:\` for a USB optical drive reading regular
+data/audio CDs, including mixed-mode games. CD/DVD/Blu-ray units are eligible;
+DVD/Blu-ray media support is a separate future extension. Preserve upstream
 case-insensitivity, 8.3 aliases, attributes, paths, timestamps, enumeration,
 volumes and supported locking/sharing behavior. Internal shell files can remain
 virtual rather than exposing Linux directories.

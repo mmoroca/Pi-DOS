@@ -17,6 +17,10 @@ define PI_DOS_RUNTIME_APPLY_PATCHES
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_floppy_api.h $(@D)/include/pidos_usb_floppy_api.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_floppy_linux.h $(@D)/src/dos/pidos_usb_floppy_linux.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_floppy_dos.h $(@D)/src/dos/pidos_usb_floppy_dos.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_cdrom_linux.h $(@D)/src/dos/pidos_usb_cdrom_linux.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_cdrom_player.h $(@D)/src/dos/pidos_usb_cdrom_player.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_cdrom_backend.h $(@D)/src/dos/pidos_usb_cdrom_backend.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_cdrom_dos.h $(@D)/src/dos/pidos_usb_cdrom_dos.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/midi_ports.h $(@D)/src/gui/pidos_midi_ports.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/reboot_shortcut.h $(@D)/src/gui/pidos_reboot_shortcut.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/lcd_video.h $(@D)/include/pidos_lcd_video.h
