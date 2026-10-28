@@ -1,0 +1,79 @@
+Expose the USB floppy to BIOS formatting and DOS absolute/track sector access.
+
+--- a/src/dos/dos.cpp
++++ b/src/dos/dos.cpp
+@@ -31,6 +31,7 @@
+ #include "dosbox.h"
+ #include "dos_inc.h"
+ #include "bios_disk.h"
++#include "pidos_usb_floppy_api.h"
+ #include "bios.h"
+ #include "logging.h"
+ #include "ide.h"
+@@ -3340,7 +3341,11 @@
+ 
+ static Bitu DOS_25Handler_Actual(bool fat32) {
+ #if !defined(OSFREE)
+-	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->isRemovable()) {
++	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || (Drives[reg_al]->isRemovable()
++#if defined(LINUX)
++        && !PI_DOS_IsUSBFloppy(Drives[reg_al])
++#endif
++        )) {
+ 		reg_ax = 0x8002;
+ 		SETFLAGBIT(CF,true);
+ 	} else if (strncmp(Drives[reg_al]->GetInfo(),"fatDrive",8) == 0) {
+@@ -3468,7 +3473,11 @@
+ 
+ static Bitu DOS_26Handler_Actual(bool fat32) {
+ #if !defined(OSFREE)
+-	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->isRemovable()) {	
++	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || (Drives[reg_al]->isRemovable()
++#if defined(LINUX)
++        && !PI_DOS_IsUSBFloppy(Drives[reg_al])
++#endif
++        )) {	
+ 		reg_ax = 0x8002;
+ 		SETFLAGBIT(CF,true);
+ 	} else if (strncmp(Drives[reg_al]->GetInfo(),"fatDrive",8) == 0) {
+--- a/src/dos/dos_ioctl.cpp
++++ b/src/dos/dos_ioctl.cpp
+@@ -24,6 +24,7 @@
+ #include "mem.h"
+ #include "regs.h"
+ #include "bios_disk.h"
++#include "pidos_usb_floppy_api.h"
+ #include "dos_inc.h"
+ #include "drives.h"
+ 
+@@ -771,6 +772,10 @@
+ 				DOS_SetError(DOSERR_ACCESS_DENIED);
+ 				return false;
+ 			}
++#if defined(LINUX) && !defined(OSFREE)
++            if (PI_DOS_IsUSBFloppy(Drives[drive]))
++                return PI_DOS_USBFloppyIoctl(Drives[drive], reg_ch, reg_cl, SegPhys(ds) + reg_dx, reg_al == 0x11);
++#endif
+ 			if (Drives[drive]->isRemovable()) {
+ 				LOG(LOG_IOCTL,LOG_DEBUG)("Attempt IOCTL AX=%04x CX=%04x on removable drive",reg_ax,reg_cx);
+ 				DOS_SetError(DOSERR_FUNCTION_NUMBER_INVALID);
+--- a/src/ints/bios_disk.cpp
++++ b/src/ints/bios_disk.cpp
+@@ -29,6 +29,7 @@
+ #include "callback.h"
+ #include "bios.h"
+ #include "bios_disk.h"
++#include "pidos_usb_floppy_api.h"
+ #include "timer.h"
+ #include "regs.h"
+ #include "mem.h"
+@@ -2003,6 +2004,9 @@
+ 
+     // unconditionally enable the interrupt flag
+     CALLBACK_SIF(true);
++#if defined(LINUX) && !defined(OSFREE)
++    if (PI_DOS_USBFloppyBIOS()) { last_status = static_cast<Int13Status>(reg_ah); return CBRET_NONE; }
++#endif
+ 
+     /* map out functions 0x40-0x48 if not emulating INT 13h extensions */
+     if (!int13_extensions_enable && reg_ah >= 0x40 && reg_ah <= 0x48) {

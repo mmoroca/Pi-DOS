@@ -1,0 +1,16 @@
+Do not add emulated disk throughput delays to physical USB floppy file access.
+BIOS read/write/verify requests are handled as native track transfers by the adapter.
+
+--- a/src/dos/dos.cpp
++++ b/src/dos/dos.cpp
+@@ -562,6 +562,10 @@
+ 
+ static void diskio_delay_drive(uint8_t drive, uint16_t delay) {
+ 	if(drive < DOS_DRIVES) {
++#if defined(LINUX) && !defined(OSFREE)
++        /* Physical USB I/O already incurs real media latency. */
++        if (Drives[drive] && PI_DOS_IsUSBFloppy(Drives[drive])) return;
++#endif
+ 		bool floppy = (drive < 2);
+ 		if(IS_PC98_ARCH) {
+ 			uint8_t id = Drives[drive]->GetMediaByte();

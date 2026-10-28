@@ -115,6 +115,20 @@ def main():
             'Reverted runtime-launcher patch is still present in the image')
     require(b'PI_DOS_DIAGNOSTICS' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Runtime lacks unified video diagnostics; clean and rebuild pi-dos-runtime')
+    with (images / 'rootfs.cpio').open('rb') as stream:
+        packed_runtime = subprocess.check_output(
+            ['cpio', '-i', '--to-stdout', '--quiet', 'pi-dos/pi-dos'], stdin=stream)
+    require(packed_runtime == (target / 'pi-dos/pi-dos').read_bytes(), 'Stale runtime in initramfs')
+    for value in (b'trace_version=2', b'queue_us=', b'ioctl_us=', b'resume_us=', b'bInterval_hex='):
+        require(value in packed_runtime, 'Runtime lacks detailed USB floppy diagnostics; rebuild pi-dos-runtime')
+    require(b'reason=request_rejected' in packed_runtime and b'max_sectors=' in packed_runtime,
+            'Runtime lacks bounded multi-track floppy I/O and fallback; rebuild pi-dos-runtime')
+    require(b'unchanged_metadata=' in packed_runtime,
+            'Runtime lacks USB floppy metadata write suppression; rebuild pi-dos-runtime')
+    require(b'Pi-DOS USB floppy COPY: chunk_bytes=' in packed_runtime,
+            'Runtime lacks the USB floppy COPY buffer policy; rebuild pi-dos-runtime')
+    require(b'Pi-DOS USB floppy DPB: drive=' in packed_runtime,
+            'Runtime lacks USB floppy DPB support for FORMAT; rebuild pi-dos-runtime')
     require(b'PI_DOS_SUPERVISED' in packed_init and
             b'Ctrl+Alt+Delete requested a supervised reboot' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Image lacks the supervised Ctrl+Alt+Delete reboot path')
@@ -159,9 +173,12 @@ def main():
     linux_dirs = list((OUT / 'build').glob('linux-*/.config'))
     require(len(linux_dirs) == 1, 'Cannot identify kernel build configuration')
     kernel = linux_dirs[0].read_text()
+    require(b'Pi-DOS: USB floppy status polling endpoint' in (images / 'Image').read_bytes(),
+            'Kernel lacks the shared UFI/CBI USB floppy polling cap; rebuild linux')
     for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'INPUT_EVDEV', 'KEYBOARD_GPIO',
                     'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS', 'PRINTK',
-                    'USB_HID', 'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
+                    'USB_HID', 'SCSI', 'BLK_DEV_SD', 'USB_STORAGE',
+                    'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
                     'MMC_BCM2835_MMC', 'MMC_SDHCI_IPROC', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
                     'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC',
                     'SND_USB_AUDIO', 'SND_RAWMIDI', 'SND_SEQUENCER', 'SND_SEQ_MIDI',
@@ -386,6 +403,9 @@ def main():
                 'pidoscfg_sha256': hashlib.sha256(packed_setup).hexdigest(),
                 'mesa_gallium_drivers': drivers,
                 'kernel_config_sha256': digest(linux_dirs[0]),
+                'usb_core_config_sha256': digest(linux_dirs[0].parent / 'drivers/usb/core/config.c'),
+                'usb_floppy_status_polling_cap_ms': 8,
+                'usb_floppy_transport_sha256': digest(ROOT / 'src/runtime/usb_floppy_linux.h'),
                 'kernel_release': (linux_dirs[0].parent / 'include/config/kernel.release').read_text().strip(),
                 'buildroot_config_sha256': digest(OUT / '.config'),
                 'source_lock': json.loads((ROOT / 'sources.lock.json').read_text()),

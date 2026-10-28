@@ -48,6 +48,7 @@ paths = [root / 'VERSION', root / 'src/common/midi_ports.h',
          root / 'src/common/lcd_video.h',
          root / 'br2-external/package/pi-dos-runtime/pi-dos-runtime.mk']
 paths += sorted((root / 'patches/dosbox-x').glob('*.patch'))
+paths += sorted((root / 'src/runtime').glob('*.h'))
 for path in paths:
     digest.update(str(path.relative_to(root)).encode())
     digest.update(path.read_bytes())
@@ -69,6 +70,30 @@ if [[ "$mode" == source ]]; then
 else
     # Local PID 1 sources are not automatically recopied by an incremental make.
     {
+        # Update existing kernel trees too: Buildroot's patch hook runs only
+        # on extraction. Preserve compiled objects when a new patch applies
+        # cleanly; re-extract if a modified patch no longer applies.
+        kernel_changed=0
+        if [[ -d "$out/build/linux-custom" ]]; then
+            for kernel_patch in "$root"/patches/linux/*.patch; do
+                [[ -f "$kernel_patch" ]] || continue
+                # --force prevents GNU patch from silently ignoring -R when
+                # the patch has not yet been applied.
+                if patch -d "$out/build/linux-custom" -p1 --force --dry-run --reverse \
+                    -i "$kernel_patch" >/dev/null 2>&1; then
+                    continue
+                fi
+                if ! patch -d "$out/build/linux-custom" -p1 --batch --dry-run --forward \
+                    -i "$kernel_patch" >/dev/null 2>&1; then
+                    make "${args[@]}" linux-dirclean
+                    kernel_changed=0
+                    break
+                fi
+                patch -d "$out/build/linux-custom" -p1 --batch --forward -i "$kernel_patch"
+                kernel_changed=1
+            done
+            if [[ "$kernel_changed" == 1 ]]; then make "${args[@]}" linux-rebuild; fi
+        fi
         if [[ ! -f "$out/.pi-dos-runtime-source" ]] || [[ $(cat "$out/.pi-dos-runtime-source") != "$runtime_fingerprint" ]]; then
             make "${args[@]}" pi-dos-runtime-dirclean
         fi

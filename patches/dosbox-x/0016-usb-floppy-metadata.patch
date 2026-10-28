@@ -1,0 +1,23 @@
+Skip identical directory entries on the physical USB floppy, including
+subdirectories. Compare the encoded entry so all fields retain their normal
+disk representation. Changed size, allocation, attributes and timestamps still
+commit within the DOS operation; no metadata is deferred until file close.
+
+--- a/src/dos/drive_fat.cpp
++++ b/src/dos/drive_fat.cpp
+@@ -3647,6 +3647,15 @@ bool fatDrive::directoryChange(uint32_t dirClustNumber, const direntry *useEntry, int32_t entNum) {
+ 
+ 	readSector(tmpsector,sectbuf);
+ 	if (sectbuf[entryoffset].entryname[0] == 0x00) return false; /* End of directory list? */
++#if defined(LINUX) && !defined(OSFREE)
++    if (PI_DOS_IsUSBFloppyImage(loadedDisk)) {
++        /* Flush/close and in-place writes can leave the entry unchanged. */
++        direntry encoded = {};
++        copyDirEntry(useEntry, &encoded);
++        if (!memcmp(&encoded, &sectbuf[entryoffset], sizeof(encoded)))
++            return true;
++    }
++#endif
+ 	copyDirEntry(useEntry, &sectbuf[entryoffset]);
+ 	writeSector(tmpsector, sectbuf);
+ 	return true;

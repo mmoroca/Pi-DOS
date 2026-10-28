@@ -263,6 +263,7 @@ static bool make_config(enum storage storage, const char *user_config)
     bool valid = !ferror(input);
     fclose(input);
     fputs("\n[autoexec]\n@ECHO OFF\n", output);
+    fputs("Z:\\SYSTEM\\PIFLOPPY.COM\n", output);
     bool drive_c = storage != NO_STORAGE && !access("/dosdata/c", R_OK | X_OK);
     if (drive_c) {
         fprintf(output, "MOUNT C /dosdata/c -label SYSTEM%s\nC:\n", storage == READ_ONLY ? " -ro" : "");
@@ -454,6 +455,7 @@ int main(void)
     pid_t runtime = fork();
     if (runtime == 0) {
         setenv("PI_DOS_SUPERVISED", "1", 1);
+        setenv("PI_DOS_USB_FLOPPY", "1", 1);
         pi_dos_diagnostics_redirect(&diagnostics);
         sigprocmask(SIG_UNBLOCK, &blocked, NULL);
         setsid();

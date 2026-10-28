@@ -1,0 +1,26 @@
+Return a validated drive parameter block for the native USB floppy through
+INT 21h AH=32h (and AH=1Fh's shared path). Otherwise FORMAT treats a readable
+FAT12 disk as unformatted and forces /Q into a full format. Other removable
+drives retain the existing DOSBox-X behavior. Blank/missing media still fail.
+
+--- a/src/dos/dos.cpp
++++ b/src/dos/dos.cpp
+@@ -1782,6 +1782,18 @@
+                 uint8_t drive=reg_dl;
+                 if (!drive || reg_ah==0x1f) drive = DOS_GetDefaultDrive();
+                 else drive--;
++#if defined(LINUX) && !defined(OSFREE)
++                if (drive < DOS_DRIVES && Drives[drive] && PI_DOS_IsUSBFloppy(Drives[drive])) {
++                    // FORMAT probes AH=32h before choosing quick/full format.
++                    // Return real FAT geometry only for a validated current disk.
++                    reg_al = PI_DOS_USBFloppyDPB(Drives[drive], drive) ? 0 : 0xff;
++                    if (!reg_al) {
++                        SegSet16(ds,dos.tables.dpb);
++                        reg_bx = drive*dos.tables.dpb_size;
++                    }
++                    break;
++                }
++#endif
+                 if (drive < DOS_DRIVES && Drives[drive] && !Drives[drive]->isRemovable()) {
+                     reg_al = 0x00;
+                     SegSet16(ds,dos.tables.dpb);

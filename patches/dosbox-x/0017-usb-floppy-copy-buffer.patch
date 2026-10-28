@@ -1,0 +1,71 @@
+Use 60 KiB DOS COPY requests for regular-file writes to the physical USB
+floppy. Resolve the opened target handle rather than parsing a drive letter,
+so relative paths and concatenation use the same policy. Devices and other
+DOS drives retain 32 KiB requests. USB command sizes and per-write commits
+remain controlled by the transport.
+
+--- a/src/shell/shell_cmds.cpp
++++ b/src/shell/shell_cmds.cpp
+@@ -53,6 +53,7 @@
+ #include "build_timestamp.h"
+ #include "version_string.h"
+ #include "pi_dos_version.h"
++#include "pidos_usb_floppy_api.h"
+ 
+ #include <output/output_ttf.h>
+ 
+@@ -2360,6 +2361,27 @@
+ };
+ 
+ #if !defined(OSFREE)
++static uint16_t pidos_copy_chunk(uint16_t source_handle, uint16_t target_handle) {
++#if defined(LINUX)
++    const unsigned int source = RealHandle(source_handle), target = RealHandle(target_handle);
++    if (source < DOS_FILES && target < DOS_FILES && Files[source] && Files[target] &&
++        !(Files[source]->GetInformation() & 0x80) && !(Files[target]->GetInformation() & 0x80)) {
++        const uint8_t drive = Files[target]->GetDrive();
++        if (drive < DOS_DRIVES && Drives[drive] && PI_DOS_IsUSBFloppy(Drives[drive])) {
++            // Fewer DOS write commits; the transport still bounds each USB request.
++            const char *diagnostics = getenv("PI_DOS_DIAGNOSTICS");
++            if (diagnostics && !strcmp(diagnostics, "1"))
++                fprintf(stderr, "Pi-DOS USB floppy COPY: chunk_bytes=%u\n", 0xf000u);
++            return 0xf000; // 60 KiB, sector-aligned and below the 16-bit DOS limit.
++        }
++    }
++#else
++    (void)source_handle;
++    (void)target_handle;
++#endif
++    return 0x8000;
++}
++
+ void DOS_Shell::CMD_COPY(char * args) {
+ 	HELP("COPY");
+ 	static std::string defaulttarget = ".";
+@@ -2711,9 +2733,10 @@
+ 						if (!oldsource.concat || (DOS_OpenFile(nameTarget,OPEN_READWRITE,&targetHandle) &&
+ 					        	                  DOS_SeekFile(targetHandle,&dummy,DOS_SEEK_END))) {
+ 							// Copy
+-							static uint8_t buffer[0x8000]; // static, otherwise stack overflow possible.
++							static uint8_t buffer[0xf000]; // static, otherwise stack overflow possible.
++							const uint16_t copy_chunk = pidos_copy_chunk(sourceHandle, targetHandle);
+ 							bool	failed = false;
+-							uint16_t	toread = 0x8000;
++							uint16_t	toread = copy_chunk;
+ 							bool iscon=DOS_FindDevice(name)==DOS_FindDevice("con");
+ 							if (iscon) dos.echo=true;
+ 							bool cont;
+@@ -2736,11 +2759,11 @@
+ 											break;
+ 										}
+ 									if (!DOS_WriteFile(targetHandle,buffer,&toread)) failed=true;
+-									if (cont) toread=0x8000;
++									if (cont) toread=copy_chunk;
+ 								} else {
+ 									if (DOS_FindDevice(nameTarget)==DOS_FindDevice("con")&&CheckBreak(this)) {failed=true;break;}
+ 									if (!DOS_WriteFile(targetHandle,buffer,&toread)) failed=true;
+-									cont=toread == 0x8000;
++									cont=toread == copy_chunk;
+ 								}
+ 							} while (cont);
+ 							if (!DOS_CloseFile(sourceHandle)) failed=true;

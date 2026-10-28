@@ -1,5 +1,10 @@
 include $(sort $(wildcard $(BR2_EXTERNAL_PI_DOS_PATH)/package/*/*.mk))
 
+define PI_DOS_LINUX_APPLY_PATCHES
+	$(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_PI_DOS_PATH)/../patches/linux '*.patch'
+endef
+LINUX_POST_PATCH_HOOKS += PI_DOS_LINUX_APPLY_PATCHES
+
 define PI_DOS_SDL2_APPLY_PATCHES
 	$(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_PI_DOS_PATH)/../patches/sdl2 '*.patch'
 endef

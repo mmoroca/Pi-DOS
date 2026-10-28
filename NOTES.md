@@ -4,21 +4,7 @@
     - hdmi - default
     - jack (pi3/4)
     - external usb dac
-- [ ] Add a new system option in pidoscfg for monitor type selection:
-    - CRT (it is the current configuration with native resolutions, frequencies and on the fly timing chahges)
-    - LCD - default:
-    - must use fixed native monitor resolution
-    - must enable sub options for selecting 4:3 or native aspect ratio
-    - must enable sub option to allow selecting force 60 or native frequency (only if dosbox has this option)
-    - must enable sub option to enable integer scaling (only available if native aspect ratio is also enabled)
-    - must enable an option for scanline effects (only if dosbox has this option)
-
-
-- [ ] USB midi unavailable but it is displayed in the device list and selected
-- [ ] midi emulated audio has some issues when using the crt mode only. Maybe the refresh rate ?
-
-
-- [ ] check external usb-floppy and usb-cd drives
+- [ ] check external usb-cd drives
 - [ ] first boot should ask for some defaults like time/zone,. country etc
 
 ---------------------------------------------
@@ -73,11 +59,11 @@
 - [v] High-resolution DOS graphics
 - [v] Accurate VGA palettes
 - [v] Hardware palette cycling
-- [ ] Correct 4:3 aspect ratios
-- [ ] Integer scaling
-- [ ] Pixel-perfect rendering
-- [ ] CRT shaders
-- [ ] Scanline effects
+- [v] Correct 4:3 aspect ratios
+- [x] Integer scaling
+- [~] Pixel-perfect rendering
+- [x] CRT shaders
+- [x] Scanline effects
 - [x] Phosphor and shadow-mask simulation
 - [v] VGA 70 Hz output
 - [v] CGA/EGA video timing

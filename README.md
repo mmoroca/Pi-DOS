@@ -68,6 +68,10 @@ The default DOS PATH includes all bundled utility directories.
 DOS volume labels default to `SYSTEM` for C: and `PI-DOS` for Z:.
 C: uses the data partition's available space; D: is left available for CD-ROM
 images. The image contains only the `c` data folder.
+USB floppy drives automatically use `A:`, including when connected after boot.
+Use `DIR A:`, `COPY`, or `FORMAT A:` normally; disk changes and write protection
+are handled on access. Reads are batched by track. Physical drive validation is pending;
+see [USB floppy support](docs/buildroot-pi5.md#usb-floppy-drive-a).
 The image includes a personalized editor at `C:\PROGRAMS\TOOLS\EDIT.COM`; this
 writable copy takes priority over the bundled editor and retains saved preferences.
 Edit `C:\SYSTEM\PIDOS.CFG` and reboot to change emulator settings persistently.

@@ -1,0 +1,69 @@
+Cap UFI/CBI USB floppy completion polling at eight milliseconds.
+Apply before host-controller endpoint configuration so xHCI uses the cap.
+The policy matches interface class/protocol, not USB vendor/product IDs.
+
+--- a/drivers/usb/core/config.c
++++ b/drivers/usb/core/config.c
+@@ -7,6 +7,7 @@
+ #include <linux/usb/ch9.h>
+ #include <linux/usb/hcd.h>
+ #include <linux/usb/quirks.h>
++#include <linux/usb/storage.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
+ #include <linux/device.h>
+@@ -257,6 +258,45 @@
+ 	return false;
+ }
+ 
++/* Pi-DOS: CBI floppy commands wait for a two-byte interrupt status reply.
++ * Long descriptor intervals add host latency to every command. Cap only this
++ * class/protocol's status endpoint before the HCD configures its schedule;
++ * changing the URB interval later is ineffective on xHCI. Keep faster devices
++ * and other USB storage transports unchanged. No status checks are skipped.
++ */
++static void usb_floppy_status_interval(struct usb_device *udev,
++		const struct usb_interface_descriptor *intf,
++		struct usb_endpoint_descriptor *ep)
++{
++	unsigned int cap;
++
++	if (intf->bInterfaceClass != USB_CLASS_MASS_STORAGE ||
++	    intf->bInterfaceSubClass != USB_SC_UFI ||
++	    intf->bInterfaceProtocol != USB_PR_CBI ||
++	    !usb_endpoint_is_int_in(ep) || usb_endpoint_maxp(ep) < 2)
++		return;
++
++	switch (udev->speed) {
++	case USB_SPEED_FULL:
++		cap = 8; /* Frames: one millisecond each. */
++		break;
++	case USB_SPEED_HIGH:
++	case USB_SPEED_SUPER:
++	case USB_SPEED_SUPER_PLUS:
++		cap = 7; /* 2^(7-1) microframes = eight milliseconds. */
++		break;
++	default:
++		return;
++	}
++
++	if (ep->bInterval > cap) {
++		dev_notice(&udev->dev,
++			"Pi-DOS: USB floppy status polling endpoint 0x%02x bInterval %u -> %u (8ms cap)\n",
++			ep->bEndpointAddress, ep->bInterval, cap);
++		ep->bInterval = cap;
++	}
++}
++
+ static int usb_parse_endpoint(struct device *ddev, int cfgno,
+ 		struct usb_host_config *config, int inum, int asnum,
+ 		struct usb_host_interface *ifp, int num_ep,
+@@ -404,6 +444,8 @@
+ 		endpoint->desc.bInterval = n;
+ 	}
+ 
++	usb_floppy_status_interval(udev, &ifp->desc, &endpoint->desc);
++
+ 	/* Some buggy low-speed devices have Bulk endpoints, which is
+ 	 * explicitly forbidden by the USB spec.  In an attempt to make
+ 	 * them usable, we will try treating them as Interrupt endpoints.

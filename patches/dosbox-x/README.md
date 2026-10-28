@@ -71,3 +71,88 @@ fits into a centered 4:3 or original-pixel viewport using `src/common/lcd_video.
 The existing SDL surface/GLES presentation handles the final window surface.
 Guest video timing and the existing CRT mode-switch path remain separate. This patch needs physical
 LCD validation; host checks cover configuration and viewport geometry.
+
+`0012-automatic-usb-floppy.patch` registers the appliance's internal
+`PIFLOPPY.COM` startup command. `src/runtime/usb_floppy_dos.h` reserves `A:`
+and delegates FAT12 access to DOSBox-X's FAT driver; `usb_floppy_linux.h`
+detects USB floppy interfaces and accesses sectors through Linux SCSI SG_IO.
+Discovery is on demand, so hotplug does not require a device-management daemon.
+Retired media remain invalid for existing file handles, preventing buffered
+writes from reaching a replacement disk. See
+[USB floppy support](../../docs/buildroot-pi5.md#usb-floppy-drive-a) for supported
+formats and the remaining hardware checks.
+
+`0013-usb-floppy-sector-access.patch` connects the USB floppy to BIOS formatting,
+DOS INT 25h/26h and generic track IOCTLs. The adapter accepts standard physical
+capacity before a FAT12 boot sector exists and retires old FAT/file caches on
+raw writes. BIOS media-type setup handles the call used by FreeDOS FORMAT
+instead of falling through to the unsupported-function error. Sector reads
+use four read windows and batched READ commands; readiness probes are
+coalesced over 100 ms and normal DOS file buffering is retained.
+
+`0014-native-usb-floppy-timing.patch` exempts the physical USB floppy from DOS
+file throughput emulation. The adapter handles BIOS read/write/verify requests
+directly in track-sized USB transfers, avoiding the upstream per-sector delay
+and redundant readiness probes during FORMAT verification. Verification still
+reads the device. Opt-in diagnostics record SCSI command durations, gaps and
+status in the existing RUNTIME.LOG to investigate hardware pauses.
+
+`0015-usb-floppy-fat-io.patch` skips old-data reads before full-sector overwrites,
+unused next-sector reads and clean-buffer rewrites on close/flush for physical
+USB floppy files. The adapter also combines repeated FAT updates and adjacent
+sector writes within each DOS operation, committing before returning so manual
+disk swaps need no unmount. Completed transfers suppress redundant readiness
+probes. A reusable ioctl worker lets the emulator service video/timer events
+during USB waits, with guest interrupts masked to prevent DOS reentrancy.
+
+The transport now grows sequential file read-ahead to 32 KiB and combines
+contiguous DOS-operation writes across physical tracks. It respects Linux's
+queue transfer limit and falls back to track/smaller requests if firmware or
+SG_IO rejects larger transfers. Short/random reads remain small. Read windows
+may overlap after seeks, so writes update every cached copy. Each DOS operation
+still commits its writes before returning; BIOS/IOCTL track operations retain
+their requested shape. This removes the artificial one-track file-I/O limit
+that remained after the kernel's completion-polling cap.
+
+`0016-usb-floppy-metadata.patch` skips directory writes when the encoded entry
+is identical, for both root and subdirectories on the physical USB floppy.
+Other FAT drives retain their existing behavior. The transport separately
+compares staged metadata with bounded snapshots of confirmed on-disk sectors,
+trimming unchanged transfer edges without additional reads. Unchanged sectors
+between changed neighbours stay in the transfer to avoid extra USB commands.
+Snapshots never come from
+dirty read windows; raw access, formatting and media retirement clear them.
+An entirely unchanged batch still checks media readiness and disk sequence.
+Changed metadata commits before the DOS operation returns; file-data and raw
+writes are not suppressed. Diagnostics report `unchanged_metadata=N` for
+batches that avoid writes. The user subsequently reported performance very
+close to Windows across several tests on the Pi 5/Toshiba-branded TEAC drive.
+The new trace contains 1,232 SCSI commands without reported errors and no
+transfer-size fallback. Exact new timings and per-change speed attribution
+remain unmeasured; see the hardware notes in the linked documentation.
+
+`0017-usb-floppy-copy-buffer.patch` increases the built-in shell COPY request
+size from 32 KiB to 60 KiB for regular-file writes to the physical USB floppy.
+It resolves the opened destination handle's drive, including relative paths
+and concatenation; character devices and other destinations retain their
+existing request size. This reduces DOS-level FAT/directory commit cycles,
+while the transport continues to split USB requests to its supported limit and
+commit every DOS write before returning. External XCOPY is unaffected.
+Diagnostic logs identify larger-buffer selection with
+`Pi-DOS USB floppy COPY: chunk_bytes=61440`. The subsequent Pi 5/TEAC trace
+confirms this policy and a COPY write reduction from 31.1 to 28.3 seconds for
+the approximately 580,391-byte test file, with FAT/root WRITE commands reduced
+from 57 to 33. Read and XCOPY-like phases remain essentially unchanged. All
+1,252 captured SCSI commands complete without reported errors or size fallback;
+see the linked hardware notes for timing methodology and remaining limits.
+
+`0018-usb-floppy-dpb.patch` handles INT 21h AH=32h and AH=1Fh for the native
+USB floppy. The adapter forces a media check and loads the current FAT driver
+before delegating DPB serialization to it. Existing valid disks now report
+success rather than the upstream removable-drive `0xff` rejection, allowing
+FreeDOS FORMAT to choose quick formatting. Blank, invalid and missing media
+remain failures; other drives retain their prior behavior. This fixes the
+cause of the invalid-BPB warnings rather than suppressing their text.
+Diagnostics report `Pi-DOS USB floppy DPB: drive=N valid=0/1`. Host checks
+exercise the patched DOS dispatcher and actual FAT DPB serializer; physical
+quick-format validation remains pending for this image.

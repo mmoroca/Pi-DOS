@@ -1,0 +1,22 @@
+Register the appliance USB floppy drive as A: through PIFLOPPY.COM.
+
+--- a/src/dos/dos_programs.cpp
++++ b/src/dos/dos_programs.cpp
+@@ -71,6 +71,7 @@
+ #include "../ints/int10.h"
+ #include "../output/output_opengl.h"
+ #include "paging.h"
++#include "pidos_usb_floppy_dos.h"
+ 
+ #if defined(OS2)
+ #define INCL DOSFILEMGR
+@@ -10155,6 +10156,9 @@
+ #endif
+ #if !defined(OSFREE)
+ 	PROGRAMS_MakeFile("MOUNT.COM",MOUNT_ProgramStart,"/SYSTEM/");
++#if defined(LINUX)
++	PROGRAMS_MakeFile("PIFLOPPY.COM",pidos_floppy::program,"/SYSTEM/");
++#endif
+ #endif
+ 	PROGRAMS_MakeFile("BOOT.COM",BOOT_ProgramStart,"/SYSTEM/");
+ #if !defined(OSFREE)

@@ -200,18 +200,22 @@ installation, copy the rebuilt `output/buildroot-arm64/images/Image` and
 still needs confirmation on the Pi and connected display.
 
 PID 1 sets `SDL_RENDER_VSYNC=1` so the SDL2 GLES renderer requests a swap
-interval of 1 for surface presentation. This is a scrolling experiment for
-Pinball Fantasies; improvement still needs confirmation on the Pi. DOSBox-X's
-separate emulated VGA `vsyncmode` retains its default `off`. Matching the HDMI
-refresh to the guest refresh and synchronizing page flips are separate steps;
-a refresh mismatch can still cause periodic repeated or skipped frames.
-To compare without presentation VSync, change this environment value to `0`
-in `src/init/init.c`, rebuild `pi-dos-init`, then rebuild the image:
+interval of 1 for surface presentation in both CRT and LCD modes. Disabling
+presentation VSync caused visible tearing and did not resolve the MIDI issue,
+so it remains enabled. DOSBox-X's separate emulated VGA `vsyncmode` retains its
+default `off`. Matching the HDMI refresh to the guest refresh and synchronizing
+page flips are separate steps; a refresh mismatch can still cause periodic
+repeated or skipped frames.
 
-```sh
-make -C output/buildroot-arm64 pi-dos-init-rebuild
-make image
-```
+MIDI stuttering, pauses or uneven rhythm have been reported in CRT mode with
+both internal synthesis and external MIDI. So far it appears limited to Sierra
+games, including Leisure Suit Larry 6; AdLib playback sounds fine. The issue
+occurs with the **Automatic** CPU profile; MIDI playback works correctly with
+all tested fixed CPU profiles. Select a fixed profile in PIDOSCFG as a
+workaround. Automatic uses `cputype=auto`, `core=dynamic_rec` and `cycles=auto`.
+This narrows the investigation to automatic CPU selection/cycle handling;
+the exact cause remains unconfirmed. Disabling presentation VSync did not help
+and caused tearing, so keep VSync enabled.
 
 File diagnostics are disabled by default. To enable video, boot, runtime and
 network logs together, edit `C:\SYSTEM\PIDOS.CFG` from DOS (`EDIT`) and set:
@@ -344,6 +348,306 @@ VFAT read-only options, and presents the drives read-only if usable.
 Missing, wrongly labelled or unmountable storage produces a DOS Z: recovery
 prompt, with no temporary replacement C: drive and no infinite device wait.
 That prompt does not include a filesystem-repair utility.
+
+### USB floppy drive A:
+
+Appliance startup reserves `A:` for a USB floppy. Connect the drive before or
+after boot, insert a DOS FAT12 disk, and use `DIR A:`, `COPY A:\FILE.TXT C:\`,
+or `COPY C:\FILE.TXT A:\`. Discovery runs when DOS accesses `A:`; no reboot,
+manual mount, unmount or background polling service is required. Remove a disk
+and insert another as on a DOS floppy drive. `DIR`, changing into a directory,
+opening/creating a file and explicit close/flush operations force a media check;
+they do not wait for the repeated-read probe interval. With no usable disk,
+the drive reports not ready. If more than one suitable drive is connected,
+the first usable one in Linux device-name order is selected and retained until
+its disk is removed or changed. A new disk resets the drive's current directory.
+
+Supported candidates are removable USB mass-storage UFI drives, plus older
+USB mass-storage drives whose model explicitly identifies a floppy. Ordinary
+USB sticks, partitions and already mounted devices are excluded. Media must
+have 512-byte sectors and a standard floppy capacity between 320 KiB and
+2.88 MiB; 720 KiB and 1.44 MiB are the usual formats, subject to the USB drive's
+own capabilities. File access requires a valid FAT12 BPB. `FORMAT A:` can
+initialize a missing or damaged filesystem: BIOS geometry/format requests,
+DOS absolute sector I/O and track IOCTLs access the disk before a BPB exists.
+Full formatting fills/verifies addressable sectors and creates FAT12 using the
+disk's existing capacity. It does not change the physical recording density,
+create missing physical sector tracks, or support copy-protected track formats.
+Booting from USB floppy and other disk utilities still require separate validation.
+Manual disk changes never require `MOUNT -U` or a Linux unmount command.
+
+The USB floppy also supplies a validated DOS drive parameter block through
+INT 21h AH=32h (and the default-drive AH=1Fh path). FreeDOS FORMAT uses this
+call to recognize an existing filesystem. The upstream removable-drive
+rejection previously returned `0xff` even on readable disks, producing
+`Invalid BPB` and `Cannot find existing format - forcing full format`, and
+turning `/Q` into full formatting. The USB-specific path now refreshes the
+DPB from the current medium's FAT driver after a forced media check; blank,
+invalid or missing filesystems still fail. Existing readable disks can use
+`FORMAT A: /Q`. FreeDOS may also choose its safe quick mode for plain
+`FORMAT A:` on an existing format; use `FORMAT A: /U` to request a full format.
+Unformatted media can still legitimately produce the initial warnings.
+See [FreeDOS FORMAT detection](https://github.com/FDOS/format/blob/master/main.c).
+Host checks cover this correction; physical FORMAT `/Q` validation remains
+pending for the updated image.
+
+`PIFLOPPY.COM` is an internal startup command enabled by PID 1 through
+`PI_DOS_USB_FLOPPY=1`. It installs a removable DOS drive backed by DOSBox-X's
+existing FAT driver and Linux SCSI `SG_IO`, without mounting a Linux VFAT
+filesystem or copying the floppy into RAM. The kernel explicitly includes
+`SCSI`, `BLK_DEV_SD` and `USB_STORAGE`. Native development builds do not claim
+`A:` automatically.
+
+SCSI media-change/not-ready responses and Linux disk sequence changes retire
+the old medium. Open DOS handles retain their original FAT driver but cannot
+read, flush or write once it has been retired, including when a replacement
+disk or drive appears. Starting a raw write also retires the previous FAT
+driver and file handles, so formatting cannot reuse its directory/FAT cache.
+File data and FAT updates are committed before each DOS write or filesystem
+mutation returns; close/flush also commit remaining metadata. There is no dirty
+sector cache waiting for an unmount. The physical write-protect tab is read with MODE SENSE; drives that
+cannot report it are used read-only. Finish copying and wait for the drive
+light to go out before ejecting a disk or unplugging the drive.
+
+Short/random and metadata reads fetch at most one physical
+track. Sequential file reads grow to **32 KiB across track boundaries**, bounded
+by the kernel's `queue/max_sectors_kb`. Four read windows use at most 128 KiB,
+retaining FAT/directory data alongside the file stream. Writes update every
+overlapping cached window so backwards seeks cannot expose stale data.
+Within each DOS write or filesystem mutation, repeated updates to the same
+sector are combined, and contiguous sectors are sent in requests of up to
+32 KiB across physical tracks, subject to the kernel's limit.
+Staging is bounded to 128 KiB and flushed before the DOS operation returns.
+The built-in shell `COPY` now uses **60 KiB DOS requests** when copying a
+regular file to the physical USB floppy. It identifies the opened destination
+handle's drive, covering relative paths and concatenation as well as explicit
+`A:` paths. For a 580,391-byte file, that reduces nonempty DOS writes from 18
+to 10, committing FAT/directory updates fewer times. The transport still splits
+each request into supported USB transfers of at most 32 KiB and commits before
+the DOS write returns. Character-device copies and other destination drives
+retain 32 KiB requests; external `XCOPY` retains its own buffer policy.
+The subsequent hardware trace confirms the larger buffer and a COPY write
+reduction from 31.1 to 28.3 seconds for the test file; see the comparison below.
+Reads see staged updates, and any failed commit retires the medium. Full-sector
+overwrites skip old-data reads; reads do not fetch an unused next sector at the
+end of a request. Clean file buffers are not rewritten on close/flush.
+DOS write batches now also trim unchanged metadata from transfer edges, using
+confirmed on-disk contents for comparison. Unchanged sectors between changed
+neighbours stay in the transfer to avoid splitting one USB command into two.
+These comparison snapshots are separate from read windows,
+which can contain staged writes, and use at most 32 KiB. Successful physical
+reads/writes establish snapshots without extra reads; raw access, formatting
+and media invalidation discard them. If every staged write is unchanged, a
+real readiness command still checks disk sequence and media state. File-data,
+boot-sector and raw writes are always sent to the drive.
+The FAT driver additionally skips identical encoded directory entries in the
+root and subdirectories. Changed file size, cluster mapping, attributes and
+timestamps retain their normal immediate commits. These changes reduce
+redundant updates without deferring metadata until close or adding a background
+write cache. After this metadata optimization, the user reported performance
+very close to Windows across several tests. No new exact timings were supplied;
+the timed copy/FORMAT trace below precedes this metadata optimization.
+Readiness probes during repeated accesses are coalesced within 100 ms, while
+Linux disk-sequence checks still protect cached reads and every SCSI command.
+Successful transfers restart the probe interval after completion, avoiding a
+redundant readiness command immediately after a slow read or write.
+Formatting writes one track per USB command as well.
+BIOS read/write/verify requests transfer whole tracks directly, and the USB
+drive is exempt from DOSBox-X's synthetic floppy throughput delays. The actual
+USB READ/WRITE reports media changes and missing disks without a separate
+readiness command between sectors. Other virtual drives retain their timing.
+This reduces command/rotational overhead compared with one USB command per
+512-byte DOS read and an unconditional readiness probe per file operation.
+If firmware rejects a larger request with ILLEGAL REQUEST, or SG_IO rejects
+its size with EINVAL/EMSGSIZE, that medium automatically falls back to requests
+within physical tracks and then smaller sizes if needed. No fallback retries
+media changes, missing media, write protection or transport failures. BIOS
+format/read/write/verify and DOS track IOCTLs retain their explicit track
+requests, while also respecting a smaller kernel transfer limit.
+With the earlier file-I/O improvements, a user-reported 580,391-byte copy took
+about 30 seconds reading and 45 seconds writing on Pi-DOS, versus 20 and 25
+seconds respectively with the same drive/file on Windows. These are approximate
+wall-clock measurements, rather than a controlled benchmark.
+
+The shared Linux USB core now caps interrupt-IN completion polling at **8 ms**
+for mass-storage UFI/CBI floppy interfaces. The cap matches the USB interface
+class/protocol, not a Toshiba/TEAC model ID or a Pi board. It applies before the
+host controller configures its endpoint schedule, covering both the DWC and
+xHCI paths across all Pi models supported by the ARM64 image. Full-speed USB
+uses a maximum `bInterval` of 8; high/super-speed USB uses 7, which encodes 8 ms.
+Already faster endpoints and other storage protocols retain their intervals.
+Low-speed USB and endpoints too small for the two-byte status reply are excluded.
+CBI command status, SCSI errors, media-change detection and DOS write commits
+remain in place. See [Linux polling patch](../patches/linux/README.md).
+
+`BOOT.LOG` records `Pi-DOS: USB floppy status polling endpoint ... (8ms cap)`
+when an interval is shortened; the runtime's endpoint log reports the adjusted
+descriptor. The subsequent user log confirms the cap is active and reduces
+control requests to roughly 8–12 ms, but single-track data transfers still take
+about 395 ms. The logged COPY write took about 40 seconds with 137 WRITE
+commands; XCOPY took about 56 seconds with 214 WRITE commands, including
+76 FAT updates versus COPY's 38. Completion polling was only part of the
+overhead. The bounded multi-track file-I/O changes address the remaining
+track-boundary command splitting. XCOPY is not inherently faster when it
+causes more committed filesystem updates.
+
+On 28 October 2026, the user confirmed improved copy speed and noticeably
+better FORMAT behavior on the Pi 5 with the Toshiba-branded TEAC FD-05PUB.
+The updated trace contains successful 32 KiB file transfers and no size-rejection
+fallbacks. The approximate copy-phase durations were:
+
+| Operation | Earlier one-track transport | Multi-track transport |
+| --- | --- | --- |
+| COPY write | 39.8 s; 137 WRITE commands | 34.3 s; 76 WRITE commands |
+| Read | 28.3 s; 67 READ commands | 26.3 s; 23 READ commands |
+| XCOPY write | 56.1 s; 214 WRITE commands | 44.5 s; 153 WRITE commands |
+
+These are durations inferred from request timestamps and gaps between commands,
+not controlled benchmarks or new stopwatch measurements. The captured session
+also includes 160 full-track format writes and verification reads. All 672
+logged SCSI commands completed without reported status, host/driver, residual
+or errno errors. The user considers copying better but possibly still slower
+than Windows. This confirms improvement on the tested setup, not physical
+validation of every supported Pi/drive combination or independent file-integrity
+verification.
+
+In a subsequent session with the metadata optimization, the user reported
+further improvement and performance very close to Windows across several
+tests. The supplied Pi 5/TEAC logs contain 1,232 SCSI commands, all without
+reported status, host/driver, residual or errno errors; 32 KiB transfers are
+accepted without size-rejection fallbacks and the 8 ms polling cap remains
+active. No `unchanged_metadata` counter records appear in this capture, so the
+trace does not quantify transport-level write suppression or isolate which
+change produced the gain. This is user-confirmed comparative performance on
+the tested setup, without new stopwatch figures or a controlled Windows
+benchmark.
+
+The next captured session confirms the built-in COPY policy with
+`chunk_bytes=61440` records. For the isolated transfers of the approximately
+580,391-byte test file, the log-derived comparison is:
+
+| Operation | Before 60 KiB COPY | With 60 KiB COPY | Earlier Windows stopwatch |
+| --- | --- | --- | --- |
+| Built-in COPY write | 31.120 s | 28.322 s | about 25 s |
+| Read | 25.096 s | 25.116 s | about 20 s |
+| XCOPY-like write | 43.155 s | 43.154 s | not supplied |
+
+The COPY write phase uses 22 FAT and 11 root-directory WRITE commands versus
+38 and 19 previously. Metadata command time falls from 8.266 to 5.126 seconds;
+data WRITE time is 22.526 seconds versus 22.077 seconds previously. Thus the
+roughly 9% elapsed-time reduction agrees with the intended reduction in DOS
+commit cycles. These phases are inferred from command gaps and transfer shapes,
+not shell command transcripts or a controlled benchmark; the mixed multi-file
+workload is not directly compared. The write phase is about 13% longer than the
+earlier Windows timing, while the read phase remains about 26% longer.
+All 1,252 SCSI records report no status, host/driver, residual or errno errors,
+there are no size-rejection fallbacks, and the boot log confirms the 8 ms cap.
+About 28.037 of COPY's 28.322 seconds is inside SG_IO, leaving little measured
+host-side overhead to remove. This includes kernel/device waiting and does not
+isolate mechanical time from transport/firmware behavior. No additional general
+code optimization is supported by this trace. Diagnostics can be disabled in
+PIDOSCFG for normal use, with only a small potential timing benefit.
+
+A reusable worker performs the blocking USB ioctl while the emulator thread
+services its idle loop, including video updates. Guest interrupts are masked
+during that wait to prevent reentering disk code; USB commands remain serial.
+This lets FORMAT's displayed progress refresh during device waits. The FORMAT
+program still determines how often it changes the percentage itself.
+
+For intermittent pauses, enable **Diagnostic logs** in PIDOSCFG and reboot.
+`C:\SYSTEM\RUNTIME.LOG` then includes `Pi-DOS USB floppy:` command records:
+`op=28` is READ, `op=2a` is WRITE, and `op=00` is TEST UNIT READY.
+`elapsed_ms` measures the entire request/wait path, including worker scheduling
+and emulator resumption; `gap_ms` measures time between requests, including log
+output. Trace version 2 splits that path into:
+
+| Field | Meaning |
+| --- | --- |
+| `queue_us` | Time before the worker enters the ioctl |
+| `ioctl_us` | Wall-clock time inside the worker's `SG_IO` ioctl |
+| `resume_us` | Time after the ioctl finishes until the emulator returns from its wait |
+| `sg_ms` | Kernel-reported SG_IO duration, with kernel timer resolution |
+| `check_us` | Time in the preceding Linux disk-sequence ioctl; outside `elapsed_ms` |
+| `id`, `t_ms` | Per-medium command number and monotonic start timestamp in milliseconds |
+| `region` | Region containing the starting LBA: `boot`, `fat`, `root`, `data`, `raw` before FAT validation, or `control` |
+
+Status, host/driver result, residual length and sense bytes remain in each
+record. `queue_us + ioctl_us + resume_us` approximately equals `elapsed_ms`
+after conversion to the same units. `ioctl_us` includes kernel/device waiting
+and scheduling, rather than exclusively time on the USB wire.
+
+At discovery, `Pi-DOS USB floppy device:` records identify the USB vendor,
+product, revision, speed, interface subclass/protocol, bound driver and power
+settings. `Pi-DOS USB floppy endpoint:` records list endpoint type, direction,
+packet size, hexadecimal `bInterval_hex` and the kernel-decoded
+`descriptor_interval`. These are descriptor values; they do not directly
+measure the host controller's actual polling schedule, and driver quirks can
+override the interface's advertised protocol. Missing sysfs values are logged
+as `unknown`. This metadata is read from sysfs without issuing extra USB commands.
+All added runtime tracing remains disabled with diagnostics off and changes no
+USB timeouts or media safety checks. The kernel's class-based 8 ms polling cap
+operates with diagnostics enabled or disabled.
+When a batch omits unchanged metadata, a separate `Pi-DOS USB floppy commit:`
+record reports `unchanged_metadata=N`, the number of sector writes avoided in
+that batch. It does not issue USB commands or replace SCSI error records.
+The built-in COPY policy emits `Pi-DOS USB floppy COPY: chunk_bytes=61440`
+once per source file when the larger buffer is selected with diagnostics on.
+`Pi-DOS USB floppy DPB: drive=N valid=0/1` records the DPB query result when
+diagnostics are enabled; `drive=0` is A:. The DPB contains filesystem fields
+from the validated FAT driver rather than guessed defaults.
+
+To investigate the measured Windows/Pi-DOS copy difference, rebuild with
+`make image`, update BOOT's `Image`, enable diagnostics and reboot. Time one
+write of the same test file from C: to A:, then eject/reinsert the disk and time
+`COPY /B A:\BENCH.BIN NUL` using the actual filename. Retain the exact file
+size and both wall-clock times, and collect `C:\SYSTEM\RUNTIME.LOG` and
+`C:\SYSTEM\BOOT.LOG` from that boot before rebooting again. Large `ioctl_us`
+with small queue/resume times points to the kernel/device path; large
+`resume_us` points to the emulator's wait loop. A 128 ms pattern together with
+an interrupt endpoint's long descriptor interval indicated the polling path
+addressed by the shared kernel cap. The user log confirmed the adjusted 8 ms
+interval and lower control latency, but data-transfer time remained high.
+The multi-track transport addresses the separate request-size limit; the
+subsequent Pi 5/TEAC hardware confirmation and trace timings are recorded above.
+
+Host fixtures in `python3 tools/image/test-usb-floppy.py` cover classification,
+FAT12/raw geometry, sequential multi-track command counts, short/random reads,
+kernel queue limits, rejected-request fallback, overlapping cache consistency,
+coalesced writes and commit failures, unchanged metadata comparisons (including
+reverted staged changes, read overlays, raw-access invalidation and media
+replacement when all writes are omitted), responsive I/O and interrupt-state restoration, diagnostic timing
+decomposition and USB endpoint descriptors, BIOS format/geometry requests,
+DOS sector/track IOCTL packets, protected and missing media, swaps, retired file
+handles, disk-sequence changes and incomplete transfers. The adapter tests use
+the patched AH=32h/1Fh dispatcher to cover existing-format detection, default
+and explicit drives, blank/missing media and replacement geometry. They also
+check metadata-only writes preserve file-data sectors. These checks use
+simulated DOS registers/memory and a FAT-driver stand-in, not a complete DOS
+`FORMAT.EXE` run. ARM64 compilation and linking check integration with the real
+runtime. `python3 tools/image/test-usb-floppy-fat.py` additionally exercises
+the patched upstream FAT file methods from the ARM64 build sources, covering
+full/partial overwrites, sector boundaries, EOF and clean close/flush, plus
+unchanged root/subdirectory entries and preservation of changed size,
+allocation, attributes and timestamps. Other FAT drives retain their existing
+directory-write behavior.
+The FAT fixture also exercises the actual DPB serializer for DOS 3.x and 4+
+layouts, including sector/cluster sizes, FAT/root/data offsets, media ID and
+the unknown-free-space marker on 1.44 MiB and 720 KiB geometry.
+`python3 tools/image/test-usb-floppy-copy.py` exercises the patched shell COPY
+selection and loop with in-memory DOS handles, including device/other-drive
+exclusions, DOS handle translation, exact/partial buffer boundaries, complete
+payloads, empty files, concatenation, console Ctrl-Z and read/write errors.
+The transport fixture also covers a 60 KiB DOS batch split into bounded USB
+requests with a single set of metadata commits.
+`python3 tools/image/test-usb-floppy-polling.py` checks the actual kernel helper's
+class/protocol selection, full/high/super-speed interval encodings and retention
+of faster endpoints and unrelated USB devices/transports.
+Copy-speed and FORMAT improvement are user-confirmed for the Pi 5/TEAC setup.
+Broader physical coverage remains pending: connection before/after boot,
+write protection, swapping disks with different contents, unplug/reconnect,
+independent copy/read-back integrity checks and other Pi/drive combinations.
+Rebuild with `make image`; for an existing card, replace BOOT's
+`Image` with the rebuilt `output/buildroot-arm64/images/Image`.
 
 The image seeds `C:\PROGRAMS\TOOLS\EDIT.COM` with the personalized PEDIT Light binary
 from `br2-external/board/raspberrypi/dos/EDIT.COM`. The default PATH selects this copy

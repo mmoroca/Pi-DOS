@@ -1,0 +1,171 @@
+Avoid unused next-sector reads, pre-reads before full-sector overwrites and
+rewriting clean file buffers for the physical USB floppy only.
+
+--- a/src/dos/drive_fat.cpp
++++ b/src/dos/drive_fat.cpp
+@@ -59,6 +59,7 @@
+ #include "cross.h"
+ #include "bios.h"
+ #include "bios_disk.h"
++#include "pidos_usb_floppy_api.h"
+ #include "imagedisk_d88.h"
+ #include "imagedisk_eltorito.h"
+ #include "imagedisk_int13.h"
+@@ -337,6 +338,7 @@
+ 
+                 bool modified = false;
+                 bool loadedSector = false;
++                bool usbSectorDirty = false;
+                 fatDrive::clusterChainMemory file_ccm;
+                 fatDrive *myDrive;
+ };
+@@ -418,10 +420,17 @@
+ 
+ #if !defined(OSFREE)
+ void fatFile::Flush(void) {
+-	if (loadedSector) {
++#if defined(LINUX) && !defined(OSFREE)
++    const bool native_floppy = PI_DOS_IsUSBFloppyImage(myDrive->loadedDisk);
++#else
++    const bool native_floppy = false;
++#endif
++
++	if (loadedSector && (!native_floppy || usbSectorDirty)) {
+ 		myDrive->writeSector(currentSector, sectorBuffer);
+-		loadedSector = false;
+-	}
++	}
++    loadedSector = false;
++    usbSectorDirty = false;
+ 
+ 	if (modified || newtime) {
+ 		direntry tmpentry = {};
+@@ -450,6 +459,12 @@
+ 
+ #if !defined(OSFREE)
+ bool fatFile::Read(uint8_t * data, uint16_t *size) {
++#if defined(LINUX) && !defined(OSFREE)
++    const bool native_floppy = PI_DOS_IsUSBFloppyImage(myDrive->loadedDisk);
++#else
++    const bool native_floppy = false;
++#endif
++
+ 	if ((this->flags & 0xf) == OPEN_WRITE) {	// check if file opened in write-only mode
+ 		DOS_SetError(DOSERR_ACCESS_DENIED);
+ 		return false;
+@@ -483,6 +498,12 @@
+ 		data[sizecount++] = sectorBuffer[curSectOff++];
+ 		seekpos++;
+ 		if(curSectOff >= myDrive->getSectorSize()) {
++            /* Leave the next sector unloaded until actually requested. */
++            if (native_floppy && (sizedec == 1 || seekpos >= filelength)) {
++                loadedSector = false;
++                --sizedec;
++                continue;
++            }
+ 			currentSector = myDrive->getAbsoluteSectFromBytePos(firstCluster, seekpos, &file_ccm);
+ 			if(currentSector == 0) {
+ 				/* EOC reached before EOF */
+@@ -505,6 +526,12 @@
+ 
+ #if !defined(OSFREE)
+ bool fatFile::Write(const uint8_t * data, uint16_t *size) {
++#if defined(LINUX) && !defined(OSFREE)
++    const bool native_floppy = PI_DOS_IsUSBFloppyImage(myDrive->loadedDisk);
++#else
++    const bool native_floppy = false;
++#endif
++
+ 	if ((this->flags & 0xf) == OPEN_READ) {	// check if file opened in read-only mode
+ 		DOS_SetError(DOSERR_ACCESS_DENIED);
+ 		return false;
+@@ -560,6 +587,15 @@
+ 	}
+ 
+ 	while(sizedec != 0) {
++        /* A previous read/write may have ended exactly on a sector boundary. */
++        if (native_floppy && !loadedSector && seekpos < filelength) {
++            currentSector = myDrive->getAbsoluteSectFromBytePos(firstCluster, seekpos, &file_ccm);
++            if (!currentSector) goto finalizeWrite;
++            curSectOff = seekpos % myDrive->getSectorSize();
++            if (curSectOff || sizedec < myDrive->getSectorSize())
++                myDrive->readSector(currentSector, sectorBuffer);
++            loadedSector = true;
++        }
+ 		/* Increase filesize if necessary */
+ 		if(seekpos >= filelength) {
+ 			if(filelength == 0) {
+@@ -577,7 +613,9 @@
+ 					LOG(LOG_DOSMISC,LOG_WARN)("FAT file write: unable to allocate first cluster, erroring out");
+ 					goto finalizeWrite;
+ 				}
+-				myDrive->readSector(currentSector, sectorBuffer);
++				/* Full-sector overwrites do not need the old contents. */
++				if (!native_floppy || curSectOff || sizedec < myDrive->getSectorSize())
++					myDrive->readSector(currentSector, sectorBuffer);
+ 				loadedSector = true;
+ 			}
+ 			if (!loadedSector) {
+@@ -594,18 +632,23 @@
+ 					}
+ 				}
+ 				curSectOff = seekpos % myDrive->getSectorSize();
+-				myDrive->readSector(currentSector, sectorBuffer);
++				/* Full-sector overwrites do not need the old contents. */
++				if (!native_floppy || curSectOff || sizedec < myDrive->getSectorSize())
++					myDrive->readSector(currentSector, sectorBuffer);
+ 				loadedSector = true;
+ 			}
+ 			filelength = seekpos+1;
+ 		}
+ 		--sizedec;
+ 		modified = true;
++		if (native_floppy) usbSectorDirty = true;
+ 		sectorBuffer[curSectOff++] = data[sizecount++];
+ 		seekpos++;
+ 		if(curSectOff >= myDrive->getSectorSize()) {
+ 			if(loadedSector) myDrive->writeSector(currentSector, sectorBuffer);
++            usbSectorDirty = false;
+ 			loadedSector = false;
++            if (native_floppy && !sizedec) goto finalizeWrite;
+ 
+ 			currentSector = myDrive->getAbsoluteSectFromBytePos(firstCluster, seekpos, &file_ccm);
+ 			if(currentSector == 0) {
+@@ -621,11 +664,16 @@
+ 				}
+ 			}
+ 			curSectOff = 0;
+-			myDrive->readSector(currentSector, sectorBuffer);
++			/* Full-sector overwrites do not need the old contents. */
++			if (!native_floppy || curSectOff || sizedec < myDrive->getSectorSize())
++				myDrive->readSector(currentSector, sectorBuffer);
+ 			loadedSector = true;
+ 		}
+ 	}
+-	if(curSectOff>0 && loadedSector) myDrive->writeSector(currentSector, sectorBuffer);
++	if(curSectOff>0 && loadedSector) {
++        myDrive->writeSector(currentSector, sectorBuffer);
++        usbSectorDirty = false;
++    }
+ 
+ 	/* FIXME: MS-DOS as far as I know does not update the dirent until you flush or close.
+ 	 *        You can verify this by writing a program to create a file, write data to it,
+@@ -687,11 +735,17 @@
+ 
+ #if !defined(OSFREE)
+ bool fatFile::Close() {
++#if defined(LINUX) && !defined(OSFREE)
++    const bool native_floppy = PI_DOS_IsUSBFloppyImage(myDrive->loadedDisk);
++#else
++    const bool native_floppy = false;
++#endif
++
+ 	//TODO
+ 	file_ccm = fatDrive::clusterChainMemory();
+ 
+ 	/* Flush buffer */
+-	if (loadedSector) myDrive->writeSector(currentSector, sectorBuffer);
++	if (loadedSector && (!native_floppy || usbSectorDirty)) myDrive->writeSector(currentSector, sectorBuffer);
+ 
+ 	if (modified || newtime) {
+ 		direntry tmpentry = {};

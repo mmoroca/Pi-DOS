@@ -54,6 +54,9 @@ fi
 install -m 0644 "$root/src/common/midi_ports.h" "$dosbox/src/gui/pidos_midi_ports.h"
 install -m 0644 "$root/src/common/reboot_shortcut.h" "$dosbox/src/gui/pidos_reboot_shortcut.h"
 install -m 0644 "$root/src/common/lcd_video.h" "$dosbox/include/pidos_lcd_video.h"
+install -m 0644 "$root/src/runtime/usb_floppy_linux.h" "$dosbox/src/dos/pidos_usb_floppy_linux.h"
+install -m 0644 "$root/src/runtime/usb_floppy_dos.h" "$dosbox/src/dos/pidos_usb_floppy_dos.h"
+install -m 0644 "$root/src/runtime/usb_floppy_api.h" "$dosbox/include/pidos_usb_floppy_api.h"
 for source_patch in "$root"/patches/dosbox-x/*.patch; do
     [[ -f "$source_patch" ]] || continue
     if patch --batch --forward --fuzz=0 --dry-run -p1 -d "$dosbox" -i "$source_patch" >/dev/null 2>&1; then
