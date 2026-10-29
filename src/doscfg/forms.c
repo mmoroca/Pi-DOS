@@ -1,6 +1,7 @@
 #include "forms.h"
+#include "input_options.h"
 #include <string.h>
-const char *page_names[PAGE_COUNT] = {"CPU", "Memory", "Video", "Sound", "Mixer", "System"};
+const char *page_names[PAGE_COUNT] = {"CPU", "Memory", "Video", "Sound", "Mixer", "Input", "System"};
 const char *memory_sizes[MEMORY_COUNT] = {"1", "2", "4", "8", "16", "32", "64", "128"};
 #define ADD(k,t,l,c,f,h) do { fields[n].key=k; fields[n].type=t; fields[n].label=l; fields[n].choices=c; fields[n].catalog=f; fields[n].help=h; ++n; } while(0)
 int form_fields(int page, Field *fields)
@@ -39,6 +40,14 @@ int form_fields(int page, Field *fields)
    ADD(K_VOL_MASTER+i,FIELD_VOLUME,volnames[i],"0|25|50|75|100|125|150|175|200",0,
        "Left:right percent. 0=mute, 100=normal; above 100 may clip.");
   }
+ } else if(page==PAGE_INPUT) {
+  ADD(K_JOY_TYPE,FIELD_CHOICE,"DOS joystick type","2axis=Two 2-axis joysticks (default)|4axis=One 4-axis joystick|4axis_2=4-axis on controller 2|fcs=Thrustmaster FCS|ch=CH Flightstick|none=Disabled|auto=Automatic (stable 2-axis)",0,"Games calibrate and assign DOS joystick controls in their own setup.");
+  ADD(K_CONTROLLER_LAYOUT,FIELD_CHOICE,"Controller layout","auto=Automatic (default)|raw=Raw Linux axes/buttons",0,"Automatic normalizes known gamepads; unknown devices use raw input.");
+  ADD(K_CONTROLLER_DIRECTION,FIELD_CHOICE,"Directional control","both=Left stick + D-pad (default)|stick=Left stick only|dpad=D-pad only",0,"D-pad controls DOS X/Y axes. Raw devices use their first hat.");
+  ADD(K_CONTROLLER_SWAP,FIELD_CHECKBOX,"Swap first two buttons",0,0,"Swap the first two action buttons globally; games can assign actions.");
+  ADD(K_JOY_DEADZONE,FIELD_CHOICE,"Stick dead zone","0.0=0 percent|0.1=10 percent|0.15=15 percent|0.2=20 percent|0.25=25 percent (default)|0.3=30 percent|0.4=40 percent|0.5=50 percent",0,"Ignore small stick movements. Selection applies to both controllers.");
+  ADD(K_JOY_TIMED,FIELD_CHECKBOX,"Timed joystick axes",0,0,"Try changing this if a game's joystick calibration is unstable.");
+  ADD(K_JOY_AUTOFIRE,FIELD_CHECKBOX,"Joystick autofire",0,0,"Repeat fire while an action button is held; normally disabled.");
  } else if(page==PAGE_SYSTEM) {
   ADD(K_MONITOR,FIELD_CHOICE,"Monitor type","lcd=LCD (default)|crt=CRT",0,"LCD uses a fixed mode. CRT follows DOS resolutions and refresh rates.");
   if(!strcmp(cfg_get(K_MONITOR),"lcd")) {
@@ -49,6 +58,9 @@ int form_fields(int page, Field *fields)
   ADD(K_COUNTRY,FIELD_CHOICE,"DOS country",0,"COUNTRY.LST","Country controls DOS date, number and currency formatting.");
   ADD(K_TIMEZONE,FIELD_CHOICE,"Local timezone",0,"TIMEZONE.LST","Installed IANA timezones; daylight saving changes are automatic.");
   ADD(K_DIAGNOSTICS,FIELD_CHECKBOX,"Diagnostic logs",0,0,"Checked captures diagnostic logs in C:\\SYSTEM after reboot; default off.");
+  ADD(K_SHORTCUT_REBOOT,FIELD_CHOICE,"Reboot shortcut",PIDOS_SHORTCUT_CHOICES,0,"Clean reboot. Select None to pass the combination through to DOS.");
+  ADD(K_SHORTCUT_POWEROFF,FIELD_CHOICE,"Poweroff shortcut",PIDOS_SHORTCUT_CHOICES,0,"Clean poweroff through the system supervisor; disabled by default.");
+  ADD(K_SHORTCUT_PAUSE,FIELD_CHOICE,"Pause shortcut",PIDOS_SHORTCUT_CHOICES,0,"Pause emulation. Repeat this shortcut, or press Escape, to resume.");
  }
  return n;
 }

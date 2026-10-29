@@ -31,6 +31,7 @@ paths = ['src/doscfg/main.c', 'src/doscfg/config.c', 'src/doscfg/config.h',
          'src/doscfg/live.c', 'src/doscfg/live.h',
          'src/doscfg/midi.c', 'src/doscfg/midi.h',
          'src/common/cpu_profiles.c', 'src/common/cpu_profiles.h',
+         'src/common/input_options.h',
          'src/common/video_profiles.c', 'src/common/video_profiles.h',
          'src/common/midi_profiles.c', 'src/common/midi_profiles.h',
          'tools/dos/build.sh', 'tools/dos/toolchain.json']

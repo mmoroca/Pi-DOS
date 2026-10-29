@@ -162,7 +162,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert get('K_VOODOO') == b'software'
     editor.cfg_reset_page(2)  # Video
     assert get('K_MACHINE') == b'svga_s3'
-    editor.cfg_reset_page(5)  # System
+    editor.cfg_reset_page(6)  # System
     assert get('K_DIAGNOSTICS') == b'false'
 
     # Monitor profiles: legacy files remain CRT until explicitly selected.
@@ -172,17 +172,17 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
                        ('K_LCD_ASPECT',b'original')):
         assert set_value(key,value)
     fields = ctypes.create_string_buffer(12 * 128)
-    assert editor.form_fields(5, fields) == 7  # three monitor + four system fields
+    assert editor.form_fields(6, fields) == 10  # monitor, region, diagnostics and shortcuts
     assert editor.cfg_save_changes(encoded)
     assert editor.cfg_load(encoded) and get('K_MONITOR') == b'lcd'
     assert get('K_LCD_MODE') == b'1280x720' and get('K_LCD_ASPECT') == b'original'
     assert set_value('K_MONITOR',b'crt')
-    assert editor.form_fields(5, fields) == 5
+    assert editor.form_fields(6, fields) == 8
     assert get('K_LCD_MODE') == b'1280x720'  # switching keeps LCD preferences
     for key, value in (('K_MONITOR',b'auto'),('K_LCD_MODE',b'9999x9999'),
                        ('K_LCD_ASPECT',b'stretch')):
         assert not set_value(key,value)
-    editor.cfg_reset_page(5)
+    editor.cfg_reset_page(6)
     assert get('K_MONITOR') == b'lcd' and get('K_LCD_MODE') == b'1024x768'
     assert get('K_LCD_ASPECT') == b'4:3'
     assert editor.cfg_save_changes(encoded)
@@ -213,4 +213,30 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     for value in (b'128:0',b'pidos:xyz',b'pidos:0123456789abcdeg'):
         assert not set_value('K_MIDI_PORT',value)
 
-print('PASS: all cards, RAM/region/mixer settings, validation, preservation, backups and recovery.')
+    # Input options preserve native joystick setup, and reject ambiguous shortcuts.
+    assert editor.cfg_load(encoded)
+    assert editor.form_fields(5, fields) == 7  # controller settings only
+    for name, value in (('K_JOY_TYPE', b'4axis'), ('K_CONTROLLER_LAYOUT', b'raw'),
+                        ('K_CONTROLLER_DIRECTION', b'dpad'), ('K_CONTROLLER_SWAP', b'true'),
+                        ('K_JOY_DEADZONE', b'0.15'), ('K_SHORTCUT_PAUSE', b'Ctrl+Alt+F3')):
+        assert set_value(name, value)
+    assert get('K_JOY_DEADZONE2') == get('K_JOY_DEADZONE3') == b'0.15'
+    assert editor.cfg_save_changes(encoded)
+    saved = path.read_bytes()
+    assert b'joysticktype=4axis\r\n' in saved and b'shortcut_pause=Ctrl+Alt+F3\r\n' in saved
+    for value in (b'1.0', b'-0.1', b'nan', b'0.bad', b'0.'):
+        assert not set_value('K_JOY_DEADZONE', value)
+    assert not set_value('K_SHORTCUT_REBOOT', b'Ctrl+Alt+F12')
+    assert set_value('K_SHORTCUT_POWEROFF', b'ctrl+alt+f3')
+    assert not editor.cfg_save_changes(encoded) and path.read_bytes() == saved
+    editor.cfg_reset_page(5)  # Input defaults must preserve System shortcuts.
+    assert get('K_JOY_TYPE') == b'2axis'
+    assert get('K_SHORTCUT_POWEROFF') == b'ctrl+alt+f3'
+    assert get('K_SHORTCUT_PAUSE') == b'Ctrl+Alt+F3'
+    editor.cfg_reset_page(6)  # System defaults reset the three shortcuts.
+    assert get('K_SHORTCUT_REBOOT') == b'Ctrl+Alt+Delete'
+    assert get('K_SHORTCUT_POWEROFF') == get('K_SHORTCUT_PAUSE') == b'none'
+    assert get('K_JOY_TYPE') == b'2axis'
+    assert editor.cfg_save_changes(encoded)
+
+print('PASS: config preservation, recovery, existing pages, joystick options and shortcut conflicts.')

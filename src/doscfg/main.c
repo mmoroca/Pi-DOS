@@ -16,8 +16,8 @@
 #define SELECTED 0x30
 #define BUTTON 0x70
 #define FOCUSED 0x3f
-#define TAB_STEP 12
-#define TAB_WIDTH 11
+#define TAB_STEP 10
+#define TAB_WIDTH 9
 
 static unsigned short saved_screen[2000];
 static unsigned short __far *video;
@@ -543,7 +543,7 @@ static void draw_page(int page,int focus,const char *path) {
  text(3,0,"Pi-DOS Setup",SELECTED,40); text(56,0,cfg_changed()?"Unsaved changes":"Configuration loaded",SELECTED,23);
  for(i=0;i<PAGE_COUNT;++i) {
   unsigned char color=i==page?FOCUSED:BUTTON;
-  fill(4+i*TAB_STEP,2,TAB_WIDTH,1,color); text(6+i*TAB_STEP,2,page_names[i],color,9);
+  fill(4+i*TAB_STEP,2,TAB_WIDTH,1,color); text(6+i*TAB_STEP,2,page_names[i],color,7);
  }
  box(3,4,74,13); text(6,4,page==PAGE_CPU?" CPU profile ":page_names[page],PANEL,30);
  if(page==PAGE_CPU) {
@@ -577,6 +577,7 @@ static void draw_page(int page,int focus,const char *path) {
   }
   if(focus<n) text(4,18,fields[focus].help,PANEL,72);
   if(page==PAGE_MIXER) text(4,19,live_status(),DIM,72);
+  if(page==PAGE_INPUT) text(4,19,"Controllers reconnect automatically. Game calibration may need restarting.",DIM,72);
   if(page==PAGE_VIDEO) text(4,19,"Voodoo uses software rendering; Glide passthrough stays disabled.",DIM,72);
   if(page==PAGE_SOUND) {
    int card=cfg_card();

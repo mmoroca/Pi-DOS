@@ -1,8 +1,8 @@
 Pi-DOS Setup
 ============
 
-Run PIDOSCFG at the DOS prompt. Click the CPU, Memory, Video, Sound, Mixer
-and System tabs, or use F5/F6. Tab/Shift+Tab moves focus; Enter edits a field.
+Run PIDOSCFG at the DOS prompt. Click the CPU, Memory, Video, Sound, Mixer,
+Input and System tabs, or use F5/F6. Tab/Shift+Tab moves focus; Enter edits a field.
 Up/Down or Home/End chooses a CPU profile or RAM size. Other lists support
 typing to search, arrows, Home/End and PgUp/PgDn. Click an item to select it.
 F2 or Alt+S saves ALL pages. Escape, Alt+C or Alt+X cancels.
@@ -117,3 +117,15 @@ Command-line examples:
 Program and source are original Pi-DOS work. Built with Open Watcom.
 For the compiler runtime license and source information, see WATCOM.TXT
 in this directory.
+
+Input tab: select DOS joystick type, automatic/raw controller layout,
+left stick/D-pad, button order, dead zone, timing and autofire. Games
+calibrate and assign DOS joystick controls in their own setup. Controllers
+can connect after boot or reconnect without a system reboot. Some games
+only detect/calibrate controllers during game startup. No mapper file needed.
+
+System tab: reboot, poweroff and pause accept None, Ctrl+Alt+Delete
+or Ctrl+Alt+F1-F10.
+Reboot defaults to Ctrl+Alt+Delete; poweroff and pause are disabled by default.
+Duplicate shortcuts cannot be saved. Repeat pause or press Escape to resume.
+Save and reboot to apply Input and System settings.

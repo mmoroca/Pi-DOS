@@ -125,17 +125,17 @@
 
 ### Input and Controllers
 
-- [ ] USB keyboard
-- [ ] USB mouse
-- [ ] DOS keyboard scan codes
-- [ ] Mouse driver emulation
-- [ ] International keyboard layouts
-- [ ] Joystick emulation
-- [ ] USB gamepads
-- [ ] Gamepad-to-keyboard mapping
-- [ ] Per-game controller profiles
-- [ ] Hotplug support
-- [ ] Configurable keyboard shortcuts
+- [v] USB keyboard
+- [v] USB mouse
+- [v] DOS keyboard scan codes
+- [v] Mouse driver emulation
+- [v] International keyboard layouts
+- [v] Joystick emulation
+- [v] USB gamepads
+- [x] Gamepad-to-keyboard mapping
+- [x] Per-game controller profiles
+- [x] Hotplug support
+- [~] Configurable keyboard shortcuts
 
 ### DOS and PC Hardware Compatibility
 

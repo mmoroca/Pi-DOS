@@ -59,14 +59,14 @@ public:
     std::shared_ptr<DiskFile> disk;
     std::string filename;const char *name=nullptr;
     uint32_t flags=0,position=0;uint8_t drive=2;Bits refCtr=0;
-    bool open=true,neverclose=false,ready=true;
+    bool open=true,neverclose=false,ready=true,reports_position=true;
     explicit DOS_File(std::string n="DEVICE",std::shared_ptr<DiskFile> d=std::make_shared<DiskFile>()):disk(d),filename(n),name(filename.c_str()){}
     virtual ~DOS_File()=default;
     bool IsOpen(){return open;}bool SharingReady(){if(!ready)DOS_SetError(21);return ready;}bool SharingRefresh(){return true;}
     void SharingAbandon(){}
     void SetDrive(uint8_t n){drive=n;}uint8_t GetDrive(){return drive;}
     void AddRef(){++refCtr;}Bits RemoveRef(){return --refCtr;}
-    uint32_t GetSeekPos(){return position;}
+    uint32_t GetSeekPos(){return reports_position?position:0xffffffffu;}
     virtual uint16_t GetInformation(){return 0;}
     virtual bool LockFile(uint8_t,uint32_t,uint16_t){DOS_SetError(1);return false;}
     virtual bool Close(){if(refCtr<=1)open=false;return ready;}
@@ -188,5 +188,26 @@ int main(int argc,char **argv){
     for(unsigned i=0;i<4096;++i)assert(!bounded.lock(grant,1,0,i,1));
     assert(bounded.lock(grant,1,0,4096,1)==36);bounded.release_owner(1);assert(!bounded.lock(grant,2,0,0,1));
     assert(!strcmp(fd.name,"SAVED")&&fd.size==123);for(unsigned i=1;i<44;++i)assert(memory[i]==0);
-    puts("PASS: real DOS API: sharing matrix, PSP-owned locks, 32-bit ranges, read/write/truncate/delete/rename, aliases, DTA preservation, extended create, dup/inherit/exit and media replacement");
+    // Z: Virtual_File supports Seek but inherits the unknown GetSeekPos sentinel.
+    // Boot invokes MIXER.COM eleven times after the welcome message.
+    Drive z; z.files["SYSTEM\\MIXER.COM"]=std::make_shared<DiskFile>();Drives[25]=&z;
+    select_psp(0x3000);
+    for(unsigned i=0;i<11;++i) {
+        first=open_file("Z:\\SYSTEM\\MIXER.COM",0);
+        Files[RealHandle(first)]->reports_position=false;n=32;
+        assert(DOS_ReadFile(first,buffer,&n)&&n==32);
+        assert(Files[RealHandle(first)]->position==32);
+        n=16;assert(DOS_ReadFile(first,buffer,&n)&&n==16);
+        assert(Files[RealHandle(first)]->position==48);
+        DOS_CloseFile(first);
+    }
+    // Unknown cached positions must still honor record locks at the real offset.
+    first=open_file("C:\\FILE.DAT",0x42);assert(DOS_LockFile(first,0,16,16));
+    select_psp(0x4000);other=open_file("C:\\FILE.DAT",0x42);
+    Files[RealHandle(other)]->reports_position=false;
+    p=16;assert(DOS_SeekFile(other,&p,0));n=1;
+    assert(!DOS_ReadFile(other,buffer,&n)&&dos.errorcode==33&&n==0);
+    p=32;assert(DOS_SeekFile(other,&p,0));n=1;assert(DOS_ReadFile(other,buffer,&n));
+    DOS_CloseFile(other);terminate(0x3000);
+    puts("PASS: real DOS API: sharing/locks, unknown cached positions, eleven boot-program loads, aliases, DTA preservation, dup/inherit/exit and media replacement");
 }

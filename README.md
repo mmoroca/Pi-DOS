@@ -89,6 +89,12 @@ Use `/HOST` or `/DOS` to list either group, or `VIDEOMOD /?` for help.
 The same file accepts `[pidos]` options, including `timezone=Europe/Madrid` for
 local time with automatic daylight saving.
 The default keyboard layout is Spanish (`keyboardlayout=sp` under `[dos]`).
+PIDOSCFG's Input tab selects DOS joystick hardware, automatic/raw controller
+layout, stick/D-pad controls, button order and dead zone. Controller slots survive
+other-device removal and accept connections after boot, without mapper files.
+The System tab configures clean reboot/poweroff and pause shortcuts. Save and reboot
+to apply. Host virtual-controller checks pass; physical controller hotplug and
+in-game calibration still need validation. See [input options](src/doscfg/README.md#input-and-controllers).
 The boot summary displays the system date and local time;
 network time synchronization may correct the clock after startup.
 Edit `C:\AUTOEXEC.BAT` to customize environment variables, PATH or programs run

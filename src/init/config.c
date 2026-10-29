@@ -79,3 +79,40 @@ bool pi_dos_runtime_config(const char *source, const char *destination)
     if (fclose(output)) valid = false;
     return valid;
 }
+
+/* Appliance-only options are passed outside the DOSBox configuration. */
+#define PIDOS_INPUT_OPTIONS_VALIDATE
+#include "input_options.h"
+void pi_dos_input_prepare(const char *source)
+{
+    const char *keys[] = {"controller_layout", "controller_direction", "controller_swap_buttons"};
+    const char *variables[] = {"PI_DOS_CONTROLLER_LAYOUT", "PI_DOS_CONTROLLER_DIRECTION", "PI_DOS_CONTROLLER_SWAP_BUTTONS"};
+    const char *defaults[] = {"auto", "both", "false"};
+    char value[80];
+    for (size_t i=0; i<3; ++i) {
+        bool valid = pi_dos_config_value(source, "pidos", keys[i], value, sizeof(value));
+        if (i==0) valid = valid && (!strcasecmp(value,"auto") || !strcasecmp(value,"raw"));
+        if (i==1) valid = valid && (!strcasecmp(value,"both") || !strcasecmp(value,"stick") || !strcasecmp(value,"dpad"));
+        if (i==2) valid = valid && (!strcasecmp(value,"true") || !strcasecmp(value,"false"));
+        if (!valid) snprintf(value,sizeof(value),"%s",defaults[i]);
+        for (char *at=value; *at; ++at) *at=(char)tolower((unsigned char)*at);
+        setenv(variables[i],value,1);
+    }
+    const char *shortcuts[] = {"shortcut_reboot", "shortcut_poweroff", "shortcut_pause"};
+    const char *env[] = {"PI_DOS_SHORTCUT_REBOOT", "PI_DOS_SHORTCUT_POWEROFF", "PI_DOS_SHORTCUT_PAUSE"};
+    int selected[3] = {0};
+    for (size_t i=0; i<3; ++i) {
+        int code = i==0 ? 1 : 0;
+        if (pi_dos_config_value(source,"pidos",shortcuts[i],value,sizeof(value))) {
+            int parsed = pidos_shortcut_key(value);
+            if (parsed>=0) code=parsed;
+            else dprintf(2,"Pi-DOS: invalid %s; using default\n",shortcuts[i]);
+        }
+        for (size_t j=0; j<i; ++j) if (code && code==selected[j]) {
+            dprintf(2,"Pi-DOS: duplicate %s disabled\n",shortcuts[i]); code=0;
+        }
+        selected[i]=code;
+        snprintf(value,sizeof(value),"%d",code);
+        setenv(env[i],value,1);
+    }
+}

@@ -11,7 +11,7 @@ navigation works without that driver. The program restores the previous 80x25 te
 screen and cursor on exit. See [the DOS manual](README.DOS) for controls and
 command-line use. The image installs that manual as `C:\DOCS\PIDOSCFG.TXT`.
 
-Six pages configure CPU, Memory, Video, Sound, Mixer and System settings. F5/F6
+Seven pages configure CPU, Memory, Video, Sound, Mixer, Input and System settings. F5/F6
 change pages; Tab/Shift+Tab move focus; Enter edits; F2 saves all pages; Esc
 cancels. Selection dialogs support typing to filter, arrows and page keys.
 **Restore defaults** (F3 or Alt+R) resets the current page only, pending Save.
@@ -137,6 +137,53 @@ custom timezones must exist in the installed catalog. Regional settings apply
 after reboot, using the existing timezone/DOS startup handling. The Diagnostic
 logs checkbox controls `[pidos] diagnostics`, disabled by default. Enabling it
 captures the existing boot, runtime, network and video logs after reboot.
+
+## Input and controllers
+
+The Input page configures global DOS joystick hardware and controller options.
+Save and reboot to apply. No controller mapper file or per-game profile is needed.
+
+- **DOS joystick type:** defaults to two conventional two-axis/two-button
+  joysticks. Four-axis, second-controller four-axis, Thrustmaster FCS and CH
+  Flightstick modes remain available. In appliance mode, `auto` also means the
+  stable two-axis type, regardless of how many controllers are currently present.
+- **Controller layout:** Automatic uses SDL2's built-in mappings for recognized
+  gamepads, then falls back to raw Linux axes/buttons for unknown devices. Raw
+  bypasses normalization. Controllers still require a working Linux driver.
+- **Directional control:** left stick plus D-pad (default), stick only, or D-pad
+  only. Raw devices use their first hat for the D-pad. D-pad input controls the
+  first two DOS axes; advanced modes also retain their emulated hat functions.
+- **Swap first two buttons:** exchanges the first two actions globally. The
+  automatic layout uses A/B, then X/Y and shoulder buttons in advanced modes.
+- **Stick dead zone:** selecting a value applies it to both controllers and the
+  second stick. Existing per-stick values are retained until this field changes.
+  Timed axes and autofire expose the existing DOSBox-X options.
+
+Controllers can connect after boot. Active controllers retain their slots when
+another disconnects; a new connection fills the first vacant slot. Disconnecting
+releases buttons, centers axes, and makes the relevant DOS joystick unavailable.
+The emulator keeps the selected joystick hardware type stable. Some games only
+probe or calibrate during their own setup/startup and must be restarted afterward.
+Generic fallback layouts vary between devices; extra modern controls cannot
+exceed the selected DOS joystick's capabilities.
+
+The System page configures reboot, poweroff and pause shortcuts, stored under `[pidos]` as
+`shortcut_reboot`, `shortcut_poweroff`, and `shortcut_pause`. Choices are `none`,
+`Ctrl+Alt+Delete`, and `Ctrl+Alt+F1` through `Ctrl+Alt+F10`. Reboot retains
+Ctrl+Alt+Delete by default; poweroff and pause default to disabled. F12 remains
+the emulator's Host key. Duplicate assignments are rejected before saving;
+hand-edited duplicates are disabled at boot in reboot/poweroff/pause priority.
+Invalid hand-edited shortcuts fall back to their defaults and log a diagnostic.
+
+Reboot and poweroff use PID 1's existing synchronized shutdown. Pause runs on
+key release; repeat the shortcut or press Escape to resume. Disabling a shortcut
+passes that combination to the normal DOS input path. Ordinary upstream emulator
+shortcuts remain available. No mapper file is loaded or saved for these options.
+
+Implementation checks use virtual SDL controllers and mocked system signals.
+Physical controller hotplug, game calibration and the Input tab's appearance on
+a Pi still need hardware confirmation. Keyboard and mouse hotplug were already
+confirmed by the user.
 
 ## CPU profiles
 

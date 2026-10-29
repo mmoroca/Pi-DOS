@@ -8,6 +8,8 @@
 #include <dos.h>
 #endif
 #include "config.h"
+#define PIDOS_INPUT_OPTIONS_VALIDATE
+#include "input_options.h"
 #define CFG_CAPACITY 24576
 #define S(section,key,value,page) {section,key,value,page}
 const CfgSpec cfg_specs[K_COUNT] = {
@@ -42,7 +44,19 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("pidos","midi_delaysysex","false",PAGE_SOUND),
  S("pidos","monitor","lcd",PAGE_SYSTEM),
  S("pidos","lcd_mode","1024x768",PAGE_SYSTEM),
- S("pidos","lcd_aspect","4:3",PAGE_SYSTEM)
+ S("pidos","lcd_aspect","4:3",PAGE_SYSTEM),
+ S("joystick","joysticktype","2axis",PAGE_INPUT),
+ S("pidos","controller_layout","auto",PAGE_INPUT),
+ S("pidos","controller_direction","both",PAGE_INPUT),
+ S("pidos","controller_swap_buttons","false",PAGE_INPUT),
+ S("joystick","joy1deadzone1","0.25",PAGE_INPUT),
+ S("joystick","joy1deadzone2","0.25",PAGE_INPUT),
+ S("joystick","joy2deadzone1","0.25",PAGE_INPUT),
+ S("joystick","timed","true",PAGE_INPUT),
+ S("joystick","autofire","false",PAGE_INPUT),
+ S("pidos","shortcut_reboot","Ctrl+Alt+Delete",PAGE_SYSTEM),
+ S("pidos","shortcut_poweroff","none",PAGE_SYSTEM),
+ S("pidos","shortcut_pause","none",PAGE_SYSTEM)
 };
 const char *card_names[CARD_COUNT] = {"None", "Tandy sound", "AdLib",
  "Creative Game Blaster / CMS", "Sound Blaster 2.0", "Sound Blaster Pro 2",
@@ -87,6 +101,17 @@ int cfg_set(int key, const char *value) {
  if(valid) for(i=0;value[i];++i) if((unsigned char)value[i]<32 || (unsigned char)value[i]>126) valid=0;
  if(!valid) { strcpy(cfg_error,"Invalid or overlong configuration value."); return 0; }
  switch(key) {
+ case K_JOY_TYPE: valid=one_of(value,"none|auto|2axis|4axis|4axis_2|fcs|ch"); break;
+ case K_CONTROLLER_LAYOUT: valid=one_of(value,"auto|raw"); break;
+ case K_CONTROLLER_DIRECTION: valid=one_of(value,"both|stick|dpad"); break;
+ case K_JOY_DEADZONE: case K_JOY_DEADZONE2: case K_JOY_DEADZONE3:
+  valid=value[0]=='0' && (!value[1] || (value[1]=='.' && value[2]));
+  for(i=2;valid && value[1] && value[i];++i) if(!isdigit((unsigned char)value[i])) valid=0;
+  break;
+ case K_CONTROLLER_SWAP: case K_JOY_TIMED: case K_JOY_AUTOFIRE:
+  valid=one_of(value,"true|false"); break;
+ case K_SHORTCUT_REBOOT: case K_SHORTCUT_POWEROFF: case K_SHORTCUT_PAUSE:
+  valid=pidos_shortcut_key(value)>=0; break;
  case K_MONITOR: valid=one_of(value,"lcd|crt"); break;
  case K_LCD_MODE: valid=lcd_mode_find(value)>=0; break;
  case K_LCD_ASPECT: valid=one_of(value,"4:3|original"); break;
@@ -139,6 +164,10 @@ int cfg_set(int key, const char *value) {
  if(strcmp(values[key],value)) { strcpy(values[key],value); dirty[key]=1; }
  /* Selecting a monitor or LCD option materializes the managed profile. */
  if(key>=K_MONITOR && key<=K_LCD_ASPECT) dirty[K_MONITOR]=1;
+ if(key==K_JOY_DEADZONE) {
+  strcpy(values[K_JOY_DEADZONE2],value); strcpy(values[K_JOY_DEADZONE3],value);
+  dirty[K_JOY_DEADZONE2]=dirty[K_JOY_DEADZONE3]=1;
+ }
  sync_cpu(); cfg_error[0]=0; return 1;
 }
 int cfg_profile(void) { return cpu_profile_find(values[K_CPU_TYPE],values[K_CPU_CORE],values[K_CPU_CYCLES]); }
@@ -302,6 +331,17 @@ int cfg_save_changes(const char *path) {
 #endif
  if(strlen(path)>=CFG_PATH_SIZE-5) { strcpy(cfg_error,"Configuration path is too long."); return 0; }
  if(!cfg_changed()) return 1;
+ if(dirty[K_SHORTCUT_REBOOT] || dirty[K_SHORTCUT_POWEROFF] || dirty[K_SHORTCUT_PAUSE]) {
+  int a,b;
+  for(a=K_SHORTCUT_REBOOT;a<=K_SHORTCUT_PAUSE;++a) {
+   int code=pidos_shortcut_key(values[a]);
+   if(code<0) { strcpy(cfg_error,"Choose a supported system shortcut before saving."); return 0; }
+   for(b=a+1;code>0 && b<=K_SHORTCUT_PAUSE;++b)
+    if(code==pidos_shortcut_key(values[b])) {
+     strcpy(cfg_error,"System shortcuts must use different key combinations."); return 0;
+    }
+  }
+ }
  if(cfg_midi()==MIDI_EXTERNAL && !*cfg_get(K_MIDI_PORT)) {
   strcpy(cfg_error,"Choose a connected USB MIDI destination in MIDI settings before saving."); return 0;
  }

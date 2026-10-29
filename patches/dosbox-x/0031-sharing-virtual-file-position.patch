@@ -1,0 +1,23 @@
+Pi-DOS: query the real offset when a DOS file has no cached seek position.
+
+Virtual_File on Z: inherits DOS_File::GetSeekPos(), whose 0xffffffff return
+means that no cached position is available. Treating that sentinel as an offset
+made sharing checks reject executable reads with DOS error 33. Seek by zero
+from the current position to obtain the offset, retaining record-lock checks.
+
+--- a/src/dos/dos_files.cpp
++++ b/src/dos/dos_files.cpp
+@@ -673,7 +673,12 @@
+     if (!(file->sharing->access & (write ? 2 : 1))) { DOS_SetError(DOSERR_ACCESS_DENIED); return false; }
+     if (!PiDosShareCurrent(file) || !file->SharingRefresh()) return false;
+     if (!enable_share_exe) return true;
+-    const uint32_t position = file->GetSeekPos();
++    uint32_t position = file->GetSeekPos();
++    if (position == 0xffffffffu) {
++        // Z: virtual files and other backends can omit a cached seek position.
++        position = 0;
++        if (!file->Seek(&position, DOS_SEEK_CUR)) return false;
++    }
+     uint64_t begin = position, end = uint64_t(position) + count;
+     if (write && !count) {
+         uint32_t length = 0;

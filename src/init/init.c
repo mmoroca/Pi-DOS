@@ -446,6 +446,7 @@ int main(void)
     setenv("SDL_FRAMEBUFFER_ACCELERATION", "opengles2", 1);
     /* Synchronize surface presentation to the physical display's vblank. */
     setenv("SDL_RENDER_VSYNC", "1", 1);
+    pi_dos_input_prepare(user_config);
     select_video();
     select_audio();
     /* Give USB enumeration the existing display/audio readiness waits before

@@ -74,6 +74,8 @@ def main():
             'PIDOSCFG lacks video/system configuration controls')
     require(b'MIDI output' in packed_setup and b'MIDI settings' in packed_setup,
             'PIDOSCFG lacks MIDI controls')
+    require(b'DOS joystick type' in packed_setup and b'Poweroff shortcut' in packed_setup,
+            'PIDOSCFG lacks Input controls')
     setup_manifest = json.loads((ROOT /
         'br2-external/board/raspberrypi/dos/PIDOSCFG.build.json').read_text())
     require(hashlib.sha256(packed_setup).hexdigest() == setup_manifest['executable_sha256'],
@@ -126,6 +128,11 @@ def main():
         packed_runtime = subprocess.check_output(
             ['cpio', '-i', '--to-stdout', '--quiet', 'pi-dos/pi-dos'], stdin=stream)
     require(packed_runtime == (target / 'pi-dos/pi-dos').read_bytes(), 'Stale runtime in initramfs')
+    for value in (b'PI_DOS_CONTROLLER_LAYOUT', b'PI_DOS_CONTROLLER_DIRECTION',
+                  b'PI_DOS_CONTROLLER_SWAP_BUTTONS', b'PI_DOS_SHORTCUT_POWEROFF',
+                  b'PI_DOS_SHORTCUT_PAUSE'):
+        require(value in packed_runtime and value in packed_init,
+                'Image lacks controller/shortcut configuration integration')
     for value in (b'trace_version=2', b'queue_us=', b'ioctl_us=', b'resume_us=', b'bInterval_hex='):
         require(value in packed_runtime, 'Runtime lacks detailed USB floppy diagnostics; rebuild pi-dos-runtime')
     require(b'reason=request_rejected' in packed_runtime and b'max_sectors=' in packed_runtime,
@@ -154,8 +161,8 @@ def main():
                   b'persistent .PFS overlay', b'PFSINFO/DELETE.DAT'):
         require(value in packed_runtime, 'Runtime lacks ZIP drives with persistent .PFS overlays; rebuild pi-dos-runtime')
     require(b'PI_DOS_SUPERVISED' in packed_init and
-            b'Ctrl+Alt+Delete requested a supervised reboot' in (target / 'pi-dos/pi-dos').read_bytes(),
-            'Image lacks the supervised Ctrl+Alt+Delete reboot path')
+            b'system shortcut requested supervised' in packed_runtime,
+            'Image lacks supervised system shortcuts')
     require(b'power button requested a clean poweroff' in packed_init and
             b'/run/pi-dos-stop' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Image lacks the power-button listener or supervised quit-dialog bypass')

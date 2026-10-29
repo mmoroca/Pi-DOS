@@ -1,0 +1,122 @@
+Pi-DOS: stable DOS joystick slots, SDL2 controller normalization and hotplug.
+
+--- a/src/gui/sdl_mapper.cpp
++++ b/src/gui/sdl_mapper.cpp
+@@ -163,6 +163,9 @@
+     int16_t                                      axis_pos[MAX_VJOY_AXES];
+     bool                                        hat_pressed[MAX_VJOY_HATS];
+ } virtual_joysticks[2];
++#if defined(C_SDL2)
++#include "pidos_controllers.h"
++#endif
+ 
+ static struct {
+     CCaptionButton*                             event_title;
+@@ -1850,6 +1853,14 @@
+         emulated_hats=0;
+         JOYSTICK_Enable(emustick,true);
+ 
++#if defined(C_SDL2)
++        if (pidos_native_controllers()) {
++            /* Logical capabilities exist even before a USB controller arrives. */
++            axes=4; buttons=6; hats=1;
++            axes_cap=emulated_axes; hats_cap=emulated_hats;
++        } else
++#endif
++        {
+         sdl_joystick=SDL_JoystickOpen((int)_stick);
+         if (sdl_joystick==NULL) {
+             button_wrap=emulated_buttons;
+@@ -1867,6 +1878,7 @@
+         if (hats_cap>hats) hats_cap=hats;
+ 
+         buttons=(Bitu)SDL_JoystickNumButtons(sdl_joystick);
++        }
+         button_wrap=buttons;
+         button_cap=buttons;
+         if (button_wrapping_enabled) {
+@@ -1876,7 +1888,7 @@
+         if (button_wrap > MAXBUTTON) button_wrap = MAXBUTTON;
+ 
+ #if defined(C_SDL2)
+-        LOG_MSG("Using joystick %s with %d axes, %d buttons and %d hat(s)",SDL_JoystickNameForIndex((int)stick),(int)axes,(int)buttons,(int)hats);
++        if (sdl_joystick) LOG_MSG("Using joystick %s with %d axes, %d buttons and %d hat(s)",SDL_JoystickNameForIndex((int)stick),(int)axes,(int)buttons,(int)hats);
+ #else
+         LOG_MSG("Using joystick %s with %d axes, %d buttons and %d hat(s)",SDL_JoystickName((int)stick),(int)axes,(int)buttons,(int)hats);
+ #endif
+@@ -1995,6 +2007,23 @@
+     }
+ 
+     void ActivateJoystickBoundEvents() {
++#if defined(C_SDL2)
++        if (pidos_native_controllers()) {
++            auto state=pidos_controllers.sample((unsigned int)stick);
++            if (joytype==JOY_4AXIS || joytype==JOY_4AXIS_2 || joytype==JOY_FCS || joytype==JOY_CH) {
++                JOYSTICK_Enable(0,state.connected); JOYSTICK_Enable(1,state.connected);
++            } else JOYSTICK_Enable(emustick,state.connected);
++            auto &guest=virtual_joysticks[emustick];
++            memset(&guest,0,sizeof(guest));
++            for (unsigned int i=0;i<4 && i<MAX_VJOY_AXES;++i) guest.axis_pos[i]=state.axes[i];
++            for (unsigned int i=0;i<6 && i<emulated_buttons && i<MAX_VJOY_BUTTONS;++i) guest.button_pressed[i]=state.buttons[i];
++            guest.hat_pressed[0]=(state.hat&SDL_HAT_UP)!=0;
++            guest.hat_pressed[1]=(state.hat&SDL_HAT_RIGHT)!=0;
++            guest.hat_pressed[2]=(state.hat&SDL_HAT_DOWN)!=0;
++            guest.hat_pressed[3]=(state.hat&SDL_HAT_LEFT)!=0;
++            return;
++        }
++#endif
+         if (GCC_UNLIKELY(sdl_joystick==NULL)) return;
+ 
+         Bitu i;
+@@ -4912,6 +4941,12 @@
+ }
+ 
+ void MAPPER_CheckEvent(SDL_Event * event) {
++#if defined(C_SDL2)
++    if (pidos_native_controllers() && event->type>=SDL_JOYAXISMOTION && event->type<=SDL_JOYDEVICEREMOVED) {
++        if (event->type==SDL_JOYDEVICEADDED || event->type==SDL_JOYDEVICEREMOVED) pidos_controllers.changed();
++        return; /* Appliance controllers feed DOS joystick state through polling. */
++    }
++#endif
+     for (CBindGroup_it it=bindgroups.begin();it!=bindgroups.end();++it) {
+         if ((*it)->CheckEvent(event)) return;
+     }
+@@ -5182,6 +5217,14 @@
+ static void InitializeJoysticks(void) {
+     mapper.sticks.num=0;
+     mapper.sticks.num_groups=0;
++#if defined(C_SDL2)
++    if (pidos_native_controllers()) {
++        if (joytype==JOY_AUTO) joytype=JOY_2AXIS;
++        mapper.sticks.num=joytype==JOY_NONE?0:2;
++        initjoy=false;
++        return;
++    }
++#endif
+     if (joytype != JOY_NONE) {
+         mapper.sticks.num=(Bitu)SDL_NumJoysticks();
+         LOG(LOG_MISC,LOG_DEBUG)("Joystick type != none, SDL reports %u sticks",(unsigned int)mapper.sticks.num);
+@@ -6005,6 +6048,9 @@
+ }
+ 
+ void MAPPER_Shutdown() {
++#if defined(C_SDL2)
++    pidos_controllers.reset();
++#endif
+     for (size_t i=0;i < events.size();i++) {
+         if (events[i] != NULL) {
+             delete events[i];
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -1687,6 +1687,11 @@
+             GFX_SetTitle(-1, -1, -1, false);
+             break;
+         }
++#endif
++#if defined(LINUX) && defined(C_SDL2)
++        if ((event.type==SDL_KEYDOWN || event.type==SDL_KEYUP) && pi_dos_reboot_shortcut(event,
++                (event.key.keysym.mod & KMOD_CTRL)!=0,
++                (event.key.keysym.mod & KMOD_ALT)!=0)) continue;
+ #endif
+         switch (event.type) {
+ 

@@ -259,3 +259,27 @@ Local stdio and FAT sector/metadata caches remain coherent across independent
 opens. Extended create preserves sharing/access flags and cannot truncate after
 a sharing failure. DOS name resolution preserves active search results.
 See [file sharing and locking](../../docs/buildroot-pi5.md#dos-file-sharing-and-record-locking).
+
+`0030-native-controller-hotplug.patch` feeds supervised SDL2 controllers into
+the existing DOS joystick emulation. Logical slots exist before devices arrive;
+connection discovery runs on notifications and a 250 ms polling fallback.
+Instance IDs prevent enumeration changes from shifting an active controller.
+The appliance normalizes recognized SDL gamepads and accepts generic kernel
+joysticks, clears state on removal, and retains the configured emulation type.
+`src/runtime/controllers.h` implements device lifetime and global layout options.
+The mapper file remains unused. Desktop runtimes retain upstream behavior.
+The pause event loop also services the configurable system shortcut helper.
+
+`0031-sharing-virtual-file-position.patch` fixes DOS error 33 when loading
+built-in programs from Z:. Virtual files inherit an unavailable cached-position
+value of `0xffffffff`; record-lock checks now query their actual current offset
+with a zero-distance seek. This preserves sharing/locking and fixes the eleven
+mixer-command failures after the welcome message. The DOS API regression covers
+these loads and verifies that real record locks still block conflicting reads.
+
+`tools/image/test-builtins.py --sdl-library-path PATH` executes the installed
+ARM64 runtime under QEMU with a headless ARM64 SDL2 library. It loads all eleven
+startup mixer commands, queries the applied volume and joystick setting, and
+loads the real PIDOSCFG DOS EXE. The production SDL is KMS-only, so this isolates
+DOS startup/program loading from Pi display and input hardware. Artifacts and
+the runtime hash are written under `output/smoke/boot-programs.*`.
