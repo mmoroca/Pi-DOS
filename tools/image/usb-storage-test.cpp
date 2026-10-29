@@ -226,6 +226,7 @@ struct Cache {
 };
 class localDrive {
 protected:
+    bool native_dos_attributes = false;
     std::string base;
     Cache dirCache;
 public:

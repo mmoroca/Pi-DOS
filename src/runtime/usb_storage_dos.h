@@ -192,6 +192,7 @@ public:
           volume(mounted), epoch(serial)
     {
         readonly = volume->readonly;
+        native_dos_attributes = true;
         const char *guest = volume->filesystem == "vfat" ? volume->label.c_str() :
                             CodePageHostToGuest(volume->label.c_str());
         dirCache.SetLabel(guest ? guest : "", false, true);

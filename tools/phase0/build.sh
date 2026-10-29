@@ -62,6 +62,7 @@ for name in linux player backend dos; do
 done
 install -m 0644 "$root/src/runtime/usb_storage_api.h" "$dosbox/include/pidos_usb_storage_api.h"
 install -m 0644 "$root/src/runtime/drive_policy.h" "$dosbox/include/pidos_drive_policy.h"
+install -m 0644 "$root/src/runtime/dos_attributes_linux.h" "$dosbox/src/dos/pidos_dos_attributes_linux.h"
 install -m 0644 "$root/src/runtime/system_drive_dos.h" "$dosbox/src/dos/pidos_system_drive_dos.h"
 for name in io linux dos; do
     install -m 0644 "$root/src/runtime/usb_storage_$name.h" "$dosbox/src/dos/pidos_usb_storage_$name.h"

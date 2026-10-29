@@ -11,6 +11,7 @@ public:
         : localDrive("/dosdata/", 512, 32, 0, 0, 0xf8, options)
     {
         readonly = read_only;
+        native_dos_attributes = true;
         SetLabel("SYSTEM", false, false);
     }
     Bits UnMount() override { return 1; }

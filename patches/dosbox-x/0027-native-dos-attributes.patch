@@ -1,0 +1,363 @@
+--- a/src/dos/drives.h
++++ b/src/dos/drives.h
+@@ -120,6 +120,7 @@
+ 	const std::string special_prefix_local;
+ 
+ protected:
++    bool native_dos_attributes = false;
+ 	DOS_Drive_Cache dirCache;
+ 	char basedir[CROSS_LEN];
+ 	friend void DOS_Shell::CMD_SUBST(char* args); 	
+--- a/src/dos/drive_local.cpp
++++ b/src/dos/drive_local.cpp
+@@ -54,6 +54,19 @@
+ #include "timer.h"
+ #include "render.h"
+ #include "jfont.h"
++
++#if defined(LINUX)
++#include "pidos_dos_attributes_linux.h"
++static bool PiDosAttributeError() {
++    const int code = errno;
++    DOS_SetError(code == ENOENT ? DOSERR_FILE_NOT_FOUND :
++                 code == ENOTDIR ? DOSERR_PATH_NOT_FOUND :
++                 code == EROFS ? DOSERR_WRITE_PROTECTED :
++                 code == EIO ? 29 : DOSERR_ACCESS_DENIED);
++    return false;
++}
++#endif
++
+ 
+ #if defined(EMSCRIPTEN) || defined(HAIKU)
+ #include <fcntl.h>
+@@ -1396,6 +1409,17 @@
+         return false;
+     }
+ 
++#if defined(LINUX)
++    if (native_dos_attributes) {
++        uint16_t old_attributes = 0;
++        if (pidos_attributes::get(host_name, old_attributes)) {
++            if ((old_attributes & (DOS_ATTR_READ_ONLY | DOS_ATTR_DIRECTORY)) ||
++                (old_attributes & ~attributes & (DOS_ATTR_HIDDEN | DOS_ATTR_SYSTEM))) {
++                DOS_SetError(DOSERR_ACCESS_DENIED); return false;
++            }
++        } else if (errno != ENOENT) return PiDosAttributeError();
++    }
++#endif
+ #ifdef host_cnv_use_wchar
+     FILE * test=_wfopen(host_name,L"rb+");
+ #else
+@@ -1457,6 +1481,13 @@
+ 		return false;
+ 	}
+ 
++#if defined(LINUX)
++    if (native_dos_attributes && !pidos_attributes::set(fileno(hand),
++            uint16_t((attributes & 0x27) | DOS_ATTR_ARCHIVE))) {
++        const int error = errno; fclose(hand); errno = error;
++        return PiDosAttributeError();
++    }
++#endif
+ 	if(!existing_file) {
+ 		strcpy(newname,basedir);
+ 		strcat(newname,name);
+@@ -1467,6 +1498,9 @@
+ 	/* Make the 16 bit device information */
+ 	*file=new LocalFile(name,hand);
+ 	(*file)->flags=OPEN_READWRITE;
++#if defined(LINUX)
++    if (native_dos_attributes) (*file)->attr = uint16_t((attributes & 0x27) | DOS_ATTR_ARCHIVE);
++#endif
+ 
+ 	return true;
+ }
+@@ -1617,6 +1651,16 @@
+         return false;
+     }
+ 
++#if defined(LINUX)
++    uint16_t native_attributes = 0;
++    if (native_dos_attributes) {
++        if (!pidos_attributes::get(host_name, native_attributes)) return PiDosAttributeError();
++        if ((native_attributes & DOS_ATTR_READ_ONLY) && (flags & 0xf) != OPEN_READ &&
++            (flags & 0xf) != OPEN_READ_NO_MOD) {
++            DOS_SetError(DOSERR_ACCESS_DENIED); return false;
++        }
++    }
++#endif
+     FILE * hand;
+     if (enable_share_exe) {
+ #if defined(WIN32)
+@@ -1666,6 +1710,9 @@
+ 	}
+ 
+ 	*file=new LocalFile(name,hand);
++#if defined(LINUX)
++    if (native_dos_attributes) (*file)->attr = native_attributes;
++#endif
+ 	(*file)->flags=flags;  //for the inheritance flag and maybe check for others.
+ //	(*file)->SetFileName(host_name);
+ 	return true;
+@@ -1744,6 +1791,15 @@
+         return false;
+     }
+ 
++#if defined(LINUX)
++    if (native_dos_attributes) {
++        uint16_t attributes = 0;
++        if (!pidos_attributes::get(host_name, attributes)) return PiDosAttributeError();
++        if (attributes & DOS_ATTR_READ_ONLY) {
++            DOS_SetError(DOSERR_ACCESS_DENIED); return false;
++        }
++    }
++#endif
+ 	if (ht_unlink(host_name)) {
+ 		//Unlink failed for some reason try finding it.
+ 		ht_stat_t buffer;
+@@ -1915,6 +1971,14 @@
+ 	if (attribs != INVALID_FILE_ATTRIBUTES)
+ 		find_attr|=attribs&0x3f;
+ #else
++#if defined(LINUX)
++    if (native_dos_attributes) {
++        uint16_t attributes = 0;
++        if (!pidos_attributes::get(host_name, attributes)) return PiDosAttributeError();
++        find_attr = uint8_t(attributes);
++    } else
++#endif
++    {
+ 	bool isdir = find_attr & DOS_ATTR_DIRECTORY;
+ 	if (!isdir) find_attr|=DOS_ATTR_ARCHIVE;
+ 	if(!(stat_block.st_mode & S_IWUSR)) find_attr|=DOS_ATTR_READ_ONLY;
+@@ -1930,8 +1994,10 @@
+ 		if (len & 2) find_attr|=DOS_ATTR_HIDDEN;
+ 		if (len & 4) find_attr|=DOS_ATTR_SYSTEM;
+ 	}
+-#endif
+-	if (~srch_attr & find_attr & DOS_ATTR_DIRECTORY) goto again;
++    }
++#endif
++    if (~srch_attr & find_attr & (DOS_ATTR_DIRECTORY |
++        (native_dos_attributes ? DOS_ATTR_HIDDEN | DOS_ATTR_SYSTEM : 0))) goto again;
+ 
+ 	/*file is okay, setup everything to be copied in DTA Block */
+ 	char find_name[DOS_NAMELENGTH_ASCII], lfind_name[LFN_NAMELENGTH+1];
+@@ -2036,6 +2102,14 @@
+ 		return false;
+ 	}
+ 
++#if defined(LINUX)
++    if (native_dos_attributes) {
++        if (readonly) { DOS_SetError(DOSERR_WRITE_PROTECTED); return false; }
++        if (!*name) { DOS_SetError(DOSERR_ACCESS_DENIED); return false; }
++        if (!pidos_attributes::set(host_name, attr)) return PiDosAttributeError();
++        return true;
++    }
++#endif
+ #if defined (WIN32)
+ 	if (!SetFileAttributesW(host_name, attr))
+ 	{
+@@ -2085,6 +2159,10 @@
+         return false;
+     }
+ 
++#if defined(LINUX)
++    if (native_dos_attributes)
++        return pidos_attributes::get(host_name, *attr) || PiDosAttributeError();
++#endif
+ #if defined (WIN32)
+ 	Bitu attribs = GetFileAttributesW(host_name);
+ 	if (attribs == INVALID_FILE_ATTRIBUTES)
+--- a/src/dos/drive_fat.cpp
++++ b/src/dos/drive_fat.cpp
+@@ -450,6 +450,7 @@
+ 			tmpentry.modDate = cd;
+ 		}
+ 
++		if (modified) tmpentry.attrib |= DOS_ATTR_ARCHIVE;
+ 		myDrive->directoryChange(dirCluster, &tmpentry, (int32_t)dirIndex);
+ 		modified = false;
+ 		newtime = false;
+@@ -532,7 +533,7 @@
+     const bool native_floppy = false;
+ #endif
+ 
+-	if ((this->flags & 0xf) == OPEN_READ) {	// check if file opened in read-only mode
++	if ((this->flags & 0xf) == OPEN_READ || (this->flags & 0xf) == OPEN_READ_NO_MOD) {	// check if file opened in read-only mode
+ 		DOS_SetError(DOSERR_ACCESS_DENIED);
+ 		return false;
+ 	}
+@@ -685,6 +686,7 @@
+ 	 *        directory. --J.C. */
+ finalizeWrite:
+ 	myDrive->directoryBrowse(dirCluster, &tmpentry, (int32_t)dirIndex);
++	if (modified || sizecount) tmpentry.attrib |= DOS_ATTR_ARCHIVE;
+ 	tmpentry.entrysize = filelength;
+ 
+ 	if (myDrive->GetBPB().is_fat32())
+@@ -1170,7 +1172,7 @@
+ 		findDir = strtok_dbcs(dirtoken,"\\");
+ 		findFile = findDir;
+ 		while(findDir != NULL) {
+-			imgDTA->SetupSearch(0,DOS_ATTR_DIRECTORY,findDir);
++			imgDTA->SetupSearch(0,DOS_ATTR_DIRECTORY | DOS_ATTR_HIDDEN | DOS_ATTR_SYSTEM,findDir);
+ 			imgDTA->SetDirID(0);
+ 			
+ 			findFile = findDir;
+@@ -1231,7 +1233,7 @@
+ 		char * findDir = strtok_dbcs(dirtoken,"\\");
+ 		while(findDir != NULL) {
+ 			lfn_filefind_handle=uselfn?LFN_FILEFIND_IMG:LFN_FILEFIND_NONE;
+-			imgDTA->SetupSearch(0,DOS_ATTR_DIRECTORY,findDir);
++			imgDTA->SetupSearch(0,DOS_ATTR_DIRECTORY | DOS_ATTR_HIDDEN | DOS_ATTR_SYSTEM,findDir);
+ 			imgDTA->SetDirID(0);
+ 			findDir = strtok_dbcs(NULL,"\\");
+ 			if(parDir && (findDir == NULL)) {lfn_filefind_handle=fbak;break;}
+@@ -2893,7 +2895,8 @@
+ 	/* Check if file already exists */
+ 	if(getFileDirEntry(name, &fileEntry, &dirClust, &subEntry, true/*dirOk*/)) {
+ 		/* You can't create/truncate a directory! */
+-		if (fileEntry.attrib & DOS_ATTR_DIRECTORY) {
++		if ((fileEntry.attrib & (DOS_ATTR_DIRECTORY | DOS_ATTR_READ_ONLY)) ||
++            (fileEntry.attrib & ~attributes & (DOS_ATTR_HIDDEN | DOS_ATTR_SYSTEM))) {
+ 			DOS_SetError(DOSERR_ACCESS_DENIED);
+ 			return false;
+ 		}
+@@ -2904,6 +2907,7 @@
+ 			if(chk != 0) deleteClustChain(chk, 0);
+ 		}
+ 		/* Update directory entry */
++		fileEntry.attrib = uint8_t((attributes & 0x27) | DOS_ATTR_ARCHIVE);
+ 		fileEntry.entrysize=0;
+ 		fileEntry.SetCluster32(0);
+ 		directoryChange(dirClust, &fileEntry, (int32_t)subEntry);
+@@ -2945,7 +2949,7 @@
+             fileEntry.modTime = ct;
+             fileEntry.modDate = cd;
+         }
+-        fileEntry.attrib = (uint8_t)(attributes & 0xff);
++        fileEntry.attrib = uint8_t((attributes & 0x27) | DOS_ATTR_ARCHIVE);
+ 		addDirectoryEntry(dirClust, fileEntry, lfn);
+ 
+ 		/* Check if file exists now */
+@@ -2956,6 +2960,7 @@
+ 	/* TODO: check for read-only flag and requested write access */
+ 	*file = new fatFile(name, BPB.is_fat32() ? fileEntry.Cluster32() : fileEntry.loFirstClust, fileEntry.entrysize, this);
+ 	(*file)->flags=OPEN_READWRITE;
++	(*file)->attr = fileEntry.attrib;
+ 	((fatFile *)(*file))->dirCluster = dirClust;
+ 	((fatFile *)(*file))->dirIndex = subEntry;
+ 	/* Maybe modTime and date should be used ? (crt matches findnext) */
+@@ -2994,10 +2999,16 @@
+ 	}
+ 
+ 	if(!getFileDirEntry(name, &fileEntry, &dirClust, &subEntry)) return false;
+-	/* TODO: check for read-only flag and requested write access */
++    if ((fileEntry.attrib & (DOS_ATTR_DIRECTORY | DOS_ATTR_VOLUME)) ||
++        (((flags & 0xf) != OPEN_READ && (flags & 0xf) != OPEN_READ_NO_MOD) &&
++         (readonly || (fileEntry.attrib & DOS_ATTR_READ_ONLY)))) {
++        DOS_SetError(readonly ? DOSERR_WRITE_PROTECTED : DOSERR_ACCESS_DENIED);
++        return false;
++    }
+ 	*file = new fatFile(name, BPB.is_fat32() ? fileEntry.Cluster32() : fileEntry.loFirstClust, fileEntry.entrysize, this);
+     (*file)->SetName(name);
+ 	(*file)->flags = flags;
++	(*file)->attr = fileEntry.attrib;
+ 	((fatFile *)(*file))->dirCluster = dirClust;
+ 	((fatFile *)(*file))->dirIndex = subEntry;
+ 	/* Maybe modTime and date should be used ? (crt matches findnext) */
+@@ -3032,6 +3043,9 @@
+ 
+ 	lfnRange.clear();
+ 	if(!getFileDirEntry(name, &fileEntry, &dirClust, &subEntry)) return false; /* Do not use dirOk, DOS should never call this unless a file */
++    if (fileEntry.attrib & (DOS_ATTR_READ_ONLY | DOS_ATTR_DIRECTORY | DOS_ATTR_VOLUME)) {
++        DOS_SetError(DOSERR_ACCESS_DENIED); return false;
++    }
+ 	lfnRange_t dir_lfn_range = lfnRange; /* copy down LFN results before they are obliterated by the next call to FindNextInternal. */
+ 
+ #if !defined(OSFREE)
+@@ -3475,7 +3489,7 @@
+ 		goto nextfile;
+ #endif
+ 	} else {
+-		if (~attrs & sectbuf[entryoffset].attrib & (DOS_ATTR_DIRECTORY | DOS_ATTR_VOLUME) ) {
++		if (~attrs & sectbuf[entryoffset].attrib & (DOS_ATTR_DIRECTORY | DOS_ATTR_VOLUME | DOS_ATTR_HIDDEN | DOS_ATTR_SYSTEM) ) {
+ 			lfind_name[0] = 0; /* LFN code will memset() it in full upon next dirent */
+ 			lfn_max_ord = 0;
+ 			lfnRange.clear();
+@@ -3562,7 +3576,7 @@
+ 	if(!getFileDirEntry(name, &fileEntry, &dirClust, &subEntry, /*dirOk*/true)) {
+ 		return false;
+ 	} else {
+-		fileEntry.attrib=(uint8_t)attr;
++		fileEntry.attrib = uint8_t((fileEntry.attrib & ~0x27) | (attr & 0x27));
+ 		directoryChange(dirClust, &fileEntry, (int32_t)subEntry);
+ 	}
+ 	return true;
+--- a/src/shell/shell_cmds.cpp
++++ b/src/shell/shell_cmds.cpp
+@@ -3716,12 +3716,14 @@
+     char spath[DOS_PATHLENGTH],sargs[DOS_PATHLENGTH+4],path[DOS_PATHLENGTH+4],full[DOS_PATHLENGTH],sfull[DOS_PATHLENGTH+2];
+ 	if (!DOS_Canonicalize(args,full)||strrchr_dbcs(full,'\\')==NULL) {
+         shell->WriteOut(MSG_Get("SHELL_ILLEGAL_PATH"));
++        dos.return_code=1;
+         if (!optS) ctrlbrk=true;
+         return false;
+     }
+ 	if (!DOS_GetSFNPath(args,spath,false)) {
+ 		shell->WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),args);
+-		if (!optS) ctrlbrk=true;
++		dos.return_code=1;
++        if (!optS) ctrlbrk=true;
+ 		return false;
+ 	}
+ 	if (!uselfn||!DOS_GetSFNPath(args,sfull,true)) strcpy(sfull,full);
+@@ -3759,15 +3761,19 @@
+ 							shell->WriteOut_NoParsing((uselfn && !PiDosApplianceDrives())?sfull:full, true);
+ 							shell->WriteOut("\n");
+ 						}
+-					} else
++					} else {
++                        dos.return_code=1;
+ 						shell->WriteOut(MSG_Get("SHELL_CMD_ATTRIB_SET_ERROR"),(uselfn && !PiDosApplianceDrives())?sfull:full);
++                    }
+ 				} else {
+ 					shell->WriteOut("  %c  %c%c%c	", attra?'A':' ', attrs?'S':' ', attrh?'H':' ', attrr?'R':' ');
+ 					shell->WriteOut_NoParsing((uselfn && !PiDosApplianceDrives())?sfull:full, true);
+ 					shell->WriteOut("\n");
+ 				}
+-			} else
++			} else {
++                dos.return_code=1;
+ 				shell->WriteOut(MSG_Get("SHELL_CMD_ATTRIB_GET_ERROR"),(uselfn && !PiDosApplianceDrives())?sfull:full);
++            }
+ 		}
+ 		res=DOS_FindNext();
+ 	}
+@@ -3807,11 +3813,13 @@
+ #if !defined(OSFREE)
+ void DOS_Shell::CMD_ATTRIB(char *args){
+ 	HELP("ATTRIB");
++    dos.return_code=0;
+ 	StripSpaces(args);
+ 
+ 	bool optS=ScanCMDBool(args,"S");
+ 	char * rem=ScanCMDRemain(args);
+ 	if (rem) {
++		dos.return_code=1;
+ 		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
+ 		return;
+ 	}
+@@ -3860,7 +3868,10 @@
+ 			break;
+ 		adirs.erase(adirs.begin());
+ 	}
+-	if (!found&&!ctrlbrk) WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),args);
++	if (!found&&!ctrlbrk) {
++        dos.return_code=1;
++        WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),args);
++    }
+ 	inshell=false;
+ 	ctrlbrk=false;
+ 	dos.dta(save_dta);

@@ -102,21 +102,21 @@
 - [v] Multiple DOS drives (C:, D:, etc.)
 - [v] DOS drive-letter mapping
 - [ ] FAT12 / FAT16 / FAT32 disk images
-- [v] Host filesystem mapping
-- [v] Case-insensitive filenames
-- [v] 8.3 filename compatibility
-- [ ] DOS file attributes
-- [v] DOS timestamps
-- [v] DOS volume labels
 - [ ] Floppy disk images
 - [ ] Hard disk images
 - [ ] CD-ROM emulation
 - [ ] ISO image mounting
 - [ ] MSCDEX compatibility
 - [ ] Multi-disc switching
+- [ ] ZIP archive mounting
+- [v] Host filesystem mapping
+- [v] Case-insensitive filenames
+- [v] 8.3 filename compatibility
+- [v] DOS file attributes
+- [v] DOS timestamps
+- [v] DOS volume labels
 - [v] USB storage mounting
 - [v] Automatic USB drive mapping
-- [ ] ZIP archive mounting
 - [ ] Read-only disk images
 - [ ] Writable disk overlays
 - [ ] File sharing and locking

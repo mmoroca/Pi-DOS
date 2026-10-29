@@ -230,3 +230,14 @@ C:/Z: keep their fixed labels and optical labels remain read-only. See
 directory when requested, including immediately after FORMAT's raw sector
 writes or when reopening a floppy. VOL/DIR no longer depend on an earlier
 label search or LABEL command populating an otherwise empty cache.
+
+`0027-native-dos-attributes.patch` enables native FAT/exFAT R/H/S/A metadata
+for the managed C: and USB drives. Attribute queries and directory searches read
+the same on-disk bits; updates use checked filesystem ioctls and fsync instead
+of companion ATR files. Create/open/delete checks enforce read-only files even
+when the host process is privileged. FAT-backed floppy/image files preserve
+entry types, apply creation attributes, set archive after modifications and
+filter hidden/system entries according to DOS search attributes. Internal FAT
+path traversal can still enter hidden/system directories. ATTRIB retains its
+existing syntax and recursion, with a failing ERRORLEVEL on update failures.
+See [DOS file attributes](../../docs/buildroot-pi5.md#dos-file-attributes).

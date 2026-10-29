@@ -841,6 +841,39 @@ optical devices, already mounted volumes, EFI/reserved/recovery/hidden
 partitions, unsupported filesystems and conflicting signatures are skipped.
 No volume is automatically repaired, repartitioned or formatted.
 
+#### DOS file attributes
+
+Managed C:, USB FAT12/16/32 and exFAT volumes, and FAT floppy media expose the
+DOS read-only (R), hidden (H), system (S) and archive (A) attributes. C: and USB
+drives use the real filesystem bits through Linux's FAT attribute ioctls;
+floppies update their FAT directory entries directly. Attribute queries and
+directory searches agree, including attributes set from another computer.
+Directory and volume-label entry types are preserved when changing R/H/S/A.
+Generic native development directory mounts retain DOSBox-X's existing behavior.
+
+The built-in `ATTRIB` supports display, combinations, wildcards and `/S`:
+
+```dos
+ATTRIB C:\DOCS\README.TXT
+ATTRIB +R +H C:\DOCS\README.TXT
+ATTRIB -R -H C:\DOCS\README.TXT
+ATTRIB -A E:\*.TXT /S
+```
+
+Read-only files reject new writable opens, replacement/truncation through file
+creation, and deletion until R is cleared. A handle already opened for writing
+retains its granted access. New or modified files have A set; reads leave it
+unchanged, and backup software can clear it. Hidden/system files are omitted
+from ordinary searches and `DIR`; `DIR /A`, `DIR /AH` and `DIR /AS` can display
+them. Explicit paths and recursive ATTRIB can still reach hidden directories.
+
+Updates persist on the media without unmounting. C:/USB attribute changes use
+a checked fsync; floppy updates use the existing checked write batch. ATTRIB
+reports failures and returns a nonzero ERRORLEVEL on failed updates. Read-only
+volumes and optical media remain protected. Host tests exercise the real local
+drive and ATTRIB methods with simulated kernel attribute ioctls, plus the real
+FAT file methods; physical media validation of this change is still pending.
+
 #### Persistent volume labels
 
 `LABEL A:GAME DISK` changes the floppy label. Volume-label creates, deletes and

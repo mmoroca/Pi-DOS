@@ -28,6 +28,9 @@ for signature in ['static void copyDirEntry(', 'bool fatDrive::directoryChange('
     parts.append(source[start:source.index('\n}',start)+2]
                  .replace('fatDrive::directoryChange(', 'DirectoryDrive::directoryChange(')
                  .replace('fatDrive::UpdateDPB(', 'DPBDrive::UpdateDPB('))
+for signature in ['bool fatDrive::FileOpen(', 'bool fatDrive::SetFileAttr(', 'bool fatDrive::GetFileAttr(']:
+    start=source.index(signature)
+    parts.append(source[start:source.index('\n}',start)+2])
 prefix=r'''
 #include <algorithm>
 #include <cassert>
@@ -46,7 +49,13 @@ static void fake_log(const char*,...) {}
 #define DOS_SEEK_END 2
 #define OPEN_READ 0
 #define OPEN_WRITE 1
+#define OPEN_READ_NO_MOD 4
 #define DOSERR_ACCESS_DENIED 5
+#define DOS_ATTR_READ_ONLY 1
+#define DOS_ATTR_HIDDEN 2
+#define DOS_ATTR_SYSTEM 4
+#define DOS_ATTR_ARCHIVE 32
+#define DOSERR_WRITE_PROTECTED 19
 #define DOS_ATTR_VOLUME 8
 #define DOS_ATTR_DIRECTORY 16
 static bool uselfn = false;
@@ -55,11 +64,14 @@ struct FAT_BootSector {
  uint8_t prefix[43]; struct { struct { char BPB_VolLab[11]; } v; } bpb; uint8_t suffix[458];
 };
 static_assert(sizeof(FAT_BootSector)==512,"FAT boot label offset");
-static void DOS_SetError(int) {}
+static int dos_error=0;
+static void DOS_SetError(int value) {dos_error=value;}
 static void time_t_to_DOS_DateTime(uint16_t &t,uint16_t &d,time_t) {t=1;d=2;}
 class DOS_File {
 public:
- uint32_t flags=2; bool open=true,newtime=false; uint16_t time=0,date=0;
+ virtual ~DOS_File() = default;
+ uint32_t flags=2; bool open=true,newtime=false; uint16_t time=0,date=0,attr=0;
+ void SetName(const char*){}
  virtual bool Read(uint8_t*,uint16_t*)=0;
  virtual bool Write(const uint8_t*,uint16_t*)=0;
  virtual bool Seek(uint32_t*,uint32_t)=0;
@@ -74,6 +86,7 @@ struct __attribute__((packed)) direntry {
  uint16_t crtTime,crtDate,accessDate,hiFirstClust,modTime,modDate,loFirstClust;
  uint32_t entrysize;
  void SetCluster32(uint32_t v) {loFirstClust=v;hiFirstClust=v>>16;}
+ uint32_t Cluster32() const {return uint32_t(loFirstClust)|(uint32_t(hiFirstClust)<<16);}
 };
 static_assert(sizeof(direntry)==32,"DOS directory entry size");
 template<class T> static void var_write(T *p,T v){memcpy(p,&v,sizeof(v));}
@@ -102,7 +115,7 @@ public:
   bool is_fat32(){return false;}
  } BPB;
  BootParameters GetBPB(){return BPB;}
- bool unformatted=false,read_failure=false,fat32=false;
+ bool unformatted=false,read_failure=false,fat32=false,readonly=false;
  uint32_t firstRootDirSect=19,partSectOff=0;
  struct LabelCache {
   std::string value;
@@ -119,6 +132,11 @@ public:
  void SetLabel(const char*,bool,bool);
  const char *GetLabel();
  void UpdateBootVolumeLabel(const char*);
+ void checkDiskChange(){}
+ bool getFileDirEntry(const char*,direntry *e,uint32_t *c,uint32_t *i,bool=false){*e=entry;*c=0;*i=0;return true;}
+ bool FileOpen(DOS_File**,const char*,uint32_t);
+ bool SetFileAttr(const char*,uint16_t);
+ bool GetFileAttr(const char*,uint16_t*);
 };
 static bool PI_DOS_IsUSBFloppyImage(void*p){return static_cast<fatDrive*>(p)->native;}
 // Exercise the actual directory method separately, including subdirectories.
@@ -169,9 +187,28 @@ int main(){
  uint8_t bytes[1536];for(unsigned int i=0;i<sizeof(bytes);++i)bytes[i]=i/512+1;
  uint16_t size=sizeof(bytes);
  assert(file.Write(bytes,&size)&&size==1536&&drive.reads==0&&drive.writes==3);
+ assert(drive.entry.attrib&DOS_ATTR_ARCHIVE);
  assert(drive.media[1][0]==1&&drive.media[2][0]==2&&drive.media[3][511]==3);
  unsigned int before=drive.writes;
  file.Flush(); file.Close();assert(drive.writes==before);
+ // Clearing A persists across reads; a subsequent overwrite sets it again.
+ drive.entry.attrib=2; // H remains set when data is changed.
+ uint32_t rewind=0;file.Seek(&rewind,DOS_SEEK_SET);
+ size=1;assert(file.Read(bytes,&size)&&drive.entry.attrib==2);
+ rewind=0;file.Seek(&rewind,DOS_SEEK_SET);
+ size=1;assert(file.Write(bytes,&size)&&drive.entry.attrib==(2|DOS_ATTR_ARCHIVE));
+ file.flags=OPEN_READ_NO_MOD;size=1;assert(!file.Write(bytes,&size));file.flags=2;
+ // Real FAT attribute setters preserve entry types; read-only opens may read,
+ // while write access is denied even when the host process has full privileges.
+ fatDrive protected_drive;protected_drive.entry.attrib=7;
+ DOS_File *opened=nullptr;
+ assert(protected_drive.FileOpen(&opened,"TEST",0)&&opened->attr==7);delete opened;
+ assert(!protected_drive.FileOpen(&opened,"TEST",2)&&dos_error==DOSERR_ACCESS_DENIED);
+ protected_drive.entry.attrib=DOS_ATTR_DIRECTORY|DOS_ATTR_HIDDEN;
+ assert(protected_drive.SetFileAttr("SUB",DOS_ATTR_SYSTEM));
+ uint16_t attrs=0;assert(protected_drive.GetFileAttr("SUB",&attrs)&&attrs==(DOS_ATTR_DIRECTORY|DOS_ATTR_SYSTEM));
+ protected_drive.readonly=true;
+ assert(!protected_drive.SetFileAttr("SUB",0)&&dos_error==DOSERR_WRITE_PROTECTED);
  // Consecutive full-sector overwrites inside an existing file.
  uint32_t pos=0;file.Seek(&pos,DOS_SEEK_SET);
  memset(bytes,0x55,512);size=512;assert(file.Write(bytes,&size));
