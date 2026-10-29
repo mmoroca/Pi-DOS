@@ -22,8 +22,11 @@ namespace fs = std::filesystem;
 static std::map<ino_t,uint32_t> attributes;
 static bool fail_get=false,fail_set=false,fail_sync=false;
 static unsigned sync_count=0;
+static ino_t non_fat_parent=0;
+static unsigned parent_attribute_requests=0;
 static int mock_ioctl(int fd,unsigned long request,uint32_t *value) {
     struct stat st={};assert(!fstat(fd,&st));
+    if(st.st_ino==non_fat_parent){++parent_attribute_requests;errno=ENOTTY;return -1;}
     auto inserted=attributes.emplace(st.st_ino,S_ISDIR(st.st_mode)?0x10:0x20);
     uint32_t &stored=inserted.first->second;
     if(request==FAT_IOCTL_GET_ATTRIBUTES) {
@@ -123,6 +126,8 @@ struct Cache {
     bool FindFirst(const char *p,uint16_t &id){
         std::string dir=GetExpandName(p);if(!fs::is_directory(dir))return false;
         id=uint16_t(searches.size());searches.emplace_back();
+        // Linux readdir includes these even at a mounted FAT volume root.
+        searches.back().names={".",".."};
         for(const auto &entry:fs::directory_iterator(dir))searches.back().names.push_back(entry.path().filename().string());
         std::sort(searches.back().names.begin(),searches.back().names.end());return true;
     }
@@ -188,6 +193,27 @@ int main(int argc,char **argv){
     assert(argc==2);std::string folder=std::string(argv[1])+"/volume";fs::create_directory(folder);fs::create_directory(folder+"/SUB");
     localDrive drive(folder);Drives[2]=Drives[4]=&drive;
     create(drive,"ONE.TXT");create(drive,"SUB\\TWO.TXT");create(drive,"FLAGS.TXT",7);
+    struct stat parent={};assert(!stat(argv[1],&parent));non_fat_parent=parent.st_ino;
+    for(const bool read_only : {false,true}) for(const char *root_path : {"","/","\\"}) {
+        drive.readonly=read_only;
+        DOS_DTA listing(7);listing.state().search=0x37;
+        std::vector<std::string> names;
+        if(drive.FindFirst(root_path,listing))do{names.push_back(listing.state().name);}while(drive.FindNext(listing));
+        assert(parent_attribute_requests==0 && "root listing queried FAT attributes on the Linux parent");
+        assert(std::find(names.begin(),names.end(),"ONE.TXT")!=names.end());
+        assert(std::find(names.begin(),names.end(),"SUB")!=names.end());
+        assert(std::find(names.begin(),names.end(),".")==names.end());
+        assert(std::find(names.begin(),names.end(),"..")==names.end());
+    }
+    drive.readonly=false;
+    DOS_DTA sublisting(8);sublisting.state().search=0x37;
+    std::vector<std::string> subnames;
+    assert(drive.FindFirst("SUB\\",sublisting));
+    do{subnames.push_back(sublisting.state().name);}while(drive.FindNext(sublisting));
+    assert(std::find(subnames.begin(),subnames.end(),".")!=subnames.end());
+    assert(std::find(subnames.begin(),subnames.end(),"..")!=subnames.end());
+    assert(std::find(subnames.begin(),subnames.end(),"TWO.TXT")!=subnames.end());
+    assert(parent_attribute_requests==0);
     uint16_t a=0;assert(drive.GetFileAttr("ONE.TXT",&a)&&a==DOS_ATTR_ARCHIVE);
     assert(drive.GetFileAttr("FLAGS.TXT",&a)&&a==39);
     DOS_Shell shell;
@@ -231,5 +257,5 @@ int main(int argc,char **argv){
     assert(!drive.SetFileAttr("",0));
     assert(sync_count>0);attrib(shell,"-R -H -S E:\\*.TXT");assert(drive.FileUnlink("ONE.TXT"));assert(drive.FileUnlink("FLAGS.TXT"));
     for(const auto &entry:fs::directory_iterator(folder))assert(entry.path().filename()=="SUB");
-    puts("PASS: native R/H/S/A, create/open/delete protection, searches, persistence, flush errors and real ATTRIB combinations/recursion/errorlevel");
+    puts("PASS: native volume root/subdirectory listings, R/H/S/A, create/open/delete protection, persistence, flush errors and ATTRIB combinations/recursion/errorlevel");
 }

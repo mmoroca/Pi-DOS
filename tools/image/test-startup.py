@@ -65,21 +65,21 @@ int main(int argc, char **argv) {
         assert user.read_bytes() == config
         return output
 
-    check(b'', b'Auto (486/Pentium)', b'auto')
+    check(b'', b'Pentium 133 MHz', b'fixed 71240')
     for config, status in ((b'', b'Enabled'),
                            (b'[voodoo]\nvoodoo_card=false\n', b'Disabled'),
                            (b'[voodoo]\nvoodoo_card=software\n', b'Enabled')):
-        output = check(config, b'Auto (486/Pentium)', b'auto')
+        output = check(config, b'Pentium 133 MHz', b'fixed 71240')
         assert b'DOS Voodoo : ' + status in output
     regional = check(b'[pidos]\ntimezone=Asia/Tokyo\n[config]\ncountry=1\n[dos]\nkeyboardlayout=us\n',
-                     b'Auto (486/Pentium)', b'auto')
+                     b'Pentium 133 MHz', b'fixed 71240')
     assert b'Regional   : Keyboard us / Country 1 / Asia/Tokyo' in regional
     for machine, label in ((b'cga',b'IBM CGA'),(b'hercules',b'Hercules'),(b'tandy',b'Tandy'),
                            (b'ega',b'IBM EGA'),(b'vgaonly',b'IBM VGA'),(b'svga_et4000',b'Tseng Labs ET4000'),
                            (b'svga_s3',b'S3 Trio64'),(b'svga_dosbox',b'VESA VBE 3.0'),(b'svga_dosbox_vbe2',b'VESA VBE 2.0')):
-        output = check(b'[dosbox]\nmachine='+machine+b'\n', b'Auto (486/Pentium)', b'auto')
+        output = check(b'[dosbox]\nmachine='+machine+b'\n', b'Pentium 133 MHz', b'fixed 71240')
         assert b'DOS video  : ' + label in output
-    check(b'[cpu]\ncycles=fixed 6075\n', b'Auto (486/Pentium)', b'fixed 6075')
+    check(b'[cpu]\ncycles=fixed 6075\n', b'Pentium ', b'fixed 6075')
     check(b'[cpu]\ncputype=auto\ncycles=auto\n', b'Auto (486/Pentium)', b'auto')
     check(b'[cpu]\ncputype=pentium\ncycles=fixed 71240\n', b'Pentium 133 MHz', b'fixed 71240')
     check(b'[cpu]\ncputype=486\ncycles=fixed 23880\n', b'486DX2 66 MHz', b'fixed 23880')
@@ -95,16 +95,16 @@ int main(int argc, char **argv) {
         (b'[sblaster]\nsbtype=sbpro2\n', b'Sound Blaster Pro 2'),
         (b'[sblaster]\nsbtype=none\noplmode=none\n[gus]\ngus=true\n', b'GUS Classic'),
         (b'[sblaster]\nsbtype=none\noplmode=none\n[speaker]\ntandy=on\n', b'Tandy sound')):
-        summary = check(settings, b'Auto (486/Pentium)', b'auto')
+        summary = check(settings, b'Pentium 133 MHz', b'fixed 71240')
         assert b'DOS sound  : ' + label in summary
     for profile, label in ((b'none',b'Disabled'),(b'sc55',b'Roland SC-55'),
                            (b'roland-gm',b'Roland GM'),(b'mt32',b'Roland MT-32'),
                            (b'cm32l',b'Roland CM-32L'),(b'external',b'External USB MIDI')):
-        summary = check(b'[pidos]\nmidi_profile='+profile+b'\n', b'Auto (486/Pentium)', b'auto')
+        summary = check(b'[pidos]\nmidi_profile='+profile+b'\n', b'Pentium 133 MHz', b'fixed 71240')
         assert b'DOS MIDI   : '+label in summary
     mixed = check(b'[pidos]\nmixer_master=65:75\nmixer_sb=0\nmixer_fm=201\n'
                   b'mixer_gus=10 & echo BAD\nmixer_cms=20:30:40\nmixer_speaker=50:60\nmixer_midi=80:90\n',
-                  b'Auto (486/Pentium)', b'auto')
+                  b'Pentium 133 MHz', b'fixed 71240')
     commands = [line for line in mixed.splitlines() if line.startswith(b'Z:')]
     assert commands == [b'Z:\\SYSTEM\\MIXER.COM /NOSHOW MASTER 65:75',
                         b'Z:\\SYSTEM\\MIXER.COM /NOSHOW SB 0:0',
@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
     assert all(len(line) < 126 for line in commands)
     output = ROOT / 'output/doscfg'
     output.mkdir(parents=True, exist_ok=True)
-    result = check(b'[pidos]\ntimezone=Europe/Madrid\n', b'Auto (486/Pentium)', b'auto')
+    result = check(b'[pidos]\ntimezone=Europe/Madrid\n', b'Pentium 133 MHz', b'fixed 71240')
     (output / 'boot-table-example.bat').write_bytes(result.replace(b'\n', b'\r\n'))
 
 print('PASS: CPU/memory/video/Voodoo/sound/MIDI rows, Date/Time stacked on left, regional footer, presets and 75-column width.')

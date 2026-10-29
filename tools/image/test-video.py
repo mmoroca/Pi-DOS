@@ -48,11 +48,12 @@ PidosViewport fit(int w, int h, int sw, int sh, int correct) {
         return result
 
     defaults = prepare(None)
-    assert defaults['sdl']['fullresolution'] == '1024x768'
-    assert defaults['render']['modeswitch'] == 'false'
+    assert defaults['sdl']['fullresolution'] == 'original'
+    assert defaults['render']['modeswitch'] == 'true'
     assert defaults['render']['scaler'] == 'none'
-    assert libc.getenv(b'PI_DOS_LCD_MODE') == b'1024x768'
-    assert libc.getenv(b'PI_DOS_LCD_ASPECT') == b'4:3'
+    assert libc.getenv(b'PI_DOS_LCD_MODE') is None
+    assert libc.getenv(b'PI_DOS_LCD_ASPECT') is None
+    assert libc.getenv(b'PI_DOS_LCD_LINEAR') is None
 
     # Every offered LCD mode is present in the checked-in EDID report.
     modes = ('640x480', '800x600', '832x624', '1024x768', '1280x720', '1920x1080')
@@ -66,20 +67,34 @@ PidosViewport fit(int w, int h, int sw, int sh, int correct) {
         assert result['render']['aspect'] == 'false'  # only the final viewport corrects aspect
         assert result['render']['doublescan'] == 'false'
         assert libc.getenv(b'PI_DOS_LCD_ASPECT') == b'original'
+        assert libc.getenv(b'PI_DOS_LCD_LINEAR') == b'false'
 
     # Removed profile keys cannot re-enable effects in an existing configuration.
     for obsolete in (b'dark', b'black'):
         result = prepare(b'[pidos]\nmonitor=lcd\nlcd_scanlines='+obsolete+b'\n')
         assert result['render']['scaler'] == 'none'
 
-    crt = prepare(b'[pidos]\nmonitor=crt\nlcd_mode=1280x720\nlcd_scanlines=black\n')
+    for value, enabled in ((b'true', b'true'), (b'TRUE', b'true'),
+                           (b'false', b'false'), (b'broken', b'false')):
+        prepare(b'[pidos]\nmonitor=lcd\nlcd_linear='+value+b'\n')
+        assert libc.getenv(b'PI_DOS_LCD_LINEAR') == enabled
+    prepare(b'[pidos]\nmonitor=lcd\nlcd_linear=true\n')
+    crt = prepare(b'[pidos]\nmonitor=crt\nlcd_mode=1280x720\nlcd_linear=true\n')
     assert crt['sdl']['fullresolution'] == 'original'
     assert crt['render']['modeswitch'] == 'true' and crt['render']['doublescan'] == 'true'
     assert crt['render']['scaler'] == 'none' and libc.getenv(b'PI_DOS_LCD_MODE') is None
+    assert libc.getenv(b'PI_DOS_LCD_LINEAR') is None
+    prepare(b'[pidos]\nmonitor=lcd\nlcd_linear=true\n')
     prepare(b'[render]\naspect=true\nscaler=normal3x\n')
+    assert libc.getenv(b'PI_DOS_LCD_LINEAR') is None
     assert generated.read_bytes() == b''  # legacy advanced configuration has no overrides
     fallback = prepare(b'[pidos]\nmonitor=broken\nlcd_mode=9999x9999\nlcd_aspect=broken\nlcd_scanlines=broken\n')
-    assert fallback['sdl']['fullresolution'] == '1024x768' and fallback['render']['scaler'] == 'none'
+    assert fallback['sdl']['fullresolution'] == 'original' and fallback['render']['scaler'] == 'none'
+    assert libc.getenv(b'PI_DOS_LCD_LINEAR') is None
+    fallback = prepare(b'[pidos]\nmonitor=lcd\nlcd_mode=9999x9999\nlcd_aspect=broken\n')
+    assert fallback['sdl']['fullresolution'] == '1024x768'
+    assert libc.getenv(b'PI_DOS_LCD_ASPECT') == b'4:3'
+    assert libc.getenv(b'PI_DOS_LCD_LINEAR') == b'false'
 
     def fit(w, h, sw, sh, correct):
         result = video.fit(w, h, sw, sh, correct)
@@ -100,4 +115,4 @@ PidosViewport fit(int w, int h, int sw, int sh, int correct) {
                 assert abs((width-w)-2*x) <= 1 and abs((height-h)-2*y) <= 1
     assert not video.pi_dos_video_prepare(None, str(work/'missing/video.conf').encode())
 
-print('PASS: LCD/CRT handoff, EDID modes, retired-option handling, legacy preservation, fallbacks and viewport bounds.')
+print('PASS: CRT defaults, LCD/CRT filtering handoff, EDID modes, retired-option handling, legacy preservation, fallbacks and viewport bounds.')

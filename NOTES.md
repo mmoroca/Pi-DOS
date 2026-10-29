@@ -139,29 +139,29 @@
 
 ### DOS and PC Hardware Compatibility
 
-- [ ] DOS INT 21h services
-- [ ] BIOS INT 10h video services
-- [ ] BIOS INT 13h disk services
-- [ ] BIOS INT 16h keyboard services
-- [ ] BIOS timer services
-- [ ] Programmable Interrupt Controller (PIC)
-- [ ] Programmable Interval Timer (PIT)
-- [ ] DMA emulation
-- [ ] VGA register emulation
-- [ ] Keyboard controller emulation
-- [ ] Hardware interrupt handling
-- [ ] Direct I/O port emulation
-- [ ] PC hardware timing compatibility
-- [ ] DOS device drivers (where compatible)
-- [ ] Bootable FreeDOS/MS-DOS disk images
-- [ ] Alternative DOS shells such as 4DOS
-- [ ] Windows 3.x compatibility
+- [v] DOS INT 21h services
+- [v] BIOS INT 10h video services
+- [v] BIOS INT 13h disk services
+- [v] BIOS INT 16h keyboard services
+- [v] BIOS timer services
+- [v] Programmable Interrupt Controller (PIC)
+- [v] Programmable Interval Timer (PIT)
+- [v] DMA emulation
+- [v] VGA register emulation
+- [v] Keyboard controller emulation
+- [v] Hardware interrupt handling
+- [v] Direct I/O port emulation
+- [~] PC hardware timing compatibility
+- [~] DOS device drivers (where compatible)
+- [~] Bootable FreeDOS/MS-DOS disk images
+- [v] Alternative DOS shells such as 4DOS
+- [v] Windows 3.x compatibility
 - [ ] DOS networking and IPX
-- [ ] Serial port emulation
-- [ ] Modem emulation
-- [ ] BBS connectivity
+- [v] Serial port emulation
+- [x] Modem emulation
+- [x] BBS connectivity
 - [ ] Multiplayer DOS gaming
-- [ ] Demoscene compatibility
+- [v] Demoscene compatibility
 
 ### Gaming and Convenience
 

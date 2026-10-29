@@ -2,16 +2,16 @@
   "target": "16-bit DOS MZ, 8086 instruction set, small memory model, no FPU/extender",
   "source_sha256": {
     "src/doscfg/main.c": "a4ab43cd79050f30d57809b6d46e17a33da087e77e6a1be5d8dd9ac9e3500a26",
-    "src/doscfg/config.c": "0813588c4e46f2f97ee7a980e4deb71c48ba02107e6ff3482419d71100bf0280",
-    "src/doscfg/config.h": "f09b8bb46bbe568793f09f83c3b696ecd3db99b3b8de38871deb21218ea2060a",
-    "src/doscfg/forms.c": "6f08404dce5f8fcb4b2d4835ad48a56c55e632f8a795fe2a0626f1136c4e9e23",
+    "src/doscfg/config.c": "92addbf2d28d1b6dbc0351b37c64868647cfc3934a8a29e348de1b8e81397ca2",
+    "src/doscfg/config.h": "6e376430d9e0676431c106ed26c662fd1f0dabad18e6f500bab26ccf407d2715",
+    "src/doscfg/forms.c": "a4dd2b400ff74cb3052d108648203870916dab6ed596f813ab0092f9ffa7fd20",
     "src/doscfg/forms.h": "74afd08d286984ebd5bb89b976aff8652e7262f3731a82b6ee1dde0d700e20c3",
     "src/doscfg/live.c": "88657e71177a3c61dabb74b366e6230239d1bd03636161f59b7f40430ec282e2",
     "src/doscfg/live.h": "9955defaa71863402ee7d212effac4b46ffe8169aa076daf8906bc6cf3f62e38",
     "src/doscfg/midi.c": "88ed06d67c4905534e28e05382c75b102eb77aa240cab8dc18dd8dc31ec76e78",
     "src/doscfg/midi.h": "f3516d0183bbb875ed45514ce2a49665a0f3e3a22380fe6d45302260ca3cfb57",
     "src/common/cpu_profiles.c": "57d000c86fd12638f771e516d30ea80d541af838511f57487c409b9991c2a020",
-    "src/common/cpu_profiles.h": "1e1469977d2aee55696b8ded588157386c11b55718e947fd2c96ccf84fd442a0",
+    "src/common/cpu_profiles.h": "30aa46d83b8e761b8ca0ee2371e90469b31e40be11b5d0be1b3427cc8bfb01b6",
     "src/common/input_options.h": "902de2d11d4b49f72be5542cb2ee44f07e3dd57818a85484b75f2df33f9b2075",
     "src/common/video_profiles.c": "5c84868fbacde3ff0c4c68a0575bd48256b2dccaf01becdcd9ff4fb49fc923df",
     "src/common/video_profiles.h": "a2f348d8f61945545962895d2161c290f3a151c17b15397e0181c60e666cd9f6",
@@ -21,5 +21,5 @@
     "tools/dos/toolchain.json": "13cbef97b8c3607083dbe8cddc9e971705292942ae2f76e8c9cdf197a3b3bd50"
   },
   "compiler_driver_sha256": "9bf1c208df56c8c154e08a4c42b05183b39e1f3c21e2c3f3b4fa9a66b81aa071",
-  "executable_sha256": "a76646f9957e5a1550d97702a9eeab7b5779edc936a69f52b812cbc5a6dd16ec"
+  "executable_sha256": "b4ae4ad69b19823c3c328fea51611eb0fd44aa9512b7574d31e46766b0222f47"
 }

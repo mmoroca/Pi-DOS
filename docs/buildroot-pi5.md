@@ -152,7 +152,7 @@ Pi 5's EEPROM supplies its boot firmware; this image does not update EEPROM.
 
 ### Monitor profiles
 
-PIDOSCFG's System page selects LCD (the fresh-install default) or CRT. LCD
+PIDOSCFG's System page selects CRT (the default) or LCD. LCD
 uses a manually selected fixed output: 640x480, 800x600, 832x624, **1024x768**
 (default), 1280x720 or 1920x1080. These resolutions come from the supplied EDID,
 which remains installed for both profiles. No physical-monitor detection is
@@ -164,15 +164,18 @@ LCD aspect is 4:3 by default, or Original pixels (the uncorrected source raster
 ratio). A separate source surface is fitted into the fixed window, centered with
 black borders. This also handles DOS modes larger than the selected output.
 VGA doublescan and software scalers are disabled for this profile. Final
-nearest-neighbor fitting runs on the CPU; SDL's existing GLES presentation
+fitting runs on the CPU, using nearest-neighbor by default or SDL2 bilinear
+scaling when System / Linear filtering is enabled. SDL's existing GLES presentation
 and VSync remain enabled.
 No integer-scaling control or forced-refresh option is added.
 
 The settings live under `[pidos]` as `monitor=lcd`, `lcd_mode=1024x768`,
-`lcd_aspect=4:3` (or `original`).
+`lcd_aspect=4:3` (or `original`), and `lcd_linear=false` (or `true`).
+Fresh installations use `monitor=crt`; linear filtering is disabled by default.
 PID 1 strips that section from the guest configuration and writes the resolved
 profile to `/run/pidos-video.conf`, loaded after user settings. Internal
-`PI_DOS_LCD_MODE` and `PI_DOS_LCD_ASPECT` variables enable the SDL2 patch.
+`PI_DOS_LCD_MODE`, `PI_DOS_LCD_ASPECT`, and `PI_DOS_LCD_LINEAR` variables
+configure the SDL2 patch.
 Explicit CRT restores the baseline below and ignores retained LCD preferences.
 Existing files without `monitor` preserve their advanced settings unchanged.
 Save and reboot to apply; boot can initially show the kernel's 720x400 mode
@@ -943,6 +946,12 @@ directory searches agree, including attributes set from another computer.
 Directory and volume-label entry types are preserved when changing R/H/S/A.
 Generic native development directory mounts retain DOSBox-X's existing behavior.
 
+Native C:/USB root listings omit Linux's synthetic `.` and `..` entries. The
+Linux parent of a volume is outside that DOS drive and cannot answer FAT
+attribute queries; enumerating it previously stopped `DIR` after `.`.
+Subdirectories keep their normal dot entries. The attribute regression covers
+both writable and read-only roots, with a non-FAT host parent.
+
 The built-in `ATTRIB` supports display, combinations, wildcards and `/S`:
 
 ```dos
@@ -1047,12 +1056,12 @@ preserving other settings, and backs up the previous file as `PIDOS.BAK`.
 Run `REBOOT` after saving. See [the utility documentation](../src/doscfg/README.md)
 or `C:\DOCS\PIDOSCFG.TXT` for profiles, controls and command-line options.
 
-`Restore defaults` (F3) selects Automatic; Save is required to
+`Restore defaults` (F3) selects Pentium 133 MHz; Save is required to
 persist it. The boot table shows Date above Time in the left column and the
 configured DOS CPU model directly above DOS video on the right, without cycles.
 Recognized profiles display their names without a prefix.
-Fresh images default to Automatic (`cputype=auto`, `core=dynamic_rec`,
-`cycles=auto`). Existing installations retain their configuration until
+Fresh images default to Pentium 133 MHz (`cputype=pentium`, `core=dynamic_rec`,
+`cycles=fixed 71240`). Existing installations retain their configuration until
 changed with setup or an editor.
 
 Fresh images include a CRLF copy of the default configuration. Writable boots

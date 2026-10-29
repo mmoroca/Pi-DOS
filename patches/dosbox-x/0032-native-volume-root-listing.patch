@@ -1,0 +1,23 @@
+Skip synthetic Linux dot entries at native DOS volume roots.
+
+--- a/src/dos/drive_local.cpp
++++ b/src/dos/drive_local.cpp
+@@ -1958,6 +1958,18 @@
+ 	strcpy(dir_entcopy,dir_ent);
+ 	strcpy(ldir_entcopy,ldir_ent);
+ 
++    // Linux synthesizes dot entries at a mounted volume root. Its ".."
++    // points outside the DOS drive, where FAT attribute ioctls are invalid.
++    if (native_dos_attributes && (!strcmp(dir_entcopy, ".") || !strcmp(dir_entcopy, ".."))) {
++        std::string directory(full_name, strlen(full_name) - strlen(dir_entcopy));
++        std::string root(basedir);
++        for (auto *path : {&directory, &root}) {
++            std::replace(path->begin(), path->end(), '\\', '/');
++            while (!path->empty() && path->back() == '/') path->pop_back();
++        }
++        if (!strcasecmp(directory.c_str(), root.c_str())) goto again;
++    }
++
+ 	char *temp_name = dirCache.GetExpandName(full_name);
+ 
+ 	// guest to host code page translation

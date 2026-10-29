@@ -13,8 +13,8 @@
 #define CFG_CAPACITY 24576
 #define S(section,key,value,page) {section,key,value,page}
 const CfgSpec cfg_specs[K_COUNT] = {
- S("cpu","cputype","auto",PAGE_CPU), S("cpu","core","dynamic_rec",PAGE_CPU),
- S("cpu","cycles","auto",PAGE_CPU),
+ S("cpu","cputype","pentium",PAGE_CPU), S("cpu","core","dynamic_rec",PAGE_CPU),
+ S("cpu","cycles","fixed 71240",PAGE_CPU),
  S("dosbox","memsize","16",PAGE_MEMORY), S("dosbox","memsizekb","0",PAGE_MEMORY),
  S("dosbox","machine","svga_s3",PAGE_VIDEO),
  S("sblaster","sbtype","sb16",PAGE_SOUND), S("sblaster","sbbase","220",PAGE_SOUND),
@@ -42,9 +42,10 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("midi","midiconfig","",PAGE_SOUND), S("midi","mt32.model","auto",PAGE_SOUND),
  S("midi","mt32.romdir","",PAGE_SOUND), S("pidos","midi_port","",PAGE_SOUND),
  S("pidos","midi_delaysysex","false",PAGE_SOUND),
- S("pidos","monitor","lcd",PAGE_SYSTEM),
+ S("pidos","monitor","crt",PAGE_SYSTEM),
  S("pidos","lcd_mode","1024x768",PAGE_SYSTEM),
  S("pidos","lcd_aspect","4:3",PAGE_SYSTEM),
+ S("pidos","lcd_linear","false",PAGE_SYSTEM),
  S("joystick","joysticktype","2axis",PAGE_INPUT),
  S("pidos","controller_layout","auto",PAGE_INPUT),
  S("pidos","controller_direction","both",PAGE_INPUT),
@@ -108,7 +109,7 @@ int cfg_set(int key, const char *value) {
   valid=value[0]=='0' && (!value[1] || (value[1]=='.' && value[2]));
   for(i=2;valid && value[1] && value[i];++i) if(!isdigit((unsigned char)value[i])) valid=0;
   break;
- case K_CONTROLLER_SWAP: case K_JOY_TIMED: case K_JOY_AUTOFIRE:
+ case K_CONTROLLER_SWAP: case K_JOY_TIMED: case K_JOY_AUTOFIRE: case K_LCD_LINEAR:
   valid=one_of(value,"true|false"); break;
  case K_SHORTCUT_REBOOT: case K_SHORTCUT_POWEROFF: case K_SHORTCUT_PAUSE:
   valid=pidos_shortcut_key(value)>=0; break;
@@ -163,7 +164,7 @@ int cfg_set(int key, const char *value) {
  if(!valid) { strcpy(cfg_error,"Value is outside the supported range. Check the field's help."); return 0; }
  if(strcmp(values[key],value)) { strcpy(values[key],value); dirty[key]=1; }
  /* Selecting a monitor or LCD option materializes the managed profile. */
- if(key>=K_MONITOR && key<=K_LCD_ASPECT) dirty[K_MONITOR]=1;
+ if(key>=K_MONITOR && key<=K_LCD_LINEAR) dirty[K_MONITOR]=1;
  if(key==K_JOY_DEADZONE) {
   strcpy(values[K_JOY_DEADZONE2],value); strcpy(values[K_JOY_DEADZONE3],value);
   dirty[K_JOY_DEADZONE2]=dirty[K_JOY_DEADZONE3]=1;
@@ -352,7 +353,7 @@ int cfg_save_changes(const char *path) {
  }
  /* Only pending keys are changed; reload raw bytes to retain unrelated external edits. */
  if(!load_contents(path)) return 0;
- /* A newly created file must not become a legacy CRT file after its first save. */
+ /* Persist the managed monitor profile when creating a new file. */
  if(!file_exists) dirty[K_MONITOR]=1;
 #ifdef __WATCOMC__
  if(file_exists && (_dos_getfileattr(path,&attributes) || (attributes&_A_RDONLY))) {

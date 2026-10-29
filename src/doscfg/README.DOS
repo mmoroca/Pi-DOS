@@ -9,11 +9,12 @@ F2 or Alt+S saves ALL pages. Escape, Alt+C or Alt+X cancels.
 Restore defaults (F3 or Alt+R) resets the CURRENT page, pending Save.
 A mouse is optional. Enter activates the focused button.
 
-System / Monitor type: LCD (default for new installations) or CRT.
+System / Monitor type: CRT (default) or LCD.
 LCD keeps a fixed output: 640x480, 800x600, 832x624, 1024x768 (default),
 1280x720 or 1920x1080. Choose 4:3 (default) or Original pixels aspect;
 the picture fits the screen with black borders as needed. Original pixels
 preserves the DOS raster ratio, for example 320x200 is 8:5.
+Linear filtering smooths LCD scaling using SDL2; disabled by default.
 LCD options are hidden in CRT mode and retained when switching back.
 CRT follows DOS resolutions and refresh rates without software effects.
 Existing files without a monitor setting keep their previous display setup.
@@ -77,14 +78,14 @@ it to capture boot/runtime/network/video logs in C:\SYSTEM after reboot.
 These settings take effect after REBOOT.
 
 Profiles:
-  Automatic             Default for fresh images and Restore defaults
+  Automatic
   286 12 MHz
   386DX 33 MHz
   486DX 33 MHz
   486DX2 66 MHz
   486DX4 100 MHz
   Pentium 100 MHz
-  Pentium 133 MHz
+  Pentium 133 MHz        Default for fresh images and Restore defaults
   Pentium MMX 200 MHz
 
 MHz labels describe approximate performance equivalents, not exact clocks.

@@ -1,0 +1,64 @@
+Pi-DOS: Add optional SDL2 bilinear filtering to managed LCD output.
+
+Disabled by default; CRT presentation is unchanged. Convert after scaling
+when the window format differs from the RGB888 DOS source surface.
+
+--- a/src/output/output_surface.cpp
++++ b/src/output/output_surface.cpp
+@@ -56,10 +56,15 @@
+ 
+ #if defined(C_SDL2)
+ static SDL_Surface *pidos_lcd_surface = nullptr;
++static SDL_Surface *pidos_lcd_linear_surface = nullptr;
++static bool pidos_lcd_linear = false;
+ Bitu OUTPUT_SURFACE_SetSize()
+ {
+     SDL_FreeSurface(pidos_lcd_surface);
+     pidos_lcd_surface = nullptr;
++    SDL_FreeSurface(pidos_lcd_linear_surface);
++    pidos_lcd_linear_surface = nullptr;
++    pidos_lcd_linear = false;
+     if (getenv("PI_DOS_LCD_MODE") && GFX_IsFullscreen()) {
+         sdl.window = GFX_SetSDLWindowMode(sdl.desktop.full.width,
+                                          sdl.desktop.full.height, SCREEN_SURFACE);
+@@ -77,6 +82,17 @@
+         sdl.clip.y = viewport.y;
+         sdl.clip.w = viewport.w;
+         sdl.clip.h = viewport.h;
++        const char *linear = getenv("PI_DOS_LCD_LINEAR");
++        pidos_lcd_linear = linear && !strcmp(linear, "true");
++        /* SDL's bilinear scaler requires matching 32-bit formats. Keep the
++         * DOS raster RGB888 and convert after scaling if the window differs. */
++        if (pidos_lcd_linear && sdl.surface->format->format != pidos_lcd_surface->format->format) {
++            pidos_lcd_linear_surface = SDL_CreateRGBSurfaceWithFormat(0,
++                viewport.w, viewport.h, 32, SDL_PIXELFORMAT_RGB888);
++            if (!pidos_lcd_linear_surface)
++                E_Exit("Pi-DOS LCD filtering surface: %s", SDL_GetError());
++            SDL_SetSurfaceBlendMode(pidos_lcd_linear_surface, SDL_BLENDMODE_NONE);
++        }
+         sdl.window_too_small = false;
+         sdl.deferred_resize = false;
+         sdl.must_redraw_all = true;
+@@ -683,8 +699,20 @@
+     if (pidos_lcd_surface) {
+         if (changedLines) {
+             SDL_Rect destination = sdl.clip;
+-            if (SDL_BlitScaled(pidos_lcd_surface, nullptr, sdl.surface, &destination) != 0 ||
+-                SDL_UpdateWindowSurface(sdl.window) != 0)
++            int status;
++            if (pidos_lcd_linear_surface) {
++                status = SDL_SoftStretchLinear(pidos_lcd_surface, nullptr,
++                                               pidos_lcd_linear_surface, nullptr);
++                if (status == 0)
++                    status = SDL_BlitSurface(pidos_lcd_linear_surface, nullptr,
++                                             sdl.surface, &destination);
++            } else if (pidos_lcd_linear) {
++                status = SDL_SoftStretchLinear(pidos_lcd_surface, nullptr,
++                                               sdl.surface, &destination);
++            } else {
++                status = SDL_BlitScaled(pidos_lcd_surface, nullptr, sdl.surface, &destination);
++            }
++            if (status != 0 || SDL_UpdateWindowSurface(sdl.window) != 0)
+                 E_Exit("Pi-DOS LCD presentation: %s", SDL_GetError());
+         }
+         return;

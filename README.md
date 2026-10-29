@@ -79,9 +79,11 @@ see [USB floppy support](docs/buildroot-pi5.md#usb-floppy-drive-a).
 The image includes a personalized editor at `C:\PROGRAMS\TOOLS\EDIT.COM`; this
 writable copy takes priority over the bundled editor and retains saved preferences.
 Edit `C:\SYSTEM\PIDOS.CFG` and reboot to change emulator settings persistently.
-PIDOSCFG's System page selects LCD or CRT output. Fresh installations use fixed
-1024x768 LCD output and 4:3 aspect. LCD offers manual resolutions and
-Original pixels aspect; CRT follows DOS video modes.
+Fresh images use the Pentium 133 MHz CPU profile (`pentium`, `dynamic_rec`,
+`fixed 71240`); PIDOSCFG's CPU Restore defaults selects the same profile.
+PIDOSCFG's System page selects CRT (the default) or LCD output.
+CRT follows DOS video modes. LCD offers manual resolutions (1024x768 by default),
+4:3 or Original pixels aspect, and optional SDL2 linear filtering (off by default).
 Save and reboot to apply. Existing configurations keep their display behavior
 until a monitor type is selected. See the [monitor controls](src/doscfg/README.md#monitor-output).
 Type `VIDEOMOD /P` to list host display and DOS BIOS/VESA modes a screen at a time.

@@ -283,3 +283,20 @@ startup mixer commands, queries the applied volume and joystick setting, and
 loads the real PIDOSCFG DOS EXE. The production SDL is KMS-only, so this isolates
 DOS startup/program loading from Pi display and input hardware. Artifacts and
 the runtime hash are written under `output/smoke/boot-programs.*`.
+
+`0032-native-volume-root-listing.patch` skips Linux's synthetic `.` and `..`
+entries at the root of native FAT/exFAT DOS drives. The Linux parent of C: or
+a USB mount is outside the volume and cannot answer FAT attribute ioctls;
+querying it previously stopped DIR after the first dot entry. Subdirectory dot
+entries and real metadata errors retain their normal behavior. The existing
+attribute regression now supplies dot entries and rejects FAT attribute calls
+on the host parent, covering writable/read-only roots and subdirectories.
+
+`0033-lcd-linear-filtering.patch` adds optional SDL2 bilinear scaling to the
+managed LCD surface path. PID 1 passes `[pidos] lcd_linear` through
+`PI_DOS_LCD_LINEAR`; missing/invalid values leave nearest-neighbor scaling active.
+PIDOSCFG exposes Linear filtering with the LCD controls in System, off by default.
+`SDL_SoftStretchLinear` scales the RGB888 source directly when the window format
+matches; otherwise an RGB888 staging surface is converted into the window after
+scaling. CRT mode ignores this preference. Physical Pi performance and display
+validation are still required.

@@ -49,10 +49,11 @@ int form_fields(int page, Field *fields)
   ADD(K_JOY_TIMED,FIELD_CHECKBOX,"Timed joystick axes",0,0,"Try changing this if a game's joystick calibration is unstable.");
   ADD(K_JOY_AUTOFIRE,FIELD_CHECKBOX,"Joystick autofire",0,0,"Repeat fire while an action button is held; normally disabled.");
  } else if(page==PAGE_SYSTEM) {
-  ADD(K_MONITOR,FIELD_CHOICE,"Monitor type","lcd=LCD (default)|crt=CRT",0,"LCD uses a fixed mode. CRT follows DOS resolutions and refresh rates.");
+  ADD(K_MONITOR,FIELD_CHOICE,"Monitor type","crt=CRT (default)|lcd=LCD",0,"LCD uses a fixed mode. CRT follows DOS resolutions and refresh rates.");
   if(!strcmp(cfg_get(K_MONITOR),"lcd")) {
    ADD(K_LCD_MODE,FIELD_CHOICE,"LCD resolution","640x480|800x600|832x624|1024x768=1024x768 (default)|1280x720|1920x1080",0,"Fixed output resolution from the supplied EDID; reboot to apply.");
    ADD(K_LCD_ASPECT,FIELD_CHOICE,"LCD aspect ratio","4:3=4:3 (default)|original=Original pixels",0,"4:3 corrects DOS geometry. Original pixels preserves the source raster ratio.");
+   ADD(K_LCD_LINEAR,FIELD_CHECKBOX,"Linear filtering",0,0,"Smooth LCD scaling with SDL2; off by default. Reboot to apply.");
   }
   ADD(K_KEYBOARD,FIELD_CHOICE,"Keyboard layout",0,"KEYBOARD.LST","Keyboard translation is independent of country and timezone.");
   ADD(K_COUNTRY,FIELD_CHOICE,"DOS country",0,"COUNTRY.LST","Country controls DOS date, number and currency formatting.");

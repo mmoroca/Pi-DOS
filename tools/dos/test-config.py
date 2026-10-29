@@ -20,7 +20,8 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     editor = ctypes.CDLL(str(library))
     editor.cfg_load.argtypes = [ctypes.c_char_p]
     editor.cfg_save.argtypes = [ctypes.c_char_p, ctypes.c_int]
-    assert editor.cpu_profile_default() == 0
+    default_profile = 7  # Pentium 133 MHz
+    assert editor.cpu_profile_default() == default_profile
     assert editor.cfg_load(str(ROOT / 'configs/pi-dos.conf').encode()) == 1
     assert editor.cfg_profile() == editor.cpu_profile_default()
     path = temporary / 'PIDOS.CFG'
@@ -49,7 +50,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     # Sparse/empty configs inherit the shipped defaults; missing CPU keys append.
     sparse = b'[dosbox]\nmemsize=64\n[autoexec]\necho hello'
     path.write_bytes(sparse)
-    assert editor.cfg_load(encoded) == 1 and editor.cfg_profile() == 0
+    assert editor.cfg_load(encoded) == 1 and editor.cfg_profile() == default_profile
     assert editor.cfg_save(encoded, 6) == 1  # Pentium 100 MHz
     assert path.read_bytes().startswith(sparse + b'\r\n')
     assert editor.cfg_profile() == 6
@@ -91,7 +92,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert editor.cfg_save(encoded, 1) == 0
     assert path.read_bytes() == full and not path.with_suffix('.TMP').exists()
     path.unlink()
-    assert editor.cfg_load(encoded) == 1 and editor.cfg_profile() == 0
+    assert editor.cfg_load(encoded) == 1 and editor.cfg_profile() == default_profile
     assert editor.cfg_save(encoded, 7) == 1
     assert editor.cfg_profile() == 7
     assert b'cputype=pentium\r\n' in path.read_bytes()
@@ -109,6 +110,11 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     editor.cfg_save_changes.argtypes = [ctypes.c_char_p]
     def get(name): return editor.cfg_get(keys[name])
     def set_value(name, value): return editor.cfg_set(keys[name], value)
+    assert editor.cfg_select_cpu(0)  # Automatic remains available explicitly.
+    editor.cfg_reset_page(0)
+    assert editor.cfg_profile() == default_profile
+    assert (get('K_CPU_TYPE'), get('K_CPU_CORE'), get('K_CPU_CYCLES')) == (
+        b'pentium', b'dynamic_rec', b'fixed 71240')
     before = (ROOT / 'configs/pi-dos.conf').read_bytes() + b'\n[pidos]\ntimezone=Europe/Madrid\n# keep\n'
     for card, sb, opl, gus, tandy in (
         (0,b'none',b'none',b'false',b'off'), (1,b'none',b'none',b'false',b'on'),
@@ -132,7 +138,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     for assignment in (b'memsize=128',b'pcspeaker=false',b'mixer_master=65:75',
                        b'keyboardlayout=us',b'country=1,437',b'timezone=Asia/Tokyo'):
         assert assignment + b'\r\n' in data
-    assert b'# keep\n' in data and b'lfn=true\n' in data and b'cycles=auto\n' in data
+    assert b'# keep\n' in data and b'lfn=true\n' in data and b'cycles=fixed 71240\n' in data
     for key, value in (('K_RAM',b'3'),('K_GUS_PORT',b'270'),('K_VOL_MASTER',b'201'),
                        ('K_VOL_MASTER',b'50:20 & echo BAD'),('K_TIMEZONE',b'../etc/passwd')):
         assert not set_value(key,value)
@@ -169,30 +175,32 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert editor.cfg_load(encoded)
     assert get('K_MONITOR') == b'crt'
     for key, value in (('K_MONITOR',b'lcd'),('K_LCD_MODE',b'1280x720'),
-                       ('K_LCD_ASPECT',b'original')):
+                       ('K_LCD_ASPECT',b'original'),('K_LCD_LINEAR',b'true')):
         assert set_value(key,value)
     fields = ctypes.create_string_buffer(12 * 128)
-    assert editor.form_fields(6, fields) == 10  # monitor, region, diagnostics and shortcuts
+    assert editor.form_fields(6, fields) == 11  # LCD controls, region, diagnostics and shortcuts
     assert editor.cfg_save_changes(encoded)
     assert editor.cfg_load(encoded) and get('K_MONITOR') == b'lcd'
     assert get('K_LCD_MODE') == b'1280x720' and get('K_LCD_ASPECT') == b'original'
+    assert get('K_LCD_LINEAR') == b'true'
     assert set_value('K_MONITOR',b'crt')
     assert editor.form_fields(6, fields) == 8
     assert get('K_LCD_MODE') == b'1280x720'  # switching keeps LCD preferences
+    assert get('K_LCD_LINEAR') == b'true'
     for key, value in (('K_MONITOR',b'auto'),('K_LCD_MODE',b'9999x9999'),
-                       ('K_LCD_ASPECT',b'stretch')):
+                       ('K_LCD_ASPECT',b'stretch'),('K_LCD_LINEAR',b'yes')):
         assert not set_value(key,value)
     editor.cfg_reset_page(6)
-    assert get('K_MONITOR') == b'lcd' and get('K_LCD_MODE') == b'1024x768'
-    assert get('K_LCD_ASPECT') == b'4:3'
+    assert get('K_MONITOR') == b'crt' and get('K_LCD_MODE') == b'1024x768'
+    assert get('K_LCD_ASPECT') == b'4:3' and get('K_LCD_LINEAR') == b'false'
     assert editor.cfg_save_changes(encoded)
 
     fresh = temporary / 'FRESH.CFG'
     assert editor.cfg_load(str(fresh).encode())
-    assert get('K_MONITOR') == b'lcd'
+    assert get('K_MONITOR') == b'crt' and get('K_LCD_LINEAR') == b'false'
     assert set_value('K_COUNTRY',b'1')
     assert editor.cfg_save_changes(str(fresh).encode())
-    assert get('K_MONITOR') == b'lcd' and b'monitor=lcd\r\n' in fresh.read_bytes()
+    assert get('K_MONITOR') == b'crt' and b'monitor=crt\r\n' in fresh.read_bytes()
 
     # Every MIDI preset persists its complete backend alongside independent SB settings.
     for index, profile, device in ((0,b'none',b'none'),(1,b'sc55',b'synth'),
