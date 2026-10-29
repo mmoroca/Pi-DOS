@@ -415,7 +415,7 @@ using this runtime. Replacing only BOOT's `Image` on an unchanged old layout is
 not sufficient to retain its configuration and application paths.
 
 The appliance shell displays uppercase DOS 8.3 aliases by default. `DIR`
-(including `/B`, `/W` and `/S`), `LS`, `TREE`, the current-directory display,
+(including `/B`, `/W` and `/S`), `TREE`, the current-directory display,
 prompt, filename completion and file-operation feedback use short names.
 `DIR /-Z` explicitly shows the long-name view when long filenames are enabled;
 `DIR /Z` selects short names. These are presentation choices: original names
@@ -423,12 +423,21 @@ on disk and long-filename APIs remain available, and paths remain
 case-insensitive. Applications control their own filename displays. Native
 development builds keep their usual display defaults.
 
-In appliance mode, `DIR`, `LS` and `TREE` check media readiness before resolving
+In appliance mode, `DIR` and `TREE` check media readiness before resolving
 paths. An empty or disconnected automatic A:/D: drive reports
 `Not ready reading drive A` (or `D`) and returns an error instead of an empty
 listing and zero-file summary. Insert media and repeat the command. A readable
 empty filesystem or audio CD retains its normal listing behavior. Selecting
 the drive letter alone still selects the installed drive.
+
+### Bundled DOS utilities
+
+Pi-DOS omits the upstream LS, TITLE, CAPMOUSE, INTRO, SHUTDOWN.COM,
+BUFFERS.COM, FDISK, CFGTOOL, DSXMENU, EDLIN, COMP, FILES, FCBS, LASTDRIV
+and FLAGSAVE commands. Their Z: registrations and bundled binary payloads
+are excluded by patch 0035. EDIT and FC remain available; use DIR for
+directory listings, PIDOSCFG for persistent setup, and REBOOT or POWEROFF
+for the appliance lifecycle.
 
 ### ZIP archive drives
 

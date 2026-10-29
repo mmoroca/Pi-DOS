@@ -1,0 +1,230 @@
+Pi-DOS: Remove unused and redundant bundled DOS utilities.
+
+Drop the fifteen selected commands from Z:. Exclude standalone binary
+payloads from libbuiltin and compile out EDLIN/COMP in their shared
+EDIT/FC source files. Keep PC-98 CWSDPMI registration independent.
+
+--- a/src/dos/dos_programs.cpp
++++ b/src/dos/dos_programs.cpp
+@@ -1877,9 +1877,6 @@
+     }
+ };
+ 
+-static void CFGTOOL_ProgramStart(Program * * make) {
+-    *make=new CFGTOOL;
+-}
+ #endif
+ 
+ extern bool custom_bios;
+@@ -5567,9 +5564,6 @@
+     }
+ };
+ 
+-static void INTRO_ProgramStart(Program * * make) {
+-    *make=new INTRO;
+-}
+ #endif
+ 
+ #if !defined(OSFREE)
+@@ -8530,9 +8524,6 @@
+ 	temp.CMD_LS(args);
+ }
+ 
+-static void LS_ProgramStart(Program * * make) {
+-    *make=new LS;
+-}
+ #endif
+ 
+ #if !defined(OSFREE)
+@@ -9102,9 +9093,6 @@
+     GFX_SetTitle(-1,-1,-1,false);
+ }
+ 
+-static void TITLE_ProgramStart(Program * * make) {
+-    *make=new TITLE;
+-}
+ #endif
+ 
+ #if !defined(OSFREE)
+@@ -10147,10 +10135,6 @@
+     }
+ };
+ 
+-static void FLAGSAVE_ProgramStart(Program** make)
+-{
+-    *make = new FLAGSAVE;
+-}
+ #endif
+ 
+ void Add_VFiles(bool usecp) {
+@@ -10180,7 +10164,6 @@
+ 
+ #if !defined(OSFREE)
+ 	PROGRAMS_MakeFile("HELP.COM",HELP_ProgramStart,"/SYSTEM/");
+-	PROGRAMS_MakeFile("INTRO.COM",INTRO_ProgramStart,"/SYSTEM/");
+ 	PROGRAMS_MakeFile("VIDEOMOD.COM",PidosVideoModes_ProgramStart,"/SYSTEM/");
+ #endif
+ 	PROGRAMS_MakeFile("IMGMOUNT.COM", IMGMOUNT_ProgramStart,"/SYSTEM/");
+@@ -10250,12 +10233,8 @@
+ 
+ #if !defined(OSFREE)
+ 	PROGRAMS_MakeFile("COLOR.COM",COLOR_ProgramStart,"/BIN/");
+-	PROGRAMS_MakeFile("TITLE.COM",TITLE_ProgramStart,"/BIN/");
+ 	PROGRAMS_MakeFile("VHDMAKE.COM",VHDMAKE_ProgramStart,"/BIN/");
+-	PROGRAMS_MakeFile("LS.COM",LS_ProgramStart,"/BIN/");
+ 	PROGRAMS_MakeFile("ADDKEY.COM",ADDKEY_ProgramStart,"/BIN/");
+-	PROGRAMS_MakeFile("CFGTOOL.COM",CFGTOOL_ProgramStart,"/SYSTEM/");
+-	PROGRAMS_MakeFile("FLAGSAVE.COM", FLAGSAVE_ProgramStart,"/SYSTEM/");
+ # if defined C_DEBUG
+ 	PROGRAMS_MakeFile("NMITEST.COM",NMITEST_ProgramStart,"/DEBUG/");
+ 	PROGRAMS_MakeFile("INT2FDBG.COM",INT2FDBG_ProgramStart,"/DEBUG/");
+@@ -10268,7 +10247,6 @@
+ 		PROGRAMS_MakeFile("PC98UTIL.COM",PC98UTIL_ProgramStart,"/BIN/");
+ 
+ #if !defined(OSFREE)
+-	PROGRAMS_MakeFile("CAPMOUSE.COM", CAPMOUSE_ProgramStart,"/SYSTEM/");
+ 	PROGRAMS_MakeFile("LOADFIX.COM",LOADFIX_ProgramStart,"/DOS/");
+ 	PROGRAMS_MakeFile("LABEL.COM", LABEL_ProgramStart,"/DOS/");
+ 	PROGRAMS_MakeFile("TREE.COM", TREE_ProgramStart,"/DOS/");
+@@ -10287,21 +10265,15 @@
+ #endif
+ 
+ #if !defined(OSFREE)
+-	VFILE_RegisterBuiltinFileBlob(bfb_EDLIN_EXE, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_DEBUG_EXE, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_MOVE_EXE, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_FIND_EXE, "/DOS/");
+-	VFILE_RegisterBuiltinFileBlob(bfb_FCBS_COM, "/DOS/");
+-	VFILE_RegisterBuiltinFileBlob(bfb_FILES_COM, "/DOS/");
+-	VFILE_RegisterBuiltinFileBlob(bfb_LASTDRIV_COM, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_REPLACE_EXE, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_SORT_EXE, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_XCOPY_EXE, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_APPEND_EXE, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_DEVICE_COM, "/DOS/");
+-	VFILE_RegisterBuiltinFileBlob(bfb_BUFFERS_COM, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_CHKDSK_EXE, "/DOS/");
+-	VFILE_RegisterBuiltinFileBlob(bfb_COMP_COM, "/DOS/");
+ 	VFILE_RegisterBuiltinFileBlob(bfb_FC_EXE, "/DOS/");
+ # if C_IPX
+ 	if (addipx) PROGRAMS_MakeFile("IPXNET.COM",IPXNET_ProgramStart,"/SYSTEM/");
+@@ -10324,7 +10296,6 @@
+ 		VFILE_RegisterBuiltinFileBlob(bfb_SYS_COM, "/DOS/"); /* may rely on INT 13h or IBM PC specific functions and layout */
+ 		VFILE_RegisterBuiltinFileBlob(bfb_FORMAT_EXE, "/DOS/"); /* does not work in PC-98 mode */
+ 		VFILE_RegisterBuiltinFileBlob(bfb_DEFRAG_EXE, "/DOS/"); /* relies on IBM PC CGA/EGA/VGA alphanumeric display memory */
+-		VFILE_RegisterBuiltinFileBlob(bfb_FDISK_EXE, "/BIN/"); /* relies on IBM PC INT 13h */
+ 		VFILE_RegisterBuiltinFileBlob(bfb_HEXMEM16_EXE, "/DEBUG/");
+ 		VFILE_RegisterBuiltinFileBlob(bfb_HEXMEM32_EXE, "/DEBUG/");
+ 		VFILE_RegisterBuiltinFileBlob(bfb_DOSIDLE_EXE, "/BIN/");
+@@ -10390,19 +10361,10 @@
+ 		VFILE_RegisterBuiltinFileBlob(bfb_MEM_EXE_PC98, "/DOS/");
+ #endif
+ 
+-	/* DSXMENU.EXE */
+-	if(IS_PC98_ARCH) {
+-		VFILE_RegisterBuiltinFileBlob(bfb_DSXMENU_EXE_PC98, "/BIN/");
+ #if !defined(OSFREE)
++	if(IS_PC98_ARCH)
+ 		VFILE_RegisterBuiltinFileBlob(bfb_CWSDPMI_PC98_EXE, "/BIN/");
+ #endif
+-	}
+-	else {
+-		VFILE_RegisterBuiltinFileBlob(bfb_DSXMENU_EXE_PC, "/BIN/");
+-#if !defined(OSFREE)
+-		VFILE_RegisterBuiltinFileBlob(bfb_SHUTDOWN_COM, "/BIN/");
+-#endif
+-	}
+ 
+ #if !defined(OSFREE)
+ 	VFILE_RegisterBuiltinFileBlob(bfb_EVAL_EXE, "/BIN/");
+--- a/src/builtin/Makefile.am
++++ b/src/builtin/Makefile.am
+@@ -2,8 +2,6 @@
+ 
+ noinst_LIBRARIES = libbuiltin.a
+ libbuiltin_a_SOURCES = \
+-	dsxmenu_exe_pc98.cpp \
+-	dsxmenu_exe_pc.cpp \
+ 	cwsdpmi_exe_pc98.cpp \
+ 	cwsdpmi_exe.cpp	\
+ 	dos32a_exe.cpp \
+@@ -17,26 +15,20 @@
+ 	mem_com.cpp \
+ 	find_exe.cpp \
+ 	dosidle_exe.cpp \
+-	lastdriv_com.cpp \
+ 	fc_exe.cpp \
+-	fcbs_com.cpp \
+-	files_com.cpp \
+ 	print_com.cpp \
+ 	xcopy_exe.cpp \
+ 	append_exe.cpp \
+ 	edit_com.cpp \
+ 	diskcopy_exe.cpp \
+ 	device_com.cpp \
+-	buffers_com.cpp \
+ 	defrag_exe.cpp \
+-	fdisk_exe.cpp \
+ 	format_exe.cpp \
+ 	chkdsk_exe.cpp \
+ 	ne2000bin.cpp \
+ 	ipspatch.cpp \
+ 	textutil.cpp \
+ 	emsmagic.cpp \
+-	shutdown.cpp \
+ 	ipsmake.cpp \
+ 	glide2x.cpp \
+ 	mpxplay.cpp \
+--- a/src/builtin/edit_com.cpp
++++ b/src/builtin/edit_com.cpp
+@@ -8885,6 +8885,8 @@
+ 	/*length*/			sizeof(bin_edit_com)
+ };
+ 
++/* Pi-DOS excludes EDLIN.EXE while retaining the preceding utility. */
++#if 0
+ static const unsigned char bin_edlin_exe[] = {
+ 	0x4D,0x5A,0x00,0x00,0x04,0x00,0x00,0x00,0x20,0x00,0x27,
+ 	0x00,0xFF,0xFF,0x00,0x00,0x60,0x07,0x00,0x00,0x54,0x00,
+@@ -13182,4 +13184,5 @@
+ 	/*data*/			bin_edlin_exe,
+ 	/*length*/			sizeof(bin_edlin_exe)
+ };
++#endif /* excluded Pi-DOS utility */
+ #endif
+--- a/src/builtin/fc_exe.cpp
++++ b/src/builtin/fc_exe.cpp
+@@ -1359,6 +1359,8 @@
+ 	/*length*/			sizeof(bin_fc_exe)
+ };
+ 
++/* Pi-DOS excludes COMP.COM while retaining the preceding utility. */
++#if 0
+ static const unsigned char bin_comp_com[] = {
+ 	0xB4,0x1A,0xBA,0x2F,0x06,0xCD,0x21,0xB8,0x00,0x37,0xCD,
+ 	0x21,0x88,0x16,0x50,0x06,0x80,0xFA,0x2F,0x75,0x05,0xC6,
+@@ -1527,5 +1529,6 @@
+ 	/*data*/			bin_comp_com,
+ 	/*length*/			sizeof(bin_comp_com)
+ };
++#endif /* excluded Pi-DOS utility */
+ #endif
+ 
+--- a/src/shell/shell.cpp
++++ b/src/shell/shell.cpp
+@@ -1736,13 +1736,13 @@
+ 
+ 	MSG_Add("SHELL_STARTUP_TITLE", "Welcome to DOSBox-X !");
+ 	MSG_Add("SHELL_STARTUP_HEAD1_PC98", "\033[36mGetting Started with DOSBox-X:\033[37m                                    ");
+-	MSG_Add("SHELL_STARTUP_TEXT1_PC98", "Type \033[32mHELP\033[37m for shell commands, and \033[32mINTRO\033[37m for a short introduction. \nYou could also complete various tasks through the \033[33mdrop-down menus\033[37m.");
++	MSG_Add("SHELL_STARTUP_TEXT1_PC98", "Type \033[32mHELP\033[37m for shell commands, or \033[32mPIDOSCFG\033[37m for Pi-DOS setup.");
+ 	MSG_Add("SHELL_STARTUP_EXAMPLE_PC98", "\033[32mExample\033[37m: Try select \033[33mTrueType font\033[37m or \033[33mOpenGL perfect\033[37m output option.");
+ 	MSG_Add("SHELL_STARTUP_TEXT2_PC98", (std::string("To launch the \033[33mConfiguration Tool\033[37m, use \033[31mhost+C\033[37m. Host key is \033[32m") + (mapper_keybind + "\033[37m.                       ").substr(0,13) + std::string("\nTo activate the \033[33mMapper Editor\033[37m for key assignments, use \033[31mhost+M\033[37m.    \nTo switch between windowed and full-screen mode, use \033[31mhost+F\033[37m.      \nTo adjust the emulated CPU speed, use \033[31mhost+Plus\033[37m and \033[31mhost+Minus\033[37m.   ")).c_str());
+ 	MSG_Add("SHELL_STARTUP_INFO_PC98","\033[36mDOSBox-X is now running in \033[32mJapanese NEC PC-98\033[36m emulation mode.\033[37m     ");
+ 	MSG_Add("SHELL_STARTUP_TEXT3_PC98", "\033[32mDOSBox-X project \033[33mhttps://dosbox-x.com/     \033[36mComplete DOS emulations\033[37m\n\033[32mDOSBox-X guide   \033[33mhttps://dosbox-x.com/wiki\033[37m \033[36mDOS, Windows 3.x and 9x\033[37m\n\033[32mDOSBox-X support \033[33mhttps://github.com/joncampbell123/dosbox-x/issues\033[37m");
+ 	MSG_Add("SHELL_STARTUP_HEAD1", "\033[36mGetting started with DOSBox-X:                                              \033[37m");
+-	MSG_Add("SHELL_STARTUP_TEXT1", "Type \033[32mHELP\033[37m to see the list of shell commands, \033[32mINTRO\033[37m for a brief introduction.\nYou can also complete various tasks in DOSBox-X through the \033[33mdrop-down menus\033[37m.");
++	MSG_Add("SHELL_STARTUP_TEXT1", "Type \033[32mHELP\033[37m for shell commands, or \033[32mPIDOSCFG\033[37m for Pi-DOS setup.");
+ 	MSG_Add("SHELL_STARTUP_EXAMPLE", "\033[32mExample\033[37m: Try select the \033[33mTrueType font\033[37m or \033[33mOpenGL pixel-perfect\033[37m output option.");
+ 	MSG_Add("SHELL_STARTUP_HEAD2", "\033[36mUseful default shortcuts:                                                   \033[37m");
+ 	MSG_Add("SHELL_STARTUP_TEXT2", (std::string("- switch between windowed and full-screen mode with key combination \033[31m")+(default_host+" \033[37m+ \033[31mF\033[37m                        ").substr(0,23)+std::string("\033[37m\n") +

@@ -2,6 +2,14 @@
 
 Base: `4f19017c5f565dc40d01fede0f1382892e7243d7` (`dosbox-x-v2026.08.31`).
 
+`0035-remove-unused-dos-utilities.patch` removes LS, TITLE, CAPMOUSE, INTRO,
+SHUTDOWN.COM, BUFFERS.COM, FDISK, CFGTOOL, DSXMENU, EDLIN, COMP, FILES,
+FCBS, LASTDRIV and FLAGSAVE from the bundled Z: drive. Standalone binary
+payloads are excluded from the builtin library; EDLIN and COMP payloads are
+compiled out of the shared EDIT/FC sources. EDIT, FC and PC-98 CWSDPMI
+remain available. Both build helpers apply this patch through the existing
+patch series.
+
 `0034-captures-and-image-switching.patch` fixes supervised capture output at
 `C:\SYSTEM\CAPTURES` and rejects writes when persistent storage is read-only or
 missing. The existing PNG writer and program-based sequence numbering are reused.
