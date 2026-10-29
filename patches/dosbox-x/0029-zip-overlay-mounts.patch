@@ -1,0 +1,31 @@
+Managed ZIP mounts with persistent sibling .PFS overlays.
+
+--- a/src/dos/dos_programs.cpp
++++ b/src/dos/dos_programs.cpp
+@@ -75,6 +75,7 @@
+ #include "pidos_usb_cdrom_dos.h"
+ #include "pidos_usb_storage_dos.h"
+ #include "pidos_system_drive_dos.h"
++#include "pidos_zip_mount_dos.h"
+ 
+ #if defined(OS2)
+ #define INCL DOSFILEMGR
+@@ -10194,6 +10195,7 @@
+ 	PROGRAMS_MakeFile("PICDROM.COM",pidos_cdrom::program,"/SYSTEM/");
+ 	PROGRAMS_MakeFile("PIUSB.COM",pidos_storage::program,"/SYSTEM/");
+ 	PROGRAMS_MakeFile("PISYSTEM.COM",pidos_system::program,"/SYSTEM/");
++	PROGRAMS_MakeFile("ZIPMOUNT.COM",pidos_zip_mount::program,"/SYSTEM/");
+ #endif
+ #endif
+ 	PROGRAMS_MakeFile("BOOT.COM",BOOT_ProgramStart,"/SYSTEM/");
+--- a/src/dos/drive_physfs.cpp
++++ b/src/dos/drive_physfs.cpp
+@@ -880,6 +880,8 @@
+ 	return true;
+ }
+ 
++#include "pidos_zip_drive.h"
++
+ physfscdromDrive::physfscdromDrive(const char driveLetter, const char * startdir,uint16_t _bytes_sector,uint8_t _sectors_cluster,uint16_t _total_clusters,uint16_t _free_clusters,uint8_t _mediaid, int& error, std::vector<std::string> &options)
+ 		   :physfsDrive(driveLetter,startdir,_bytes_sector,_sectors_cluster,_total_clusters,_free_clusters,_mediaid,error,options)
+ {

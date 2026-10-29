@@ -101,15 +101,15 @@
 - [v] Persistent C: drive
 - [v] Multiple DOS drives (C:, D:, etc.)
 - [v] DOS drive-letter mapping
-- [ ] FAT12 / FAT16 / FAT32 disk images
-- [ ] Floppy disk images
-- [ ] Read-only disk images
-- [ ] Hard disk images
-- [ ] CD-ROM emulation
-- [ ] ISO image mounting
-- [ ] MSCDEX compatibility
-- [ ] Multi-disc switching
-- [ ] ZIP archive mounting
+- [~] FAT12 / FAT16 / FAT32 disk images
+- [v] Floppy disk images
+- [v] Read-only disk images
+- [v] Hard disk images
+- [v] CD-ROM emulation
+- [v] ISO image mounting
+- [v] MSCDEX compatibility
+- [v] Multi-disc switching
+- [v] ZIP archive mounting
 - [v] Host filesystem mapping
 - [v] Case-insensitive filenames
 - [v] 8.3 filename compatibility

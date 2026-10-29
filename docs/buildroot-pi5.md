@@ -427,6 +427,51 @@ listing and zero-file summary. Insert media and repeat the command. A readable
 empty filesystem or audio CD retains its normal listing behavior. Selecting
 the drive letter alone still selects the installed drive.
 
+### ZIP archive drives
+
+`ZIPMOUNT` exposes a ZIP on C: or a host-backed USB volume as an additional DOS
+drive. Choose a free letter; occupied drives and managed C:/Z: cannot be
+replaced. The archive itself is always read-only. Example:
+
+```dos
+ZIPMOUNT E C:\GAMES\DOOM.ZIP
+E:
+DOOM
+C:
+ZIPMOUNT E -u
+```
+
+The first writable mount creates an ordinary sibling directory `DOOM.PFS`.
+Its basename matches the ZIP, and `.PFS` fits 8.3 names when the basename does.
+Only files opened for writing or newly created are stored there, with the
+necessary directory branches; other files are read directly from the ZIP.
+Changes take precedence over archived files. Saves and configuration survive
+unmounting, rebooting, and mounting at a different letter. Several different
+ZIPs can be mounted concurrently with independent overlays. The same ZIP
+cannot be mounted twice at once.
+
+`ZIPMOUNT E C:\GAMES\DOOM.ZIP -ro` disables writes while still showing existing
+overlay changes. It does not create a missing `.PFS` directory. A ZIP on a
+read-only DOS source drive is also mounted read-only. A writable mount fails
+if the sibling overlay cannot be created or used; saves are never redirected
+to temporary RAM. Close programs and open files before unmounting.
+
+Deletion markers are kept in the overlay's reserved `PFSINFO` subdirectory,
+which is hidden from the mounted ZIP drive. They prevent deleted archive
+files from reappearing after remounting, including deleted directory trees.
+File and directory renames copy the affected archived contents into the
+overlay. Copy the ZIP and its `.PFS` directory together to retain changes;
+remove the `.PFS` directory while unmounted to reset to the original archive.
+Leave the archive and overlay in place while mounted. Replaced or unavailable
+source storage causes file operations to fail rather than writing elsewhere.
+
+The implementation uses the bundled PhysFS archive reader and the existing
+local DOS file backend for overlay writes, without changing PhysFS's global
+write directory. `python3 tools/image/test-zip-overlay.py` checks real compressed
+ZIP reads, copy-up, saves, deletion, rename, remounting, multiple overlays,
+read-only mounts, and unavailable storage. Physical Pi/game validation remains
+separate from these host checks.
+
 ### USB floppy drive A:
 
 Appliance startup reserves `A:` for a USB floppy. Connect the drive before or

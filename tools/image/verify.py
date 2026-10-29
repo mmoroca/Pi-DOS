@@ -150,6 +150,9 @@ def main():
                   b'Type MOUNT to list available drives.', b'Not ready reading drive %c\n',
                   b'Unable to update volume label on drive %c:'):
         require(value in packed_runtime, 'Runtime lacks managed system drives; rebuild pi-dos-runtime')
+    for value in (b'ZIPMOUNT.COM', b'ZIPMOUNT drive archive.zip [-ro]',
+                  b'persistent .PFS overlay', b'PFSINFO/DELETE.DAT'):
+        require(value in packed_runtime, 'Runtime lacks ZIP drives with persistent .PFS overlays; rebuild pi-dos-runtime')
     require(b'PI_DOS_SUPERVISED' in packed_init and
             b'Ctrl+Alt+Delete requested a supervised reboot' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Image lacks the supervised Ctrl+Alt+Delete reboot path')
@@ -433,6 +436,9 @@ def main():
                 'usb_core_config_sha256': digest(linux_dirs[0].parent / 'drivers/usb/core/config.c'),
                 'usb_floppy_status_polling_cap_ms': 8,
                 'usb_floppy_transport_sha256': digest(ROOT / 'src/runtime/usb_floppy_linux.h'),
+                'zip_overlay_source_sha256': {
+                    name: digest(ROOT / 'src/runtime' / ('zip_' + name + '.h'))
+                    for name in ('overlay', 'drive', 'mount_dos')},
                 'kernel_release': (linux_dirs[0].parent / 'include/config/kernel.release').read_text().strip(),
                 'buildroot_config_sha256': digest(OUT / '.config'),
                 'source_lock': json.loads((ROOT / 'sources.lock.json').read_text()),

@@ -2,6 +2,15 @@
 
 Base: `4f19017c5f565dc40d01fede0f1382892e7243d7` (`dosbox-x-v2026.08.31`).
 
+`0029-zip-overlay-mounts.patch` registers `ZIPMOUNT.COM` and integrates the
+headers `src/runtime/zip_{mount_dos,drive,overlay}.h`. ZIPs are read by PhysFS;
+normal DOS file operations write to an ordinary sibling `.PFS` directory.
+Overlays are isolated per archive, with persistent deletion markers and
+copy-up for writes/renames. C:/Z: remain protected and arbitrary directory
+mounting stays disabled. `-ro` disables writes without creating an overlay;
+`-u` releases the drive after open files are closed. See
+[ZIP archive drives](../../docs/buildroot-pi5.md#zip-archive-drives).
+
 `0001-reject-invalid-display-dimensions.patch` fixes unknown desktop dimensions
 being treated as valid on the Pi's non-X11/KMS path. It retains the existing SDL
 display-size fallback. See [graphics validation](../../docs/pi5-graphics-validation.md)

@@ -86,6 +86,9 @@ printf '%s\r\n' \
     'Pi-DOS manages C: and Z:. Directory mounts and SUBST mappings are disabled.' \
     'MOUNT lists drives; MOUNT -U E optionally ejects a USB volume.' \
     'Use IMGMOUNT with an available letter for disk or CD images.' \
+    'ZIPMOUNT E C:\GAMES\DOOM.ZIP mounts a ZIP with a sibling DOOM.PFS folder.' \
+    'The ZIP stays unchanged; saves and changes persist in the .PFS folder.' \
+    'Add -ro to disable writes; ZIPMOUNT E -u unmounts after closing files.' \
     'The shell shows uppercase 8.3 aliases; DIR /-Z shows long names.' \
     'Original filenames on disk are preserved; paths ignore case.' \
     'Changes take effect on the next boot. Existing files are preserved;' \

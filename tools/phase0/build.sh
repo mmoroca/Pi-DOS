@@ -65,6 +65,9 @@ install -m 0644 "$root/src/runtime/drive_policy.h" "$dosbox/include/pidos_drive_
 install -m 0644 "$root/src/runtime/dos_sharing.h" "$dosbox/include/pidos_dos_sharing.h"
 install -m 0644 "$root/src/runtime/dos_attributes_linux.h" "$dosbox/src/dos/pidos_dos_attributes_linux.h"
 install -m 0644 "$root/src/runtime/system_drive_dos.h" "$dosbox/src/dos/pidos_system_drive_dos.h"
+for name in overlay drive mount_dos; do
+    install -m 0644 "$root/src/runtime/zip_$name.h" "$dosbox/src/dos/pidos_zip_$name.h"
+done
 for name in io linux dos; do
     install -m 0644 "$root/src/runtime/usb_storage_$name.h" "$dosbox/src/dos/pidos_usb_storage_$name.h"
 done

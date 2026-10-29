@@ -99,6 +99,10 @@ additional directory mounts and `SUBST` mappings are disabled in appliance mode.
 Use `IMGMOUNT` with a free letter for disk or CD images. The old `c/` layout is
 not migrated automatically; its contents must be placed at the volume root.
 See [managed drives](docs/buildroot-pi5.md#managed-drive-assignments-and-the-c-root).
+Use `ZIPMOUNT E C:\GAMES\DOOM.ZIP` with a free letter to run files directly
+from a ZIP. Changes persist in the ordinary sibling folder `DOOM.PFS`; the
+archive stays unchanged. Add `-ro` to disable writes, and use `ZIPMOUNT E -u`
+to unmount. See [ZIP drives](docs/buildroot-pi5.md#zip-archive-drives).
 The shell shows uppercase 8.3 names by default; `DIR /-Z` shows long names.
 Original filenames on disk and long-filename access are preserved.
 The original Z: utility layout is retained, with the supplied ARJ at `Z:\BIN\ARJ.EXE`.

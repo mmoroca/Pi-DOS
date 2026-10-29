@@ -14,6 +14,9 @@ PI_DOS_RUNTIME_CONF_OPTS = --enable-sdl2 --disable-sdlnet --disable-libslirp \
 PI_DOS_RUNTIME_CONF_ENV = SDL2_CONFIG=$(STAGING_DIR)/usr/bin/sdl2-config LIBS="-lblkid"
 
 define PI_DOS_RUNTIME_APPLY_PATCHES
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/zip_overlay.h $(@D)/src/dos/pidos_zip_overlay.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/zip_drive.h $(@D)/src/dos/pidos_zip_drive.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/zip_mount_dos.h $(@D)/src/dos/pidos_zip_mount_dos.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/dos_sharing.h $(@D)/include/pidos_dos_sharing.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/dos_attributes_linux.h $(@D)/src/dos/pidos_dos_attributes_linux.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/drive_policy.h $(@D)/include/pidos_drive_policy.h
