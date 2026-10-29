@@ -215,3 +215,18 @@ rewritten. Native shell display defaults remain unchanged.
 `Not ready reading drive A`/`D` and returns an error before an empty listing or
 summary. Readable media keeps its usual behavior, and native shell commands
 are unchanged. Guest DOS media-error reporting stays in the existing backends.
+
+`0025-persistent-volume-labels.patch` adds a checked label setter and routes
+LABEL and extended-FCB volume-label create/delete/rename requests through it.
+The floppy adapter forwards updates to FAT without constructing a file handle
+for FORMAT's label-only request. USB FAT/exFAT updates require no open files,
+flush/unmount the volume, run the filesystem label tool with a pinned device
+descriptor and exclusive write access, read back its label and remount.
+Failures propagate to DOS;
+C:/Z: keep their fixed labels and optical labels remain read-only. See
+[persistent labels](../../docs/buildroot-pi5.md#persistent-volume-labels).
+
+`0026-fat-volume-label-refresh.patch` reads FAT volume labels from the root
+directory when requested, including immediately after FORMAT's raw sector
+writes or when reopening a floppy. VOL/DIR no longer depend on an earlier
+label search or LABEL command populating an otherwise empty cache.

@@ -19,10 +19,13 @@
 #include <memory>
 #include <set>
 #include <sstream>
+#include <spawn.h>
 #include <string>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/sysmacros.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
 
@@ -167,6 +170,36 @@ inline std::vector<Candidate> discover()
     return result;
 }
 
+// The kernel has no FAT/exFAT label setter. Invoke the filesystem tools only
+// after an ordinary unmount, passing a pinned device descriptor. FAT holds the
+// exclusive claim here; exfatlabel takes its own O_EXCL claim when reopening it.
+inline int write_volume_label(int device, const std::string &filesystem,
+                              const std::string &label, unsigned codepage)
+{
+    const char *tool = filesystem == "vfat" ? "/sbin/fatlabel" : "/usr/sbin/exfatlabel";
+    std::string cp = std::to_string(codepage ? codepage : 437);
+    const char *fat_args[] = {tool, "-c", cp.c_str(), label.empty() ? "-r" : "/proc/self/fd/3",
+                             label.empty() ? "/proc/self/fd/3" : label.c_str(), nullptr};
+    const char *exfat_args[] = {tool, "/proc/self/fd/3", label.c_str(), nullptr};
+    char locale[] = "LC_ALL=C.UTF-8";
+    char *environment[] = {locale, nullptr};
+    posix_spawn_file_actions_t actions;
+    int error = posix_spawn_file_actions_init(&actions);
+    if (error) { errno = error; return -1; }
+    error = posix_spawn_file_actions_adddup2(&actions, device, 3);
+    pid_t child = -1;
+    if (!error) error = posix_spawn(&child, tool, &actions, nullptr,
+        const_cast<char *const *>(filesystem == "vfat" ? fat_args : exfat_args), environment);
+    posix_spawn_file_actions_destroy(&actions);
+    if (error) { errno = error; return -1; }
+    int status = 0;
+    pid_t waited;
+    do { waited = waitpid(child, &status, 0); } while (waited < 0 && errno == EINTR);
+    if (waited < 0) return -1;
+    if (!WIFEXITED(status) || WEXITSTATUS(status)) { errno = EIO; return -1; }
+    return fsync(device);
+}
+
 struct Volume {
     Candidate candidate;
     std::string path, label, filesystem;
@@ -175,6 +208,77 @@ struct Volume {
     bool present() const { return active && candidate.present(); }
     bool flush() const
     { return present() && (readonly || (fd >= 0 && !host_io([this] { return syncfs(fd); }))); }
+    bool reattach()
+    {
+        if (!candidate.present()) { active = false; errno = ENODEV; return false; }
+        const unsigned long flags = MS_NODEV | MS_NOSUID | MS_NOEXEC | MS_NOATIME | MS_SYNCHRONOUS;
+        const char *options = filesystem == "vfat" ? "utf8=1,errors=remount-ro" : "errors=remount-ro";
+        if (mount(candidate.device.c_str(), path.c_str(), filesystem.c_str(), flags, options)) {
+            if (mount(candidate.device.c_str(), path.c_str(), filesystem.c_str(), flags | MS_RDONLY, options)) {
+                active = false; return false;
+            }
+            readonly = true;
+        }
+        fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+        struct stat mounted, node;
+        if (fd < 0 || fstat(fd, &mounted) || stat(candidate.device.c_str(), &node) ||
+            mounted.st_dev != node.st_rdev || !candidate.present()) {
+            active = false; errno = ENODEV; return false;
+        }
+        return true;
+    }
+    int relabel(const std::string &value, const std::string &dos_label, unsigned codepage)
+    {
+        return host_io([&, this] {
+            if (!present()) { errno = ENODEV; return -1; }
+            if (readonly) { errno = EROFS; return -1; }
+            struct statvfs status;
+            if (fstatvfs(fd, &status)) return -1;
+            if (status.f_flag & ST_RDONLY) { readonly = true; errno = EROFS; return -1; }
+            const char *tool = filesystem == "vfat" ? "/sbin/fatlabel" : "/usr/sbin/exfatlabel";
+            if (access(tool, X_OK) || syncfs(fd)) return -1;
+            close(fd); fd = -1;
+            if (umount(path.c_str())) {
+                const int error = errno;
+                fd = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+                if (fd < 0) { active = false; return -1; }
+                errno = error; return -1;
+            }
+            int result = -1, error = EIO;
+            int device = -1;
+            try {
+                const int exclusive = filesystem == "vfat" ? O_EXCL : 0;
+                device = open(candidate.device.c_str(), O_RDWR | exclusive | O_CLOEXEC);
+                struct stat node;
+                if (device >= 0 && !fstat(device, &node) && S_ISBLK(node.st_mode) &&
+                    std::to_string(major(node.st_rdev)) + ":" + std::to_string(minor(node.st_rdev)) == candidate.number &&
+                    candidate.present()) {
+                    result = write_volume_label(device, filesystem, value, codepage);
+                    error = errno;
+                    // Probe even on failure: a tool can fail after modifying metadata.
+                    const std::string pinned = "/proc/self/fd/" + std::to_string(device);
+                    blkid_probe probe = blkid_new_probe_from_filename(pinned.c_str());
+                    const char *actual = nullptr;
+                    if (probe && blkid_do_safeprobe(probe) == 0) {
+                        label = blkid_probe_lookup_value(probe, "LABEL", &actual, nullptr) ? "" : actual;
+                        // libblkid exposes FAT labels as OEM bytes, exFAT as UTF-8.
+                        if (label != (filesystem == "vfat" ? dos_label : value)) {
+                            result = -1; error = EIO;
+                        }
+                    } else { result = -1; error = EIO; }
+                    if (probe) blkid_free_probe(probe);
+                } else error = device < 0 ? errno : ENODEV;
+            } catch (...) {
+                if (device >= 0) close(device);
+                reattach(); throw;
+            }
+            if (device >= 0) close(device);
+            if (!reattach()) return -1;
+            if (readonly) { errno = EROFS; return -1; }
+            errno = error;
+            return result;
+        });
+    }
     void detach()
     {
         active = false;

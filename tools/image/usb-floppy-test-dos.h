@@ -8,6 +8,7 @@ using PhysPt = uint32_t;
 using RealPt = uint32_t;
 enum { OPEN_READ = 0, OPEN_WRITE = 1, OPEN_READWRITE = 2, OPEN_READ_NO_MOD = 4 };
 enum { DOSERR_FUNCTION_NUMBER_INVALID = 1, DOSERR_WRITE_PROTECTED = 19, DOSERR_DRIVE_NOT_READY = 21 };
+enum { DOS_ATTR_VOLUME = 8, DOSERR_ACCESS_DENIED = 5 };
 static unsigned int dos_error;
 static void DOS_SetError(unsigned int error) { dos_error = error; }
 struct DOS_DTA {};
@@ -59,6 +60,8 @@ public:
     virtual void UpdateDPB(unsigned char) {}
     virtual Bits UnMount() { return 0; }
     virtual const char *GetLabel() { return ""; }
+    virtual void SetLabel(const char *, bool, bool) {}
+    virtual bool SetLabelChecked(const char *) { return true; }
     virtual void EmptyCache() {}
     virtual uint32_t GetSectorSize() { return 512; }
     virtual uint32_t GetSectorCount() { return 0; }
@@ -92,11 +95,19 @@ static unsigned int dpb_updates = 0;
 static uint8_t dpb_drive = 255;
 class fatDrive : public DOS_Drive {
     imageDisk *disk;
+    std::string label;
 public:
     bool created_successfully = true;
     fatDrive(imageDisk *source, std::vector<std::string> &) : disk(source) { disk->Addref(); }
     ~fatDrive() { disk->Release(); }
     void UpdateDPB(unsigned char number) override { ++dpb_updates; dpb_drive = number; }
+    const char *GetLabel() override { return label.c_str(); }
+    void SetLabel(const char *value, bool, bool) override {
+        unsigned char sector[512] = {};
+        label = value;
+        memcpy(sector, value, strlen(value));
+        disk->Write_AbsoluteSector(19, sector);
+    }
 };
 static imageDisk *imageDiskList[2] = {};
 static bool imageDiskChange[2] = {};

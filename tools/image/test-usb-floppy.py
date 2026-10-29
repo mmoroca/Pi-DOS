@@ -504,6 +504,20 @@ int main(int argc, char **argv) {
     {
         Drive floppy(controller);
         assert(controller->ready(true));
+        // FORMAT's volume-only create must not allocate/dereference a DOS handle.
+        assert(floppy.FileCreate(nullptr, "FORMATDISK", DOS_ATTR_VOLUME));
+        assert(!strcmp(floppy.GetLabel(), "FORMATDISK"));
+        assert(!memcmp(media + 19 * 512, "FORMATDISK", 10));
+        DOS_File *label_handle = nullptr;
+        assert(floppy.FileCreate(&label_handle, "NEW LABEL", DOS_ATTR_VOLUME));
+        assert(!label_handle && !strcmp(floppy.GetLabel(), "NEW LABEL"));
+        unsigned int label_writes = writes;
+        tab = true;
+        assert(!floppy.SetLabelChecked("PROTECTED") && dos_error == DOSERR_WRITE_PROTECTED);
+        assert(writes == label_writes);
+        tab = false;
+        assert(floppy.SetLabelChecked(""));
+        assert(!*floppy.GetLabel() && media[19 * 512] == 0);
         auto old = controller->medium;
         File handle(old, new DOS_File);
         uint16_t size = 1;

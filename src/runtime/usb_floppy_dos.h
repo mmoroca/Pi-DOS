@@ -347,6 +347,11 @@ public:
     }
     bool FileCreate(DOS_File **file, const char *name, uint16_t attr) override
     {
+        if (attr & DOS_ATTR_VOLUME) {
+            if (file) *file = nullptr;
+            return SetLabelChecked(name);
+        }
+        if (!file) { DOS_SetError(DOSERR_ACCESS_DENIED); return false; }
         DOS_File *handle = nullptr;
         if (!mutate([&] { return medium->fat->FileCreate(&handle, name, attr); })) { delete handle; return false; }
         *file = new File(medium, handle); return true;
@@ -385,6 +390,19 @@ public:
         return medium->device->valid;
     }
     char const *GetLabel() override { return ready() ? medium->fat->GetLabel() : ""; }
+    bool SetLabelChecked(const char *label) override
+    {
+        return mutate([&] {
+            medium->fat->SetLabel("", false, true);
+            if (*label) medium->fat->SetLabel(label, false, true);
+            if (strcmp(medium->fat->GetLabel(), label)) {
+                DOS_SetError(29); // FAT root full or label write failed.
+                return false;
+            }
+            return true;
+        });
+    }
+    void SetLabel(const char *label, bool, bool) override { SetLabelChecked(label); }
     void EmptyCache() override { if (medium && medium->fat && medium->ready()) medium->fat->EmptyCache(); }
     uint32_t GetSectorSize() override { return 512; }
     uint32_t GetSectorCount() override { return controller->ready() ? medium->device->blocks : 0; }

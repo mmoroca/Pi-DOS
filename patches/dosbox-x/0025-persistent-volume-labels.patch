@@ -1,0 +1,183 @@
+Persist removable volume labels and propagate label errors to guest callers.
+
+--- a/include/dos_system.h
++++ b/include/dos_system.h
+@@ -35,6 +35,7 @@
+ #define DOSERR_FUNCTION_NUMBER_INVALID 1
+ 
+ void DOS_SetError(uint16_t code);
++bool DOS_SetVolumeLabel(uint8_t drive, const char *label);
+ 
+ enum {
+     CPM_COMPAT_OFF=0,
+@@ -345,6 +346,13 @@
+ 	/* Can be overridden for example in iso images */
+ 	virtual char const * GetLabel() {return "NOLABEL";}; 
+ 	virtual void SetLabel(const char *label, bool iscdrom, bool updatable) { (void)label; (void)iscdrom; (void)updatable; };
++    // Checked guest updates; SetLabel also serves unchecked mount-time setup.
++    virtual bool SetLabelChecked(const char *label) {
++        if (readonly) { DOS_SetError(19); return false; }
++        SetLabel("",false,true);
++        if (*label) SetLabel(label,false,true);
++        return true;
++    }
+ 	virtual void EmptyCache() {};
+ 	virtual void MediaChange() {};
+ 	// disk cycling functionality (request resources)
+--- a/src/dos/dos_files.cpp
++++ b/src/dos/dos_files.cpp
+@@ -32,6 +32,8 @@
+ #include "regs.h"
+ #include "dos_inc.h"
+ #include "drives.h"
++#include "pidos_drive_policy.h"
++char *DBCS_upcase(char *str);
+ #include "pidos_usb_storage_api.h"
+ #include "cross.h"
+ #include "control.h"
+@@ -1842,6 +1844,31 @@
+ 	fcb.SetResult(size,date,time,attr);
+ }
+ 
++// All guest label paths use the same checked backend, including FORMAT's
++// extended-FCB create/delete/rename calls.
++bool DOS_SetVolumeLabel(uint8_t drive, const char *label) {
++    if (drive >= DOS_DRIVES || !Drives[drive]) {
++        DOS_SetError(DOSERR_INVALID_DRIVE); return false;
++    }
++    if (PiDosProtectedDrive(drive)) {
++        DOS_SetError(DOSERR_WRITE_PROTECTED); return false;
++    }
++    std::string value(label);
++    while (!value.empty() && value.back() == ' ') value.pop_back();
++    if (value.size() > 11 || (!value.empty() && value.front() == ' ') ||
++        value.find_first_of("*?.,;:/\\|+=<>[]\"") != std::string::npos) {
++        DOS_SetError(DOSERR_DATA_INVALID); return false;
++    }
++    for (const unsigned char c : value) if (c < 32 || c == 127) {
++        DOS_SetError(DOSERR_DATA_INVALID); return false;
++    }
++    char normalized[12] = {};
++    memcpy(normalized, value.c_str(), value.size());
++    DBCS_upcase(normalized);
++    DOS_SetError(0);
++    return Drives[drive]->SetLabelChecked(normalized);
++}
++
+ bool DOS_FCBCreate(uint16_t seg,uint16_t offset) { 
+ 	DOS_FCB fcb(seg,offset);
+ 	char shortname[DOS_FCBNAME];uint16_t handle;
+@@ -1851,7 +1878,7 @@
+ 
+     if (attr & DOS_ATTR_VOLUME) {
+ 	    fcb.GetVolumeName(shortname);
+-        return Drives[fcb.GetDrive()]->FileCreate(NULL,shortname,attr);
++        return DOS_SetVolumeLabel(fcb.GetDrive(), shortname);
+     }
+ 
+ 	fcb.GetName(shortname);
+@@ -2112,6 +2139,7 @@
+         uint8_t attr = 0;
+         fcb.GetAttr(attr);
+         uint8_t drive = fcb.GetDrive();
++        if (drive >= DOS_DRIVES || !Drives[drive]) { DOS_SetError(DOSERR_INVALID_DRIVE); return false; }
+         std::string label = Drives[drive]->GetLabel();
+ 
+         if (attr & DOS_ATTR_VOLUME) {
+@@ -2120,7 +2148,7 @@
+ 
+             if (!strcmp(shortname,"???????????")) {
+                 if (!label.empty()) {
+-                    Drives[drive]->SetLabel("",false,true);
++                    if (!DOS_SetVolumeLabel(drive, "")) return false;
+                     LOG(LOG_DOSMISC,LOG_NORMAL)("FCB delete volume label");
+                     return true;
+                 }
+@@ -2130,7 +2158,7 @@
+                 if (!label.empty()) {
+                     while (label.length() < 11) label += ' ';
+                     if (!memcmp(label.c_str(),shortname,11)) {
+-                        Drives[drive]->SetLabel("",false,true);
++                        if (!DOS_SetVolumeLabel(drive, "")) return false;
+                         LOG(LOG_DOSMISC,LOG_NORMAL)("FCB delete volume label deleted");
+                         return true;
+                     }
+@@ -2178,6 +2206,7 @@
+ 
+     {
+         uint8_t drive = fcbold.GetDrive();
++        if (drive >= DOS_DRIVES || !Drives[drive]) { DOS_SetError(DOSERR_INVALID_DRIVE); return false; }
+         std::string label = Drives[drive]->GetLabel();
+         uint8_t attr = 0;
+ 
+@@ -2195,7 +2224,7 @@
+ 
+             if (!label.empty()) {
+                 if (!strcmp(oldname,"???????????") || label == oldname) {
+-                    Drives[drive]->SetLabel(newname,false,true);
++                    if (!DOS_SetVolumeLabel(drive, newname)) return false;
+                     LOG(LOG_DOSMISC,LOG_NORMAL)("FCB rename volume label to '%s' from '%s'",newname,oldname);
+                     return true;
+                 }
+--- a/src/dos/dos_programs.cpp
++++ b/src/dos/dos_programs.cpp
+@@ -8234,19 +8234,23 @@
+ 				}
+ 			}
+ 
++            if (drive >= DOS_DRIVES || !Drives[drive]) {
++                WriteOut("Invalid drive specification\n"); dos.return_code = 1; return;
++            }
++
+ 			/* then the label. MS-DOS behavior is to treat the rest of the command line, spaces and all, as the label */
+ 			if (*raw != 0) {
+ 				label = raw;
+ 			}
+ 
+-			/* if the label is longer than 11 chars or contains a dot, MS-DOS will reject it and then prompt for another label */
++			/* Reject invalid input without offering to delete the existing label. */
+ 			if (label.length() > 11) {
+ 				WriteOut(MSG_Get("PROGRAM_LABEL_TOOLONG"));
+-				label.clear();
++				dos.return_code = 1; return;
+ 			}
+ 			else if (label.find_first_of(".:/\\") != std::string::npos) {
+ 				WriteOut(MSG_Get("PROGRAM_LABEL_BADCHARS"));
+-				label.clear();
++				dos.return_code = 1; return;
+ 			}
+ 
+ 			/* if no label provided, MS-DOS will display the current label and serial number and prompt the user to type in a new label. */
+@@ -8281,9 +8285,19 @@
+ 				if (ans != char_yes) return;
+ 			}
+ 
+-			/* delete then create the label */
+-			Drives[drive]->SetLabel("",false,true);
+-			Drives[drive]->SetLabel(label.c_str(),false,true);
++            if (!DOS_SetVolumeLabel(drive, label.c_str())) {
++                if (dos.errorcode == DOSERR_WRITE_PROTECTED)
++                    WriteOut("Drive %c: is write-protected.\n", drive + 'A');
++                else if (dos.errorcode == DOSERR_DRIVE_NOT_READY)
++                    WriteOut("Not ready reading drive %c\n", drive + 'A');
++                else if (dos.errorcode == 32)
++                    WriteOut("Drive %c: is in use; close open files and try again.\n", drive + 'A');
++                else if (dos.errorcode == DOSERR_DATA_INVALID)
++                    WriteOut(MSG_Get("PROGRAM_LABEL_BADCHARS"));
++                else
++                    WriteOut("Unable to update volume label on drive %c:.\n", drive + 'A');
++                dos.return_code = 1;
++            } else dos.return_code = 0;
+ 		}
+ };
+ 
+--- a/src/dos/drives.h
++++ b/src/dos/drives.h
+@@ -1142,6 +1142,7 @@
+ #endif
+ 	bool readSector(uint8_t *buffer, uint32_t sector) const;
+ 	void setFileName(const char* fileName);
++    bool SetLabelChecked(const char *) override { DOS_SetError(19); return false; }
+ 	char const* GetLabel(void) override;
+ 	bool USBReady(uint64_t expected = 0);
+ 	uint64_t USBGeneration() const;

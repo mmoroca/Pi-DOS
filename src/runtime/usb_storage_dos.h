@@ -5,6 +5,8 @@
 #if defined(LINUX) && !defined(OSFREE)
 #include "pidos_usb_storage_linux.h"
 extern int lfn_filefind_handle;
+char *CodePageGuestToHost(const char *value);
+char *CodePageHostToGuest(const char *value);
 void CALLBACK_IdleNoInts();
 
 namespace pidos_storage {
@@ -190,7 +192,9 @@ public:
           volume(mounted), epoch(serial)
     {
         readonly = volume->readonly;
-        dirCache.SetLabel(volume->label.empty() ? "USB" : volume->label.c_str(), false, false);
+        const char *guest = volume->filesystem == "vfat" ? volume->label.c_str() :
+                            CodePageHostToGuest(volume->label.c_str());
+        dirCache.SetLabel(guest ? guest : "", false, true);
     }
     ~Drive() override
     {
@@ -207,6 +211,10 @@ public:
     }
     bool FileCreate(DOS_File **file, const char *name, uint16_t attributes) override
     {
+        if (attributes & DOS_ATTR_VOLUME) {
+            if (file) *file = nullptr;
+            return SetLabelChecked(name);
+        }
         return writable() && localDrive::FileCreate(file, name, attributes) && wrap(file, true);
     }
     bool FileUnlink(const char *name) override { return writable() && flushed(localDrive::FileUnlink(name)); }
@@ -250,6 +258,31 @@ public:
     bool GetSystemFilename(char *host, const char *name) override
     { (void)host; (void)name; DOS_SetError(DOSERR_ACCESS_DENIED); return false; }
     char const *GetLabel() override { return ready() ? localDrive::GetLabel() : ""; }
+    bool SetLabelChecked(const char *label) override
+    {
+        if (!writable()) return false;
+        if (volume.use_count() != 1) { DOS_SetError(32); return false; }
+        const std::string dos_label(label);
+        const char *host = CodePageGuestToHost(dos_label.c_str());
+        if (!host) { DOS_SetError(DOSERR_DATA_INVALID); return false; }
+        const std::string value(host);
+        const int result = volume->relabel(value, dos_label, dos.loaded_codepage);
+        const int error = errno;
+        readonly = volume->readonly;
+        EmptyCache();
+        // LABEL's DOS spelling is supplied by the caller, not the UTF-8 host bytes.
+        if (!result) dirCache.SetLabel(dos_label.c_str(), false, true);
+        else if (volume->present()) {
+            const char *guest = volume->filesystem == "vfat" ? volume->label.c_str() :
+                                CodePageHostToGuest(volume->label.c_str());
+            if (guest) dirCache.SetLabel(guest, false, true);
+        }
+        if (!result) return true;
+        if (error == EBUSY) { DOS_SetError(32); return false; }
+        if (!volume->present()) return unavailable();
+        errno = error; return io_error();
+    }
+    void SetLabel(const char *label, bool, bool) override { SetLabelChecked(label); }
     bool isRemovable() override { return true; }
     Bits UnMount() override
     {

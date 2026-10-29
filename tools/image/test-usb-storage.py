@@ -9,11 +9,22 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[2]
 
 with tempfile.TemporaryDirectory(prefix='pi-dos-usb-storage.') as temporary:
     work = Path(temporary)
+    # AArch64 uses unsigned char. dosfstools 4.2's label validator interprets
+    # OEM bytes as controls on signed-char hosts, so build the pinned tool with
+    # the target's char semantics for this host-side filesystem test.
+    with tarfile.open(ROOT / 'dl/buildroot/dosfstools/dosfstools-4.2.tar.gz') as archive:
+        archive.extractall(work, filter='data')
+    fattools = work / 'dosfstools-4.2'
+    subprocess.run(['./configure', '--without-udev', 'CFLAGS=-O1 -funsigned-char'],
+                   cwd=fattools, check=True, capture_output=True)
+    subprocess.run(['make', '-C', 'src', '-j2', 'fatlabel'],
+                   cwd=fattools, check=True, capture_output=True)
     (work / 'dev').mkdir()
     (work / 'sys/class/block').mkdir(parents=True)
     (work / 'sys/dev/block').mkdir(parents=True)
@@ -114,6 +125,7 @@ with tempfile.TemporaryDirectory(prefix='pi-dos-usb-storage.') as temporary:
                          ('/run/pi-dos-usb', str(work / 'mounts'))):
             content = content.replace(json.dumps(old), json.dumps(new))
         content = content.replace('std::chrono::steady_clock::now()', 'test_now()')
+        content = content.replace('"/sbin/fatlabel"', json.dumps(str(fattools / 'src/fatlabel')))
         (work / f'pidos_usb_storage_{name}.h').write_text(content)
     shutil.copyfile(ROOT / 'src/runtime/usb_storage_api.h', work / 'pidos_usb_storage_api.h')
     shutil.copyfile(ROOT / 'src/runtime/drive_policy.h', work / 'pidos_drive_policy.h')
@@ -121,6 +133,10 @@ with tempfile.TemporaryDirectory(prefix='pi-dos-usb-storage.') as temporary:
     system = system.replace('"/dosdata/"', json.dumps(str(work / 'system-root') + '/'))
     system = system.replace('"/dosdata"', json.dumps(str(work / 'system-root')))
     (work / 'pidos_system_drive_dos.h').write_text(system)
+    runtime = next((ROOT / 'output/buildroot-arm64/build').glob('pi-dos-runtime-*'))
+    dos_files = (runtime / 'src/dos/dos_files.cpp').read_text()
+    start = dos_files.index('bool DOS_SetVolumeLabel(')
+    (work / 'checked-label.h').write_text(dos_files[start:dos_files.index('\n}', start) + 2])
     executable = work / 'check'
     subprocess.run(['g++', '-std=c++14', '-O1', '-Wall', '-Wextra', '-Werror', '-pthread',
                     '-I', str(work), str(ROOT / 'tools/image/usb-storage-test.cpp'),
@@ -128,4 +144,4 @@ with tempfile.TemporaryDirectory(prefix='pi-dos-usb-storage.') as temporary:
     result = subprocess.run([str(executable), str(work)], capture_output=True, text=True, timeout=30)
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
-print('USB storage: filesystems, partition filtering, letter reuse, stale handles/searches, durable writes, display processing during I/O and exception-safe completion passed')
+print('USB storage: discovery, file I/O, persistent FAT/exFAT labels, label errors, durable writes and display processing passed')

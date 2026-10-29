@@ -35,6 +35,15 @@ if 'BR2_PACKAGE_PI_DOS_RUNTIME=y\n' in text:
     lines = [line for line in text.splitlines()
              if not line.startswith('BR2_PACKAGE_FLUIDSYNTH=')
              and line != '# BR2_PACKAGE_FLUIDSYNTH is not set']
+    # Label tools receive UTF-8 after conversion from the guest DOS code page.
+    locales = []
+    for line in lines:
+        if line.startswith('BR2_GENERATE_LOCALE='):
+            locales = line.partition('=')[2].strip('"').split()
+    if 'C.UTF-8' not in locales:
+        locales.append('C.UTF-8')
+    lines = [line for line in lines if not line.startswith('BR2_GENERATE_LOCALE=')]
+    lines.append('BR2_GENERATE_LOCALE="' + ' '.join(locales) + '"')
     path.write_text('\n'.join(lines) + '\nBR2_PACKAGE_FLUIDSYNTH=y\n')
 PY
 make "${args[@]}" olddefconfig > "$root/output/logs/buildroot-arm64-config.log" 2>&1
@@ -97,6 +106,9 @@ else
         if [[ ! -f "$out/.pi-dos-runtime-source" ]] || [[ $(cat "$out/.pi-dos-runtime-source") != "$runtime_fingerprint" ]]; then
             make "${args[@]}" pi-dos-runtime-dirclean
         fi
+        # Enabling fatlabel changes installation choices in an already-built
+        # dosfstools package; Buildroot does not reinstall it on config changes.
+        make "${args[@]}" dosfstools-reinstall
         make "${args[@]}" pi-dos-runtime
         printf '%s\n' "$runtime_fingerprint" > "$out/.pi-dos-runtime-source"
         make "${args[@]}" pi-dos-init-rebuild

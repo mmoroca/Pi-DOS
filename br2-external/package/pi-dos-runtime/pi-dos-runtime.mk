@@ -3,7 +3,7 @@ PI_DOS_RUNTIME_SOURCE = dosbox-x-$(PI_DOS_RUNTIME_VERSION).tar.gz
 PI_DOS_RUNTIME_SITE = $(call github,joncampbell123,dosbox-x,$(PI_DOS_RUNTIME_VERSION))
 PI_DOS_RUNTIME_LICENSE = GPL-2.0-or-later
 PI_DOS_RUNTIME_LICENSE_FILES = COPYING
-PI_DOS_RUNTIME_DEPENDENCIES = sdl2 alsa-lib zlib libpng fluidsynth util-linux
+PI_DOS_RUNTIME_DEPENDENCIES = sdl2 alsa-lib zlib libpng fluidsynth util-linux dosfstools exfatprogs
 PI_DOS_RUNTIME_AUTORECONF = YES
 # The top-level build does not use libtool; bundled vs/ dependencies are unused.
 # Patching their ltmain.sh files also breaks retries after a configure failure.

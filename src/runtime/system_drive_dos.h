@@ -14,6 +14,8 @@ public:
         SetLabel("SYSTEM", false, false);
     }
     Bits UnMount() override { return 1; }
+    bool SetLabelChecked(const char *) override
+    { DOS_SetError(DOSERR_WRITE_PROTECTED); return false; }
 };
 
 class Install final : public Program {

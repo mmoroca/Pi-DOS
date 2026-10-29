@@ -1,0 +1,55 @@
+--- a/src/dos/drives.h
++++ b/src/dos/drives.h
+@@ -523,7 +523,7 @@
+ 	uint8_t Write_AbsoluteSector_INT25(uint32_t sectnum, void * data) override;
+ 	void UpdateDPB(unsigned char dos_drive) override;
+ 
+-	char const * GetLabel() override {return labelCache.GetLabel();};
++	char const * GetLabel() override;
+ 	void SetLabel(const char *label, bool iscdrom, bool updatable) override;
+ 	virtual void UpdateBootVolumeLabel(const char *label);
+ 	virtual uint32_t GetPartitionOffset(void);
+--- a/src/dos/drive_fat.cpp
++++ b/src/dos/drive_fat.cpp
+@@ -964,6 +964,41 @@
+ 	else
+ 		strcpy(entname, DBCS_upcase(findFile));
+ 	return true;
++}
++
++char const *fatDrive::GetLabel() {
++    // FORMAT writes the root label through raw sector I/O. A newly opened
++    // medium has no cached label, and no file search is required before VOL.
++    labelCache.SetLabel("", false, true);
++    uint32_t root_cluster = 0;
++    if (unformatted || !getDirClustNum("\\", &root_cluster, false))
++        return labelCache.GetLabel();
++
++    direntry entries[MAX_DIRENTS_PER_SECTOR];
++    const uint32_t per_sector = getSectSize() / sizeof(direntry);
++    assert(per_sector && per_sector <= MAX_DIRENTS_PER_SECTOR);
++    for (uint32_t index = 0; index < GetSectorCount(); ++index) {
++        if (!root_cluster && index * per_sector >= BPB.v.BPB_RootEntCnt) break;
++        const uint32_t sector = root_cluster ? getAbsoluteSectFromChain(root_cluster, index) :
++                                               firstRootDirSect + index;
++        if (!sector || readSector(sector, entries)) break;
++        for (uint32_t i = 0; i < per_sector; ++i) {
++            if (!root_cluster && index * per_sector + i >= BPB.v.BPB_RootEntCnt)
++                return labelCache.GetLabel();
++            const direntry &entry = entries[i];
++            if (entry.entryname[0] == 0) return labelCache.GetLabel();
++            if (entry.entryname[0] == 0xe5 || (entry.attrib & 0x3f) == 0x0f ||
++                (entry.attrib & (DOS_ATTR_VOLUME | DOS_ATTR_DIRECTORY)) != DOS_ATTR_VOLUME)
++                continue;
++            char label[12] = {};
++            memcpy(label, entry.entryname, 11);
++            if (static_cast<unsigned char>(label[0]) == 0x05) label[0] = (char)0xe5;
++            for (size_t n = 11; n && label[n - 1] == ' '; --n) label[n - 1] = 0;
++            labelCache.SetLabel(label, false, true);
++            return labelCache.GetLabel();
++        }
++    }
++    return labelCache.GetLabel();
+ }
+ 
+ void fatDrive::UpdateBootVolumeLabel(const char *label) {

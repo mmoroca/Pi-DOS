@@ -10,6 +10,7 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <iconv.h>
 #include <map>
 #include <memory>
 #include <set>
@@ -21,8 +22,10 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <strings.h>
+#include <spawn.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
@@ -30,6 +33,9 @@ static std::string root;
 static std::map<std::string, dev_t> devices, mounts;
 static int syncs = 0, fsyncs = 0;
 static bool fail_fsync = false, fail_syncfs = false, readonly_mount = false;
+static bool busy_mount = false, fail_label_tool = false;
+static bool exclusive_label_device = false;
+static bool fail_remount = false, kernel_readonly = false;
 static std::thread::id emulator_thread;
 static bool check_io_thread = false, guest_interrupts = true, throw_during_wait = false;
 static int idle_calls = 0, waiting_ticks = 0;
@@ -70,6 +76,9 @@ static int test_fstat(int fd, struct stat *st)
     const std::string path = "/proc/self/fd/" + std::to_string(fd);
     const auto length = readlink(path.c_str(), link, sizeof(link) - 1);
     if (!result && length > 0 && mounts.count(link)) st->st_dev = mounts[link];
+    if (!result && length > 0 && devices.count(link)) {
+        st->st_mode = S_IFBLK | 0600; st->st_rdev = devices[link];
+    }
     return result;
 }
 static int test_mount(const char *source, const char *target, const char *type, unsigned long flags, const void *)
@@ -77,12 +86,35 @@ static int test_mount(const char *source, const char *target, const char *type, 
     assert(flags & MS_SYNCHRONOUS);
     assert(flags & MS_NODEV); assert(flags & MS_NOSUID); assert(flags & MS_NOEXEC);
     assert(!strcmp(type, "vfat") || !strcmp(type, "exfat"));
+    if (fail_remount) { errno = EIO; return -1; }
     if (readonly_mount && !(flags & MS_RDONLY)) { errno = EROFS; return -1; }
     mounts[target] = devices.at(source);
     return 0;
 }
 static int test_umount2(const char *target, int) { mounts.erase(target); return 0; }
-static int test_umount(const char *target) { return test_umount2(target, 0); }
+static int test_umount(const char *target)
+{ if (busy_mount) { errno = EBUSY; return -1; } return test_umount2(target, 0); }
+static int test_open(const char *path, int flags)
+{
+    if (devices.count(path) && (flags & O_ACCMODE) == O_RDWR)
+        exclusive_label_device = flags & O_EXCL;
+    return ::open(path, flags);
+}
+static int test_fstatvfs(int fd, struct statvfs *status)
+{
+    const int result = ::fstatvfs(fd, status);
+    if (!result && kernel_readonly) status->f_flag |= ST_RDONLY;
+    return result;
+}
+static int test_spawn(pid_t *pid, const char *path, const posix_spawn_file_actions_t *actions,
+                      const posix_spawnattr_t *attributes, char *const argv[], char *const env[])
+{
+    if (fail_label_tool) return EIO;
+    // A regular-file fixture cannot enforce block-device exclusive claims.
+    // Simulate exfatlabel reopening our pinned device with its own O_EXCL.
+    if (strstr(path,"exfatlabel") && exclusive_label_device) return EBUSY;
+    return posix_spawn(pid, path, actions, attributes, argv, env);
+}
 static int test_fsync(int fd)
 {
     assert(!check_io_thread || std::this_thread::get_id() != emulator_thread);
@@ -111,6 +143,9 @@ static int test_fclose(FILE *stream)
 #define fsync test_fsync
 #define syncfs test_syncfs
 #define fclose test_fclose
+#define posix_spawn test_spawn
+#define open test_open
+#define fstatvfs test_fstatvfs
 #define GETFLAG(flag) guest_interrupts
 #define SETFLAGBIT(flag, value) (guest_interrupts = (value))
 #define LINUX 1
@@ -119,6 +154,20 @@ static int test_fclose(FILE *stream)
 #define DOSERR_WRITE_PROTECTED 19
 #define DOSERR_ACCESS_DENIED 5
 #define DOSERR_NO_MORE_FILES 18
+#define DOSERR_DATA_INVALID 13
+#define DOSERR_INVALID_DRIVE 15
+#define DOS_ATTR_VOLUME 8
+static char *convert_label(const char *value, const char *to, const char *from) {
+    static char buffer[4096]; char *input=const_cast<char *>(value), *output=buffer;
+    size_t left=strlen(value), available=sizeof(buffer)-1;
+    iconv_t conversion=iconv_open(to,from); assert(conversion != (iconv_t)-1);
+    const bool ok=iconv(conversion,&input,&left,&output,&available) != size_t(-1);
+    iconv_close(conversion); *output=0; return ok ? buffer : nullptr;
+}
+static char *CodePageGuestToHost(const char *value) { return convert_label(value,"UTF-8","CP437"); }
+static char *CodePageHostToGuest(const char *value) { return convert_label(value,"CP437","UTF-8"); }
+static char *DBCS_upcase(char *value)
+{ for (char *p = value; *p; ++p) *p = std::toupper(static_cast<unsigned char>(*p)); return value; }
 #define LFN_FILEFIND_MAX 255
 #define LOG_MSG(...) do { fprintf(stderr, __VA_ARGS__); fputc('\n', stderr); } while (false)
 using Bits = long;
@@ -129,7 +178,7 @@ static int lfn_filefind_handle = 258;
 static const bool IS_PC98_ARCH = false;
 static uint8_t IO_Read(unsigned) { return 0; }
 static void IO_Write(unsigned, uint8_t) {}
-static struct { struct { unsigned mediaid = 0; } tables; } dos;
+static struct { struct { unsigned mediaid = 0; } tables; unsigned loaded_codepage = 437; } dos;
 static unsigned Real2Phys(unsigned value) { return value; }
 static void mem_writeb(unsigned, unsigned) {}
 enum { OPEN_READ = 0, OPEN_WRITE = 1, OPEN_READWRITE = 2, OPEN_READ_NO_MOD = 4 };
@@ -214,6 +263,8 @@ public:
     virtual bool GetSystemFilename(char *, const char *) { return false; }
     virtual const char *GetLabel() { return dirCache.label.c_str(); }
     virtual void SetLabel(const char *label, bool cdrom, bool updatable) { dirCache.SetLabel(label, cdrom, updatable); }
+    virtual bool SetLabelChecked(const char *) { return true; }
+    virtual void EmptyCache() {}
     virtual bool isRemovable() { return false; }
     virtual Bits UnMount() { return 0; }
 };
@@ -221,6 +272,7 @@ static localDrive *Drives[DOS_DRIVES] = {};
 class Program { public: virtual ~Program() = default; virtual void Run() = 0; };
 #include "pidos_usb_storage_dos.h"
 #include "pidos_system_drive_dos.h"
+#include "checked-label.h"
 
 static void advance() { clock_now += std::chrono::seconds(6); PiDosUsbStoragePoll(); }
 static void put(const std::string &path, const std::string &value) { std::ofstream(path) << value; }
@@ -275,6 +327,43 @@ int main(int argc, char **argv)
     assert(pidos_storage::managed[8]->key().find("sdb") != std::string::npos);
     assert(pidos_storage::managed[9]->key().find("sdc5") != std::string::npos);
     assert(pidos_storage::managed[10]->key().find("sdg2") != std::string::npos);
+    assert(!DOS_SetVolumeLabel(25, "SYSTEM") && error == DOSERR_WRITE_PROTECTED);
+    assert(!DOS_SetVolumeLabel(24, "MISSING") && error == DOSERR_INVALID_DRIVE);
+    for (const char *bad : {"TOO MANY CHARS", "BAD.NAME", "BAD?NAME", " LEADING", "BAD\x01"})
+        assert(!DOS_SetVolumeLabel(4, bad) && error == DOSERR_DATA_INVALID);
+    assert(DOS_SetVolumeLabel(4, "mixed case ") && !strcmp(Drives[4]->GetLabel(), "MIXED CASE"));
+
+    // Actual fatlabel/exfatlabel tools update only the sparse filesystem images.
+    for (const int drive : {4, 6, 7, 8, 9, 10}) {
+        assert(Drives[drive]->SetLabelChecked("USB DATA"));
+        assert(!strcmp(Drives[drive]->GetLabel(), "USB DATA"));
+        assert(Drives[drive]->SetLabelChecked(""));
+        assert(!*Drives[drive]->GetLabel());
+        assert(DOS_SetVolumeLabel(drive, "CAF\x90")); // CP437 capital E acute.
+        assert(!strcmp(Drives[drive]->GetLabel(), "CAF\x90"));
+        assert(Drives[drive]->FileCreate(nullptr, "FORMATTED", DOS_ATTR_VOLUME));
+        assert(!strcmp(Drives[drive]->GetLabel(), "FORMATTED"));
+    }
+    busy_mount = true;
+    assert(!Drives[4]->SetLabelChecked("BUSY") && error == 32);
+    busy_mount = false;
+    assert(!strcmp(Drives[4]->GetLabel(), "FORMATTED"));
+    fail_label_tool = true;
+    assert(!Drives[4]->SetLabelChecked("FAILED")); fail_label_tool = false;
+    assert(!strcmp(Drives[4]->GetLabel(), "FORMATTED") && mounts.size() == 6);
+    assert(Drives[4]->SetLabelChecked("RECOVERED"));
+    fail_remount = true;
+    assert(!Drives[6]->SetLabelChecked("LOST MOUNT") && error == DOSERR_DRIVE_NOT_READY);
+    fail_remount = false; advance();
+    assert(Drives[6] && !strcmp(Drives[6]->GetLabel(), "LOST MOUNT"));
+    kernel_readonly = true;
+    assert(!Drives[7]->SetLabelChecked("NO WRITE") && error == DOSERR_WRITE_PROTECTED);
+    kernel_readonly = false;
+    assert(!strcmp(Drives[7]->GetLabel(), "FORMATTED"));
+    DOS_File *label_busy = nullptr;
+    assert(Drives[4]->FileCreate(&label_busy, "BUSY.DAT", 0));
+    assert(!Drives[4]->SetLabelChecked("OPEN FILE") && error == 32);
+    assert(label_busy->Close()); delete label_busy;
 
     DOS_File *completed = nullptr;
     assert(Drives[4]->FileCreate(&completed, "COMPLETE.DAT", 0));
@@ -338,8 +427,10 @@ int main(int argc, char **argv)
     assert(!Drives[8] && Drives[9] == stable);
     put(sys("sdb") + "/diskseq", "2"); readonly_mount = true; advance(); readonly_mount = false;
     assert(Drives[8] && Drives[9] == stable);
+    assert(!strcmp(Drives[8]->GetLabel(), "FORMATTED")); // Read back after reconnect.
     DOS_File *readonly_file = nullptr;
     assert(!Drives[8]->FileCreate(&readonly_file, "NO.DAT", 0) && error == DOSERR_WRITE_PROTECTED);
+    assert(!Drives[8]->SetLabelChecked("READ ONLY") && error == DOSERR_WRITE_PROTECTED);
 
     DOS_File *failed = nullptr;
     assert(Drives[4]->FileCreate(&failed, "FAILED.DAT", 0));

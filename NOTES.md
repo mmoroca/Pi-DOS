@@ -100,22 +100,22 @@
 
 - [v] Persistent C: drive
 - [v] Multiple DOS drives (C:, D:, etc.)
-- [ ] DOS drive-letter mapping
+- [v] DOS drive-letter mapping
 - [ ] FAT12 / FAT16 / FAT32 disk images
-- [ ] Host filesystem mapping
-- [ ] Case-insensitive filenames
-- [ ] 8.3 filename compatibility
+- [v] Host filesystem mapping
+- [v] Case-insensitive filenames
+- [v] 8.3 filename compatibility
 - [ ] DOS file attributes
-- [ ] DOS timestamps
-- [ ] DOS volume labels
+- [v] DOS timestamps
+- [v] DOS volume labels
 - [ ] Floppy disk images
 - [ ] Hard disk images
 - [ ] CD-ROM emulation
 - [ ] ISO image mounting
 - [ ] MSCDEX compatibility
 - [ ] Multi-disc switching
-- [ ] USB storage mounting
-- [ ] Automatic USB drive mapping
+- [v] USB storage mounting
+- [v] Automatic USB drive mapping
 - [ ] ZIP archive mounting
 - [ ] Read-only disk images
 - [ ] Writable disk overlays

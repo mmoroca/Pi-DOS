@@ -841,6 +841,34 @@ optical devices, already mounted volumes, EFI/reserved/recovery/hidden
 partitions, unsupported filesystems and conflicting signatures are skipped.
 No volume is automatically repaired, repartitioned or formatted.
 
+#### Persistent volume labels
+
+`LABEL A:GAME DISK` changes the floppy label. Volume-label creates, deletes and
+renames use the same checked DOS backend. The floppy writes its FAT
+root-directory entry and boot-sector label through the existing
+media/write-protection guards. FORMAT also writes labels through raw sector
+I/O; FAT label reads scan the root directory, so VOL/DIR show that label
+immediately after formatting or reopening the disk, before any file search.
+
+`LABEL E:USB GAMES` changes the actual FAT12/16/32 or exFAT label on a USB volume.
+`LABEL E:` asks whether to remove an existing label. Updates follow DOS label
+rules: at most 11 DOS bytes, uppercased using the guest code page, with invalid
+characters rejected. Unlabelled volumes now report no label instead of a
+synthetic `USB` label. `VOL` and directory listings reflect successful changes,
+and labels remain after disconnect/reconnect or access from another computer.
+
+Close open files on the USB volume first. Pi-DOS flushes it, performs an ordinary
+unmount, invokes `fatlabel` or `exfatlabel` using a pinned device descriptor and
+exclusive write access, verifies the result and remounts the volume at its existing
+letter. A busy mount is not forcibly detached for relabelling. Failed updates
+still attempt to restore access and report an error; media replacement aborts
+the operation. Label tools use the supplied `C.UTF-8` locale after DOS code-page
+conversion. Native development builds need both tools installed on the host.
+
+C: remains `SYSTEM` and Z: remains `PI-DOS`; their labels are protected. CD/DVD
+labels remain read-only. `LABEL` returns an error status for protected, missing,
+busy or failed updates. Invalid label input does not delete the existing label.
+
 Writable volumes use synchronous Linux mounts. DOS file writes and truncates
 flush stdio and check `fsync`; file close also commits timestamps and checks
 filesystem flushing. Creation, deletion, rename and directory/attribute changes

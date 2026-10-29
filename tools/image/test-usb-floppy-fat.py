@@ -20,7 +20,7 @@ if 'usbSectorDirty' not in source or 'direntry encoded = {};' not in source:
     parser.error('runtime sources need 0015-usb-floppy-fat-io.patch and 0016-usb-floppy-metadata.patch')
 start=source.index('class fatFile :')
 parts=[source[start:source.index('\n};',start)+3]]
-for signature in ['fatFile::fatFile(', 'void fatFile::Flush(', 'bool fatFile::Read(', 'bool fatFile::Write(', 'bool fatFile::Seek(', 'bool fatFile::Close(', 'uint16_t fatFile::GetInformation(', 'bool fatFile::UpdateDateTimeFromHost(', 'uint32_t fatFile::GetSeekPos(']:
+for signature in ['fatFile::fatFile(', 'void fatFile::Flush(', 'bool fatFile::Read(', 'bool fatFile::Write(', 'bool fatFile::Seek(', 'bool fatFile::Close(', 'uint16_t fatFile::GetInformation(', 'bool fatFile::UpdateDateTimeFromHost(', 'uint32_t fatFile::GetSeekPos(', 'char const *fatDrive::GetLabel(', 'void fatDrive::UpdateBootVolumeLabel(', 'void fatDrive::SetLabel(']:
     start=source.index(signature)
     parts.append(source[start:source.index('\n}',start)+2])
 for signature in ['static void copyDirEntry(', 'bool fatDrive::directoryChange(', 'void fatDrive::UpdateDPB(']:
@@ -35,6 +35,8 @@ prefix=r'''
 #include <cstring>
 #include <ctime>
 #include <cstdio>
+#include <string>
+#include <cctype>
 #define SECTOR_SIZE_MAX 512
 static void fake_log(const char*,...) {}
 #define LOG(...) fake_log
@@ -45,6 +47,14 @@ static void fake_log(const char*,...) {}
 #define OPEN_READ 0
 #define OPEN_WRITE 1
 #define DOSERR_ACCESS_DENIED 5
+#define DOS_ATTR_VOLUME 8
+#define DOS_ATTR_DIRECTORY 16
+static bool uselfn = false;
+static char *DBCS_upcase(char *value) { for (char *p=value; *p; ++p) *p=std::toupper(static_cast<unsigned char>(*p)); return value; }
+struct FAT_BootSector {
+ uint8_t prefix[43]; struct { struct { char BPB_VolLab[11]; } v; } bpb; uint8_t suffix[458];
+};
+static_assert(sizeof(FAT_BootSector)==512,"FAT boot label offset");
 static void DOS_SetError(int) {}
 static void time_t_to_DOS_DateTime(uint16_t &t,uint16_t &d,time_t) {t=1;d=2;}
 class DOS_File {
@@ -70,7 +80,7 @@ template<class T> static void var_write(T *p,T v){memcpy(p,&v,sizeof(v));}
 class fatDrive {
 public:
  struct clusterChainMemory {};
- void *loadedDisk=this;
+ fatDrive *loadedDisk=this;
  bool native=true;
  uint8_t media[100][512]={};
  unsigned int reads=0,writes=0,allocated=0;
@@ -83,12 +93,32 @@ public:
  uint32_t appendCluster(uint32_t,clusterChainMemory * = nullptr,clusterChainMemory * = nullptr){++allocated;return 2;}
  void deleteClustChain(uint32_t,uint32_t pos){allocated=(pos+511)/512;}
  uint32_t getAbsoluteSectFromBytePos(uint32_t,uint32_t pos,clusterChainMemory*){return pos/512<allocated?pos/512+1:0;}
- void readSector(uint32_t sector,void*data){assert(sector&&sector<100);++reads;memcpy(data,media[sector],512);}
+ uint8_t readSector(uint32_t sector,void*data){assert(sector&&sector<100);++reads;memcpy(data,media[sector],512);return read_failure?1:0;}
  void writeSector(uint32_t sector,void*data){assert(sector&&sector<100);++writes;memcpy(media[sector],data,512);}
  void directoryBrowse(uint32_t,direntry*e,int32_t){*e=entry;}
  void directoryChange(uint32_t,const direntry*e,int32_t){entry=*e;}
- struct BPB {bool is_fat32(){return false;}};
- BPB GetBPB(){return {};}
+ struct BootParameters {
+  struct {uint16_t BPB_RootEntCnt=224; uint8_t BPB_BootSig=0x29;} v;
+  bool is_fat32(){return false;}
+ } BPB;
+ BootParameters GetBPB(){return BPB;}
+ bool unformatted=false,read_failure=false,fat32=false;
+ uint32_t firstRootDirSect=19,partSectOff=0;
+ struct LabelCache {
+  std::string value;
+  void SetLabel(const char *label,bool,bool){value=label;}
+  const char *GetLabel(){return value.c_str();}
+ } labelCache;
+ unsigned int getSectSize(){return 512;}
+ bool getDirClustNum(const char*,uint32_t *cluster,bool){*cluster=fat32?2:0;return true;}
+ uint32_t getAbsoluteSectFromChain(uint32_t,uint32_t index){return index<2?19+index:0;}
+ uint32_t GetSectorCount(){return 100;}
+ void zeroOutCluster(uint32_t){}
+ void Read_AbsoluteSector(uint32_t n,void *p){memcpy(p,media[n],512);}
+ void Write_AbsoluteSector(uint32_t n,const void *p){++writes;memcpy(media[n],p,512);}
+ void SetLabel(const char*,bool,bool);
+ const char *GetLabel();
+ void UpdateBootVolumeLabel(const char*);
 };
 static bool PI_DOS_IsUSBFloppyImage(void*p){return static_cast<fatDrive*>(p)->native;}
 // Exercise the actual directory method separately, including subdirectories.
@@ -212,7 +242,51 @@ int main(){
  dos.version.major=3;dpb.UpdateDPB(0);
  assert(dpb_memory[ptr+0x0f]==3&&mem_readw(ptr+0x10)==7&&dpb_memory[ptr+0x16]==0xf9);
  assert(mem_readw(ptr+0x1e)==0xffff);
- puts("PASS: actual FAT methods: full/partial writes, boundaries, EOF, clean flush/close, directory updates and DOS 3/4+ DPB geometry");
+ // Real FAT label methods must update both root entry and boot-sector label,
+ // preserving neighbouring directory entries and unrelated boot bytes.
+ fatDrive labeled;
+ memset(labeled.media,0,sizeof(labeled.media));
+ labeled.media[0][0]=0xeb;labeled.media[0][510]=0x55;labeled.media[0][511]=0xaa;
+ auto entries=reinterpret_cast<direntry*>(labeled.media[19]);
+ memcpy(entries[0].entryname,"KEEP    TXT",11);entries[0].attrib=0x20;
+ labeled.SetLabel("GAME DISK",false,true);
+ assert(!memcmp(entries[1].entryname,"GAME DISK  ",11)&&entries[1].attrib==DOS_ATTR_VOLUME);
+ assert(!memcmp(labeled.media[0]+43,"GAME DISK  ",11));
+ assert(!memcmp(entries[0].entryname,"KEEP    TXT",11)&&entries[0].attrib==0x20);
+ assert(labeled.media[0][0]==0xeb&&labeled.media[0][510]==0x55&&labeled.media[0][511]==0xaa);
+ labeled.SetLabel("",false,true);
+ assert(entries[1].entryname[0]==0xe5&&labeled.labelCache.value.empty());
+ assert(!memcmp(labeled.media[0]+43,"NO NAME    ",11));
+ labeled.SetLabel("NEW LABEL",false,true);
+ assert(!memcmp(entries[1].entryname,"NEW LABEL  ",11));
+ assert(!memcmp(labeled.media[0]+43,"NEW LABEL  ",11));
+ // FORMAT writes sectors directly and the floppy adapter recreates fatDrive.
+ // VOL must read the new root label before any directory/FCB search occurs.
+ fatDrive formatted;
+ memcpy(formatted.media,labeled.media,sizeof(formatted.media));
+ assert(formatted.labelCache.value.empty());
+ assert(!strcmp(formatted.GetLabel(),"NEW LABEL"));
+ auto root=reinterpret_cast<direntry*>(formatted.media[19]);
+ memcpy(root[1].entryname,"FORMATDISK ",11);
+ auto written=formatted.writes;
+ assert(!strcmp(formatted.GetLabel(),"FORMATDISK")&&formatted.writes==written);
+ root[1].entryname[0]=0xe5;
+ assert(!*formatted.GetLabel()); // Deleted label must not survive in cache.
+ // Skip LFN/deleted entries and read labels beyond the first root sector.
+ for(unsigned i=0;i<16;++i){root[i].entryname[0]=0xe5;root[i].attrib=0;}
+ root[0].entryname[0]='L';root[0].attrib=0x0f;
+ auto next=reinterpret_cast<direntry*>(formatted.media[20]);
+ memcpy(next[0].entryname,"SECOND ROOT",11);next[0].attrib=DOS_ATTR_VOLUME;
+ assert(!strcmp(formatted.GetLabel(),"SECOND ROOT"));
+ formatted.BPB.v.BPB_RootEntCnt=16;
+ assert(!*formatted.GetLabel()); // Never scan beyond a fixed FAT12/16 root.
+ formatted.fat32=true;
+ assert(!strcmp(formatted.GetLabel(),"SECOND ROOT")); // FAT32 root chain.
+ root[1].entryname[0]=0;
+ assert(!*formatted.GetLabel()); // End marker takes precedence over later data.
+ root[1].entryname[0]=0xe5;formatted.read_failure=true;
+ assert(!*formatted.GetLabel());
+ puts("PASS: actual FAT methods: file I/O, metadata, DOS 3/4+ DPB geometry, persistent labels and FORMAT raw-label refresh");
 }
 '''
 with tempfile.TemporaryDirectory(prefix='pi-dos-floppy-fat.') as temporary:

@@ -31,6 +31,9 @@ def main():
     images = OUT / 'images'
     target = OUT / 'target'
     buildroot = (OUT / '.config').read_text()
+    locales = re.search(r'^BR2_GENERATE_LOCALE="(.*)"$', buildroot, re.M)
+    require(locales and 'C.UTF-8' in locales.group(1).split(),
+            'USB label tools require the C.UTF-8 locale')
     require('BR2_cortex_a53=y\n' in buildroot and 'BR2_cortex_a76=y\n' not in buildroot,
             'Userspace must use the common Cortex-A53 instruction baseline')
     for name in ('init', 'pi-dos/pi-dos'):
@@ -45,7 +48,9 @@ def main():
                  'pi-dos/network-dns', 'sbin/dhcpcd', 'usr/sbin/chronyd',
                  'etc/dhcpcd.conf', 'etc/chrony.conf', 'etc/resolv.conf', 'var/run',
                  'pi-dos/drivez/BIN/ARJ.EXE', 'pi-dos/drivez/BIN/PIDOSCFG.EXE', 'dev/console',
-                 'sbin/fsck.fat', 'lib/firmware/edid/dac-crt.bin'):
+                 'sbin/fsck.fat', 'sbin/fatlabel', 'usr/sbin/exfatlabel', 'usr/lib/locale/locale-archive',
+                 'usr/lib/gconv/IBM437.so',
+                 'lib/firmware/edid/dac-crt.bin'):
         require(name in names, f'Missing initramfs file: {name}')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_init = subprocess.check_output(['cpio', '-i', '--to-stdout', '--quiet', 'init'], stdin=stream)
@@ -142,7 +147,8 @@ def main():
     for value in (b'PIUSB.COM', b'Pi-DOS USB storage:', b'/run/pi-dos-usb'):
         require(value in packed_runtime, 'Runtime lacks automatic USB filesystem drives; rebuild pi-dos-runtime')
     for value in (b'PISYSTEM.COM', b'PI_DOS_SYSTEM_STORAGE', b'Pi-DOS manages drive mappings.',
-                  b'Type MOUNT to list available drives.', b'Not ready reading drive %c\n'):
+                  b'Type MOUNT to list available drives.', b'Not ready reading drive %c\n',
+                  b'Unable to update volume label on drive %c:'):
         require(value in packed_runtime, 'Runtime lacks managed system drives; rebuild pi-dos-runtime')
     require(b'PI_DOS_SUPERVISED' in packed_init and
             b'Ctrl+Alt+Delete requested a supervised reboot' in (target / 'pi-dos/pi-dos').read_bytes(),
