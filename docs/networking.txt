@@ -1,0 +1,101 @@
+Pi-DOS networking
+=================
+
+Run PIDOSCFG and select Network (F5/F6 or click). Save with F2 and REBOOT.
+Networking support is included, with IPX and NE2000 disabled by default.
+Use wired Ethernet. Linux configures the Pi's address through DHCP; a DOS or
+Windows guest using PCAP has its own MAC address and its own IP settings.
+
+IPX tunnel multiplayer
+----------------------
+Enable IPX tunnel. Select Host a tunnel server on one machine, and Connect
+on the others, using the host's IP address. Match the UDP port (default 213).
+Manual mode leaves connection to IPXNET STARTSERVER or IPXNET CONNECT host.
+NETUP retries the saved connection. IPXNET PING tests the tunnel; NETINFO
+shows its status. A firewall must allow the selected UDP port.
+This communicates with compatible emulator IPX tunnels, not native IPX PCs.
+
+DOS TCP/IP with SLIRP (NAT)
+--------------------------
+Enable NE2000 Ethernet; select SLIRP and mTCP with DHCP. The supplied NE2000
+packet driver and mTCP DHCP client start before your AUTOEXEC.BAT. NETUP
+retries after a cable/DHCP failure; retries are bounded so boot can continue.
+Tools on Z:\NETWORK\MTCP include FTP, HTGET, TELNET, PING and DNSTEST.
+Use FTP server-name, HTGET -o file.txt http://server/file.txt, or TELNET host.
+MTCPCFG points to C:\SYSTEM\NET\MTCP.CFG. This file is generated at boot;
+DHCP updates its lease. Use Manual startup and your own MTCPCFG file when
+you want custom mTCP application options to persist independently.
+The bundled manual is Z:\NETWORK\MTCP\MANUAL.PDF; source is SOURCE.ZIP.
+
+Network card settings default to I/O 300h, IRQ 10 and a random unicast MAC.
+All drivers must match the card settings. Choose a unique fixed MAC for a
+stable DHCP reservation, for example AC:DE:48:11:22:33.
+Static startup uses the IPv4 address, mask, gateway and DNS in TCP/IP settings.
+SLIRP defaults: DOS 10.0.2.15, mask 255.255.255.0, gateway 10.0.2.2,
+DNS 10.0.2.3. These are guest addresses, separate from the Pi's LAN address.
+Advanced SLIRP subnet keys remain editable in PIDOS.CFG.
+TCP/IP settings also accepts space-separated host:guest TCP/UDP ports, such
+as 8021:21 8080:80. Inbound NAT services need appropriate port forwarding.
+SLIRP does not carry raw Ethernet IPX or NetBEUI broadcasts.
+
+Direct wired LAN using PCAP
+--------------------------
+Enable NE2000 Ethernet, select PCAP, and enter the host Ethernet interface
+(usually eth0; USB adapters can use eth1 or an enx... name). PCAP sends and
+receives guest Ethernet frames directly on that LAN. The switch must permit
+the guest's additional MAC address. Wi-Fi bridging is not supported here.
+Use mTCP DHCP/static for DOS TCP/IP on the LAN, or let Windows load its own
+network drivers. The runtime already runs as root, so PCAP needs no added
+capability command. A working physical link is still required.
+
+Native DOS IPX with real retro PCs
+---------------------------------
+Select PCAP, disable IPX tunnel, and choose Native IPX (user drivers).
+Supply compatible LSL.COM, NE2000.COM (the ODI driver, NOT the packet driver)
+and IPXODI.COM in the selected driver directory, default C:\NETWORK\IPX.
+These third-party files are not supplied. Match the frame type to the peers.
+NETUP loads them from C:\SYSTEM\NET using its generated NET.CFG, with the
+selected I/O address, IRQ and frame type. Reboot before switching stacks.
+Some games also need a compatible NETBIOS driver, loaded by your own BAT.
+
+Windows for Workgroups 3.11 and real file sharing
+-----------------------------------------------
+1. Use your own Windows for Workgroups installation media. In PIDOSCFG select
+   NE2000 enabled, PCAP, the wired interface, and Windows for Workgroups
+   drivers. Disable IPX tunnel. Set the Windows directory if not C:\WINDOWS.
+2. In Windows Network Setup select an NE2000-compatible NDIS adapter, with
+   the same I/O address and IRQ (defaults 300h and 10). Configure the machine
+   name, workgroup, required protocols and file/printer sharing in Windows.
+3. For TCP/IP install your Microsoft TCP/IP-32 package for WfW 3.11. Configure
+   DHCP or a free static address on your actual LAN, including the correct
+   mask, gateway and DNS. Do not use SLIRP's 10.0.2.x addresses on your LAN.
+4. From Pi-DOS run WFWNET, then start Windows normally (for example
+   C:\WINDOWS\WIN). WFWNET loads your IFSHLP.SYS with DEVICE.COM and runs
+   your Windows NET START. Do not load the DOS packet or ODI driver first.
+   In Windows, use File Manager to connect a network drive or share a folder.
+
+Windows and TCP/IP-32 are not bundled or installed automatically. When booting
+an external DOS image, use that DOS's CONFIG.SYS/AUTOEXEC.BAT instead of WFWNET.
+WfW's file-sharing protocols are old: SMB1 and legacy authentication are not
+accepted by many modern Windows/NAS defaults. A real LAN connection does not
+add SMB2/3 support to Windows 3.11. Use a compatible retro file server or an
+intermediary configured for these clients. Pi-DOS does not change other
+machines' security settings. Physical Pi/WfW file-sharing validation remains
+necessary; compiling PCAP alone does not establish Windows compatibility.
+
+Troubleshooting
+---------------
+Run NETINFO. With diagnostics enabled, runtime adapter errors are recorded in
+C:\SYSTEM\RUNTIME.LOG; host DHCP output is in NETWORK.LOG. Reboot after changes.
+Check cable, interface name, driver resources, guest IP and peer protocols.
+If there is no cable at boot, reconnect and run NETUP (or WFWNET for Windows).
+The generated launchers are on Z:\NETWORK and the standard DOS PATH.
+
+Sources and licenses
+--------------------
+DOSBox-X networking/Windows guides:
+https://dosbox-x.com/wiki/Guide%3ASetting-up-networking-in-DOSBox%E2%80%90X
+https://dosbox-x.com/wiki/Guide:Installing-Windows-3.1x
+mTCP: Michael B. Brutman, GPL v3. COPYING.TXT and corresponding SOURCE.ZIP
+are included with the binaries on Z:\NETWORK\MTCP. FreeDOS package provenance
+is recorded in PACKAGE.TXT and configs/network-assets.json in Pi-DOS source.

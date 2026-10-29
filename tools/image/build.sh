@@ -24,6 +24,7 @@ if [[ "$mode" == configure ]]; then
     echo "Configured: $out/.config"
     exit 0
 fi
+python3 tools/dos/network-assets.py --fetch
 # Preserve local configuration while incorporating updated package selections.
 # Existing output directories predate the required internal MIDI synth library.
 python3 - "$out/.config" <<'PY'

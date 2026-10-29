@@ -26,6 +26,7 @@
 #include "startup.h"
 #include "diagnostics.h"
 #include "network.h"
+#include "dos_network.h"
 #include "timezone.h"
 #include "config.h"
 #include "video.h"
@@ -279,6 +280,8 @@ static bool make_config(enum storage storage, const char *user_config)
     if (diagnostics.boot_fd >= 0 || diagnostics.runtime_fd >= 0)
         fputs("ECHO Diagnostic capture enabled; logs are in C:\\SYSTEM.\n", output);
     pi_dos_mixer(output, user_config);
+    if (!pi_dos_dos_network(user_config, "/pi-dos/drivez", "/dosdata",
+                            storage == READ_WRITE, output)) valid = false;
     if (drive_c) {
         if (storage == READ_ONLY)
             fputs("ECHO WARNING: drive C: is read-only; storage requires recovery.\n", output);
@@ -417,6 +420,7 @@ int main(void)
     prepare_dos_folders(storage);
     seed_user_file(storage, "/pi-dos/PIDOS.CFG", USER_CONFIG_PATH);
     seed_user_file(storage, "/pi-dos/AUTOEXEC.BAT", "/dosdata/AUTOEXEC.BAT");
+    seed_user_file(storage, "/pi-dos/NETWORK.TXT", "/dosdata/DOCS/NETWORK.TXT");
     const char *midi_assets[] = {"SC55.SF2", "GMROLAND.SF2", "MT32/MT32_CONTROL.ROM", "MT32/MT32_PCM.ROM",
                                 "CM32L/CM32L_CONTROL.ROM", "CM32L/CM32L_PCM.ROM"};
     for (size_t i = 0; i < sizeof(midi_assets) / sizeof(midi_assets[0]); ++i) {

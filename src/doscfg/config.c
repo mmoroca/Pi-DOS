@@ -8,6 +8,7 @@
 #include <dos.h>
 #endif
 #include "config.h"
+#include "network_options.h"
 #define PIDOS_INPUT_OPTIONS_VALIDATE
 #include "input_options.h"
 #define CFG_CAPACITY 24576
@@ -57,7 +58,27 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("joystick","autofire","false",PAGE_INPUT),
  S("pidos","shortcut_reboot","Ctrl+Alt+Delete",PAGE_SYSTEM),
  S("pidos","shortcut_poweroff","none",PAGE_SYSTEM),
- S("pidos","shortcut_pause","none",PAGE_SYSTEM)
+ S("pidos","shortcut_pause","none",PAGE_SYSTEM),
+ S("ipx","ipx","false",PAGE_NETWORK),
+ S("pidos","ipx_mode","manual",PAGE_NETWORK),
+ S("pidos","ipx_server","192.168.1.50",PAGE_NETWORK),
+ S("pidos","ipx_port","213",PAGE_NETWORK),
+ S("ne2000","ne2000","false",PAGE_NETWORK),
+ S("ne2000","backend","slirp",PAGE_NETWORK),
+ S("ne2000","nicbase","300",PAGE_NETWORK),
+ S("ne2000","nicirq","10",PAGE_NETWORK),
+ S("ne2000","macaddr","random",PAGE_NETWORK),
+ S("ethernet, pcap","realnic","eth0",PAGE_NETWORK),
+ S("pidos","net_startup","manual",PAGE_NETWORK),
+ S("pidos","net_ip","10.0.2.15",PAGE_NETWORK),
+ S("pidos","net_mask","255.255.255.0",PAGE_NETWORK),
+ S("pidos","net_gateway","10.0.2.2",PAGE_NETWORK),
+ S("pidos","net_dns","10.0.2.3",PAGE_NETWORK),
+ S("ethernet, slirp","tcp_port_forwards","",PAGE_NETWORK),
+ S("ethernet, slirp","udp_port_forwards","",PAGE_NETWORK),
+ S("pidos","net_ipx_path","C:\\NETWORK\\IPX",PAGE_NETWORK),
+ S("pidos","net_ipx_frame","Ethernet_802.2",PAGE_NETWORK),
+ S("pidos","net_windows","C:\\WINDOWS",PAGE_NETWORK)
 };
 const char *card_names[CARD_COUNT] = {"None", "Tandy sound", "AdLib",
  "Creative Game Blaster / CMS", "Sound Blaster 2.0", "Sound Blaster Pro 2",
@@ -98,10 +119,25 @@ void cfg_seed(int key,const char *value) {
 int cfg_set(int key, const char *value) {
  unsigned int i; char copy[CFG_VALUE_SIZE], *colon; int valid=1;
  if(key<0 || key>=K_COUNT || strlen(value)>=CFG_VALUE_SIZE) valid=0;
- if(!*value && key!=K_MIDI_CONFIG && key!=K_MT32_DIR && key!=K_MIDI_PORT) valid=0;
+ if(!*value && key!=K_MIDI_CONFIG && key!=K_MT32_DIR && key!=K_MIDI_PORT && key!=K_NET_TCP_PORTS && key!=K_NET_UDP_PORTS) valid=0;
  if(valid) for(i=0;value[i];++i) if((unsigned char)value[i]<32 || (unsigned char)value[i]>126) valid=0;
  if(!valid) { strcpy(cfg_error,"Invalid or overlong configuration value."); return 0; }
  switch(key) {
+ case K_IPX: case K_NE2000: valid=one_of(value,"true|false"); break;
+ case K_IPX_MODE: valid=one_of(value,"manual|server|client"); break;
+ case K_IPX_SERVER: valid=pidos_net_host(value); break;
+ case K_IPX_PORT: valid=pidos_net_port(value); break;
+ case K_NET_BACKEND: valid=one_of(value,"slirp|pcap"); break;
+ case K_NET_BASE: valid=one_of(value,"200|220|240|260|280|2c0|300|320|340|360"); break;
+ case K_NET_IRQ: valid=one_of(value,"3|4|5|9|10|11|12|14|15"); break;
+ case K_NET_MAC: valid=pidos_net_mac(value); break;
+ case K_NET_INTERFACE: valid=pidos_net_interface(value); break;
+ case K_NET_STARTUP: valid=one_of(value,"manual|packet|dhcp|static|native-ipx|windows"); break;
+ case K_NET_IP: case K_NET_MASK: case K_NET_GATEWAY: case K_NET_DNS:
+  valid=pidos_net_ipv4(value); break;
+ case K_NET_TCP_PORTS: case K_NET_UDP_PORTS: valid=pidos_net_forwards(value); break;
+ case K_NET_WINDOWS: case K_NET_IPX_PATH: valid=pidos_net_dos_path(value); break;
+ case K_NET_IPX_FRAME: valid=one_of(value,"Ethernet_802.2|Ethernet_802.3|Ethernet_II|Ethernet_SNAP"); break;
  case K_JOY_TYPE: valid=one_of(value,"none|auto|2axis|4axis|4axis_2|fcs|ch"); break;
  case K_CONTROLLER_LAYOUT: valid=one_of(value,"auto|raw"); break;
  case K_CONTROLLER_DIRECTION: valid=one_of(value,"both|stick|dpad"); break;
@@ -350,6 +386,13 @@ int cfg_save_changes(const char *path) {
    ((same(values[K_CPU_TYPE],"286") && atoi(values[K_RAM])>16) ||
     (one_of(values[K_CPU_TYPE],"8086|80186") && atoi(values[K_RAM])>1))) {
   strcpy(cfg_error,"This CPU cannot address the selected RAM. Reduce RAM or choose a newer CPU."); return 0;
+ }
+ if(same(cfg_get(K_NE2000),"true") && same(cfg_get(K_NET_STARTUP),"native-ipx") &&
+    (!same(cfg_get(K_NET_BACKEND),"pcap") || same(cfg_get(K_IPX),"true"))) {
+  strcpy(cfg_error,"Native IPX needs PCAP and the built-in IPX tunnel disabled."); return 0;
+ }
+ if(same(cfg_get(K_NE2000),"true") && same(cfg_get(K_NET_STARTUP),"windows") && same(cfg_get(K_IPX),"true")) {
+  strcpy(cfg_error,"Windows uses its own network drivers. Disable the built-in IPX tunnel."); return 0;
  }
  /* Only pending keys are changed; reload raw bytes to retain unrelated external edits. */
  if(!load_contents(path)) return 0;

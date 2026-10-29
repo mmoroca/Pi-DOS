@@ -64,6 +64,7 @@ assert config.count(b'diagnostics=false\r\n') == 1, 'Missing/ambiguous diagnosti
 path.write_bytes(config.replace(b'diagnostics=false\r\n', b'diagnostics=true\r\n'))
 PY
 fi
+install -m 0644 "$TARGET_DIR/pi-dos/NETWORK.TXT" "$data/DOCS/NETWORK.TXT"
 install -m 0644 "$TARGET_DIR/pi-dos/AUTOEXEC.BAT" "$data/AUTOEXEC.BAT"
 mkdir -p "$data/PROGRAMS/DOSZIP"
 cp -a "$board/dos/doszip/." "$data/PROGRAMS/DOSZIP/"

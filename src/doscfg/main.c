@@ -16,10 +16,10 @@
 #define SELECTED 0x30
 #define BUTTON 0x70
 #define FOCUSED 0x3f
-#define TAB_STEP 10
-#define TAB_WIDTH 9
+#define TAB_STEP 9
+#define TAB_WIDTH 8
 
-static unsigned short saved_screen[2000];
+static unsigned short __far saved_screen[2000];
 static unsigned short __far *video;
 static int mouse_present;
 static int monochrome;
@@ -295,6 +295,7 @@ static void field_value(const Field *field,char *result) {
  if(field->type==FIELD_CARD) {
   card=cfg_card(); strcpy(result,card<0?"Custom / multiple devices":card_names[card]); return;
  }
+ if(field->type==FIELD_NET_NIC || field->type==FIELD_NET_TCP || field->type==FIELD_NET_IPX) { strcpy(result,"Configure..."); return; }
  if(field->type==FIELD_MIDI_SETTINGS) { strcpy(result,"[ Open ]"); return; }
  if(field->type==FIELD_MIDI) {
   int profile=cfg_midi();
@@ -460,8 +461,10 @@ static int picker(const Field *field,char *result) {
  }
 }
 static void midi_settings(void);
+static void network_settings(int type);
 static void edit_field(const Field *field) {
  char value[CFG_VALUE_SIZE]; int card;
+ if(field->type==FIELD_NET_NIC || field->type==FIELD_NET_TCP || field->type==FIELD_NET_IPX) { network_settings(field->type); return; }
  if(field->type==FIELD_MIDI_SETTINGS) { midi_settings(); return; }
  if(field->type==FIELD_CHECKBOX) { cfg_set(field->key,equal(cfg_get(field->key),"true")?"false":"true"); return; }
  if(field->type==FIELD_VOODOO) { cfg_toggle_voodoo(); return; }
@@ -479,16 +482,13 @@ static void edit_field(const Field *field) {
  else if(field->key==K_RAM) cfg_set(K_RAM_KB,"0");
  else if(field->key==K_MIDI_PORT && cfg_midi()==MIDI_EXTERNAL) cfg_set(K_MIDI_CONFIG,value);
 }
-static void midi_settings(void) {
- Field fields[5]; char value[CFG_VALUE_SIZE];
- int n,focus=0,redraw=1,x,y,previous=1; unsigned int key,ch,scan; union REGS r;
- if(cfg_midi()<=MIDI_NONE) { message("MIDI settings","Select a MIDI output profile first."); return; }
- n=form_midi_fields(fields);
- if(cfg_midi()==MIDI_EXTERNAL) midi_scan();
+static void settings_dialog(const char *title, Field *fields, int n) {
+ char value[CFG_VALUE_SIZE];
+ int focus=0,redraw=1,x,y,previous=1; unsigned int key,ch,scan; union REGS r;
  for(;;) {
   if(redraw) {
    int i;
-   mouse_visible(0); box(5,5,70,15); text(8,5," MIDI settings ",PANEL,60);
+   mouse_visible(0); box(5,5,70,15); text(8,5,title,PANEL,60);
    for(i=0;i<n;++i) {
     unsigned char color=focus==i?SELECTED:NORMAL;
     fill(7,8+i,66,1,color); field_value(&fields[i],value);
@@ -496,7 +496,7 @@ static void midi_settings(void) {
    }
    text(8,15,"Changes stay pending until Save on the main screen.",DIM,62);
    fill(49,17,20,1,focus==n?FOCUSED:BUTTON); text(49,17,"    Back (Esc)      ",focus==n?FOCUSED:BUTTON,20);
-   text(8,18,focus<n?fields[focus].help:"Enter or Esc returns to Sound settings.",PANEL,63);
+   text(8,18,focus<n?fields[focus].help:"Enter or Esc returns to the main page.",PANEL,63);
    mouse_visible(1); redraw=0;
   }
   key=key_read(0); ch=key&255; scan=key>>8;
@@ -517,6 +517,18 @@ static void midi_settings(void) {
   }
   if(!key) int86(0x28,&r,&r);
  }
+}
+static void midi_settings(void) {
+ Field fields[5];
+ if(cfg_midi()<=MIDI_NONE) { message("MIDI settings","Select a MIDI output profile first."); return; }
+ if(cfg_midi()==MIDI_EXTERNAL) midi_scan();
+ settings_dialog(" MIDI settings ",fields,form_midi_fields(fields));
+}
+static void network_settings(int type) {
+ Field fields[6];
+ settings_dialog(type==FIELD_NET_NIC?" Network card settings ":
+  type==FIELD_NET_TCP?" TCP/IP settings ":
+  !strcmp(cfg_get(K_NET_STARTUP),"windows")?" Windows network settings ":" Native IPX settings ",fields,form_network_fields(type,fields));
 }
 static void step_volume(const Field *field,int direction) {
  int left=100,right; char value[40];
@@ -543,7 +555,7 @@ static void draw_page(int page,int focus,const char *path) {
  text(3,0,"Pi-DOS Setup",SELECTED,40); text(56,0,cfg_changed()?"Unsaved changes":"Configuration loaded",SELECTED,23);
  for(i=0;i<PAGE_COUNT;++i) {
   unsigned char color=i==page?FOCUSED:BUTTON;
-  fill(4+i*TAB_STEP,2,TAB_WIDTH,1,color); text(6+i*TAB_STEP,2,page_names[i],color,7);
+  fill(4+i*TAB_STEP,2,TAB_WIDTH,1,color); text(5+i*TAB_STEP,2,page_names[i],color,7);
  }
  box(3,4,74,13); text(6,4,page==PAGE_CPU?" CPU profile ":page_names[page],PANEL,30);
  if(page==PAGE_CPU) {
@@ -577,6 +589,7 @@ static void draw_page(int page,int focus,const char *path) {
   }
   if(focus<n) text(4,18,fields[focus].help,PANEL,72);
   if(page==PAGE_MIXER) text(4,19,live_status(),DIM,72);
+  if(page==PAGE_NETWORK) text(4,19,"Wired Ethernet. NETUP retries startup; NETINFO shows IPX tunnel status.",DIM,72);
   if(page==PAGE_INPUT) text(4,19,"Controllers reconnect automatically. Game calibration may need restarting.",DIM,72);
   if(page==PAGE_VIDEO) text(4,19,"Voodoo uses software rendering; Glide passthrough stays disabled.",DIM,72);
   if(page==PAGE_SOUND) {
@@ -663,7 +676,7 @@ static int setup(const char *path) {
 }
 static void usage(void)
 {
-    puts("Pi-DOS Setup - CPU, memory, video, sound, mixer and system settings\n"
+    puts("Pi-DOS Setup - hardware, network, mixer and system settings\n"
          "PIDOSCFG                         Open keyboard/mouse setup\n"
          "PIDOSCFG /LIST                   List profiles\n"
          "PIDOSCFG /PROFILE id             Save a profile without opening setup\n"

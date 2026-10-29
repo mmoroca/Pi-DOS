@@ -11,7 +11,7 @@ navigation works without that driver. The program restores the previous 80x25 te
 screen and cursor on exit. See [the DOS manual](README.DOS) for controls and
 command-line use. The image installs that manual as `C:\DOCS\PIDOSCFG.TXT`.
 
-Seven pages configure CPU, Memory, Video, Sound, Mixer, Input and System settings. F5/F6
+Eight pages configure CPU, Memory, Video, Sound, Mixer, Input, Network and System settings. F5/F6
 change pages; Tab/Shift+Tab move focus; Enter edits; F2 saves all pages; Esc
 cancels. Selection dialogs support typing to filter, arrows and page keys.
 **Restore defaults** (F3 or Alt+R) resets the current page only, pending Save.
@@ -186,6 +186,29 @@ Implementation checks use virtual SDL controllers and mocked system signals.
 Physical controller hotplug, game calibration and the Input tab's appearance on
 a Pi still need hardware confirmation. Keyboard and mouse hotplug were already
 confirmed by the user.
+
+## Network
+
+Network enables IPX-over-UDP multiplayer and NE2000 Ethernet with SLIRP (NAT)
+or PCAP (direct wired LAN). Controls include IPX server/client startup, server
+address and UDP port, host Ethernet interface, NE2000 I/O/IRQ/MAC, DHCP/static
+DOS TCP/IP, TCP/UDP forwarding, and optional native ODI/IPX driver startup.
+The image includes the existing NE2000 packet driver and pinned mTCP tools,
+manual, license and corresponding source. Networking defaults to disabled.
+
+Windows for Workgroups startup leaves the network card to Windows' own NDIS
+and protocol drivers. Set PCAP for real LAN sharing, configure the Windows
+installation directory, and run `WFWNET` before `WIN`. Windows media,
+Microsoft TCP/IP-32 and native ODI/IPX drivers are user-supplied. WfW sharing
+also requires compatible protocols/authentication at the other endpoint.
+
+Save and reboot. `NETUP` retries DOS startup; `NETINFO` reports saved adapter
+settings and IPX status. Full setup and limitations are in
+[the networking manual](../../docs/networking.txt), installed as
+`C:\DOCS\NETWORK.TXT` and `Z:\NETWORK\NETWORK.TXT`.
+Generated `C:\SYSTEM\NET` configuration files are refreshed at boot. Manual
+startup supports user-managed drivers and mTCP configuration instead.
+Physical Pi LAN and Windows file-sharing acceptance remain pending.
 
 ## CPU profiles
 

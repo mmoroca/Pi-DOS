@@ -73,6 +73,15 @@ install -D -m 0644 "$project/br2-external/board/raspberrypi/dos/PIDOSCFG.EXE" \
 python3 "$project/tools/dos/catalogs.py" \
     "$BUILD_DIR"/pi-dos-runtime-*/include/dos_inc.h \
     "$target/usr/share/zoneinfo" "$target/pi-dos/drivez/BIN"
+python3 "$project/tools/dos/network-assets.py" --install "$target/pi-dos/drivez"
+python3 - "$project/docs/networking.txt" "$target/pi-dos" <<'PYNET'
+from pathlib import Path
+import sys
+source, target = map(Path, sys.argv[1:])
+manual = source.read_text().replace('\n', '\r\n').encode('ascii')
+(target / 'NETWORK.TXT').write_bytes(manual)
+(target / 'drivez/NETWORK/NETWORK.TXT').write_bytes(manual)
+PYNET
 python3 "$project/tools/dos/midi-assets.py" --install "$target/pi-dos/midi-assets"
 install -D -m 0644 "$project/dac-crt.bin" "$target/lib/firmware/edid/dac-crt.bin"
 mkdir -p "$target/dosdata" "$target/run" "$target/tmp" "$target/proc" "$target/sys"

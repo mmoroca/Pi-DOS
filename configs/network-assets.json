@@ -1,0 +1,7 @@
+{
+  "archive": "mtcp-freedos-20250604.zip",
+  "url": "https://www.ibiblio.org/pub/micro/pc-stuff/freedos/files/repositories/1.4/net/mtcp.zip",
+  "sha256": "087ae50048004a8fd23f26f3e3a1bac7985107d1912e9244cf5ec0488432aedc",
+  "version": "mTCP 2025-01-10, FreeDOS package 2025-06-04.0",
+  "license": "GPL-3.0; corresponding source included as SOURCE.ZIP"
+}

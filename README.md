@@ -86,6 +86,12 @@ CRT follows DOS video modes. LCD offers manual resolutions (1024x768 by default)
 4:3 or Original pixels aspect, and optional SDL2 linear filtering (off by default).
 Save and reboot to apply. Existing configurations keep their display behavior
 until a monitor type is selected. See the [monitor controls](src/doscfg/README.md#monitor-output).
+PIDOSCFG's Network tab configures IPX-over-UDP multiplayer, NE2000 with SLIRP
+TCP/IP or PCAP direct wired LAN, and Windows for Workgroups startup. Networking
+defaults to disabled. mTCP tools and source are included on `Z:\NETWORK\MTCP`.
+Use PCAP with Windows' own NE2000 driver for real LAN file sharing; Windows
+media and compatible peer file-sharing protocols are required. See the
+[networking manual](docs/networking.txt). Physical Pi/WfW acceptance is pending.
 Type `VIDEOMOD /P` to list host display and DOS BIOS/VESA modes a screen at a time.
 Use `/HOST` or `/DOS` to list either group, or `VIDEOMOD /?` for help.
 The same file accepts `[pidos]` options, including `timezone=Europe/Madrid` for

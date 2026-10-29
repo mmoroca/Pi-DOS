@@ -168,7 +168,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert get('K_VOODOO') == b'software'
     editor.cfg_reset_page(2)  # Video
     assert get('K_MACHINE') == b'svga_s3'
-    editor.cfg_reset_page(6)  # System
+    editor.cfg_reset_page(7)  # System
     assert get('K_DIAGNOSTICS') == b'false'
 
     # Monitor profiles: legacy files remain CRT until explicitly selected.
@@ -178,19 +178,19 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
                        ('K_LCD_ASPECT',b'original'),('K_LCD_LINEAR',b'true')):
         assert set_value(key,value)
     fields = ctypes.create_string_buffer(12 * 128)
-    assert editor.form_fields(6, fields) == 11  # LCD controls, region, diagnostics and shortcuts
+    assert editor.form_fields(7, fields) == 11  # LCD controls, region, diagnostics and shortcuts
     assert editor.cfg_save_changes(encoded)
     assert editor.cfg_load(encoded) and get('K_MONITOR') == b'lcd'
     assert get('K_LCD_MODE') == b'1280x720' and get('K_LCD_ASPECT') == b'original'
     assert get('K_LCD_LINEAR') == b'true'
     assert set_value('K_MONITOR',b'crt')
-    assert editor.form_fields(6, fields) == 8
+    assert editor.form_fields(7, fields) == 8
     assert get('K_LCD_MODE') == b'1280x720'  # switching keeps LCD preferences
     assert get('K_LCD_LINEAR') == b'true'
     for key, value in (('K_MONITOR',b'auto'),('K_LCD_MODE',b'9999x9999'),
                        ('K_LCD_ASPECT',b'stretch'),('K_LCD_LINEAR',b'yes')):
         assert not set_value(key,value)
-    editor.cfg_reset_page(6)
+    editor.cfg_reset_page(7)
     assert get('K_MONITOR') == b'crt' and get('K_LCD_MODE') == b'1024x768'
     assert get('K_LCD_ASPECT') == b'4:3' and get('K_LCD_LINEAR') == b'false'
     assert editor.cfg_save_changes(encoded)
@@ -241,10 +241,43 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert get('K_JOY_TYPE') == b'2axis'
     assert get('K_SHORTCUT_POWEROFF') == b'ctrl+alt+f3'
     assert get('K_SHORTCUT_PAUSE') == b'Ctrl+Alt+F3'
-    editor.cfg_reset_page(6)  # System defaults reset the three shortcuts.
+    editor.cfg_reset_page(7)  # System defaults reset the three shortcuts.
     assert get('K_SHORTCUT_REBOOT') == b'Ctrl+Alt+Delete'
     assert get('K_SHORTCUT_POWEROFF') == get('K_SHORTCUT_PAUSE') == b'none'
     assert get('K_JOY_TYPE') == b'2axis'
     assert editor.cfg_save_changes(encoded)
 
-print('PASS: config preservation, recovery, existing pages, joystick options and shortcut conflicts.')
+    # Network modes persist native runtime keys and reject incompatible stacks.
+    assert editor.cfg_load(encoded)
+    assert get('K_IPX') == get('K_NE2000') == b'false'
+    for key, value in (('K_IPX', b'true'), ('K_IPX_MODE', b'client'),
+                       ('K_IPX_SERVER', b'192.168.1.20'), ('K_IPX_PORT', b'3213'),
+                       ('K_NE2000', b'true'), ('K_NET_BACKEND', b'pcap'),
+                       ('K_NET_STARTUP', b'dhcp'), ('K_NET_MAC', b'AC:DE:48:11:22:33'),
+                       ('K_NET_INTERFACE', b'eth0'), ('K_NET_TCP_PORTS', b'8021:21 8080:80')):
+        assert set_value(key, value)
+    assert editor.form_fields(6, fields) == 10
+    assert editor.cfg_save_changes(encoded)
+    saved = path.read_bytes()
+    for assignment in (b'ipx=true', b'ipx_server=192.168.1.20', b'backend=pcap', b'net_startup=dhcp'):
+        assert assignment+b'\r\n' in saved
+    for key, value in (('K_IPX_SERVER', b'host&EXIT'), ('K_IPX_PORT', b'65536'),
+                       ('K_IPX_PORT', b'-1'), ('K_NET_IP', b'256.0.0.1'),
+                       ('K_NET_MAC', b'FF:FF:FF:FF:FF:FF'), ('K_NET_MAC', b'00:00:00:00:00:00'),
+                       ('K_NET_INTERFACE', b'eth0;EXIT'), ('K_NET_TCP_PORTS', b'70000:21'),
+                       ('K_NET_IPX_PATH', b'C:\\IPX&EXIT')):
+        assert not set_value(key, value)
+    assert set_value('K_NET_TCP_PORTS', b'')
+    assert set_value('K_NET_STARTUP', b'native-ipx')
+    assert not editor.cfg_save_changes(encoded) and path.read_bytes() == saved
+    assert set_value('K_IPX', b'false')
+    assert editor.cfg_save_changes(encoded)
+    assert set_value('K_NET_STARTUP', b'windows')
+    assert set_value('K_NET_WINDOWS', b'C:\\WIN311')
+    assert editor.cfg_save_changes(encoded)
+    editor.cfg_reset_page(6)
+    assert get('K_NE2000') == get('K_IPX') == b'false'
+    assert get('K_NET_IRQ') == b'10' and get('K_NET_WINDOWS') == b'C:\\WINDOWS'
+    assert editor.cfg_save_changes(encoded)
+
+print('PASS: config preservation/recovery, existing pages, input and networking mode validation.')

@@ -43,3 +43,11 @@ and SHA-256 hashes are recorded in the adjacent `SOURCE.TXT` and
 SHA-256 in `tools/dos/toolchain.json`. Its runtime license is retained as
 `LICENSES/OpenWatcom.txt` and installed with the upstream source URL as
 `C:\DOCS\WATCOM.TXT`. Utility sources and build instructions are in `src/doscfg/`.
+
+The networking image adds Buildroot's hash-pinned SDL2_net (Zlib), libslirp
+(BSD-3-Clause) and libpcap packages. mTCP 2025-01-10 is installed on
+`Z:\NETWORK\MTCP` from the checksum-pinned FreeDOS package recorded in
+`configs/network-assets.json`. Its GPL v3 notice and corresponding source are
+included beside the binaries as `COPYING.TXT` and `SOURCE.ZIP`; `PACKAGE.TXT`
+retains package provenance. Windows for Workgroups, Microsoft TCP/IP-32 and
+Novell ODI/IPX drivers are user-supplied and are not included in the image.

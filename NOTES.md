@@ -156,11 +156,11 @@
 - [~] Bootable FreeDOS/MS-DOS disk images
 - [v] Alternative DOS shells such as 4DOS
 - [v] Windows 3.x compatibility
-- [ ] DOS networking and IPX
+- [~] DOS networking and IPX
 - [v] Serial port emulation
 - [x] Modem emulation
 - [x] BBS connectivity
-- [ ] Multiplayer DOS gaming
+- [v] Multiplayer DOS gaming
 - [v] Demoscene compatibility
 
 ### Gaming and Convenience

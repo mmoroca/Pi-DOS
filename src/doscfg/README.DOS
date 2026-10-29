@@ -130,3 +130,12 @@ or Ctrl+Alt+F1-F10.
 Reboot defaults to Ctrl+Alt+Delete; poweroff and pause are disabled by default.
 Duplicate shortcuts cannot be saved. Repeat pause or press Escape to resume.
 Save and reboot to apply Input and System settings.
+
+NETWORK
+-------
+Network configures IPX tunnel multiplayer, NE2000 with SLIRP TCP/IP or PCAP
+wired LAN, DOS driver/DHCP/static startup, and Windows for Workgroups drivers.
+Save and REBOOT. Run NETUP to retry, NETINFO for status, or WFWNET before WIN.
+Windows 3.11 real LAN sharing uses PCAP and Windows' own NE2000 NDIS driver.
+Windows/TCP-IP-32 media and native ODI/IPX drivers must be supplied separately.
+Read C:\DOCS\NETWORK.TXT or Z:\NETWORK\NETWORK.TXT for full instructions.

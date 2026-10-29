@@ -76,6 +76,18 @@ def main():
             'PIDOSCFG lacks MIDI controls')
     require(b'DOS joystick type' in packed_setup and b'Poweroff shortcut' in packed_setup,
             'PIDOSCFG lacks Input controls')
+    require(b'IPX tunnel' in packed_setup and b'Host Ethernet interface' in packed_setup
+            and b'Windows for Workgroups drivers' in packed_setup,
+            'PIDOSCFG lacks Network controls')
+    for library in ('libSDL2_net-2.0.so', 'libslirp.so', 'libpcap.so'):
+        require(any(library in name for name in names), 'Missing networking library: ' + library)
+    for name in ('pi-dos/NETWORK.TXT', 'pi-dos/drivez/NETWORK/NETWORK.TXT',
+                 'pi-dos/drivez/NETWORK/MTCP/DHCP.EXE', 'pi-dos/drivez/NETWORK/MTCP/FTP.EXE',
+                 'pi-dos/drivez/NETWORK/MTCP/TELNET.EXE', 'pi-dos/drivez/NETWORK/MTCP/COPYING.TXT',
+                 'pi-dos/drivez/NETWORK/MTCP/SOURCE.ZIP'):
+        require(name in names, 'Missing networking tool/document: ' + name)
+    require(b'WFWNET.BAT' in packed_init and b'NE2000.COM 0x60' in packed_init,
+            'PID 1 lacks generated DOS/Windows networking launchers')
     setup_manifest = json.loads((ROOT /
         'br2-external/board/raspberrypi/dos/PIDOSCFG.build.json').read_text())
     require(hashlib.sha256(packed_setup).hexdigest() == setup_manifest['executable_sha256'],
@@ -236,7 +248,8 @@ def main():
         require((target / 'usr/share/zoneinfo' / zone).read_bytes().startswith(b'TZif'),
                 f'Missing timezone data: {zone}')
     config = next((OUT / 'build').glob('pi-dos-runtime-*/config.h')).read_text()
-    for setting in ('C_SDL2', 'C_DYNREC', 'C_FLUIDSYNTH', 'C_MT32'):
+    for setting in ('C_SDL2', 'C_DYNREC', 'C_FLUIDSYNTH', 'C_MT32',
+                    'C_SDL2_NET', 'C_IPX', 'C_MODEM', 'C_SLIRP', 'C_PCAP'):
         require(f'#define {setting} 1' in config, f'Runtime missing {setting}')
     require('#define C_SDL3 1' not in config, 'Runtime unexpectedly uses SDL3')
     require('#define C_TARGETCPU ARMV8LE' in config, 'Runtime lacks ARM64 CPU backend')
