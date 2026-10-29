@@ -129,6 +129,7 @@ with tempfile.TemporaryDirectory(prefix='pi-dos-usb-storage.') as temporary:
         (work / f'pidos_usb_storage_{name}.h').write_text(content)
     shutil.copyfile(ROOT / 'src/runtime/usb_storage_api.h', work / 'pidos_usb_storage_api.h')
     shutil.copyfile(ROOT / 'src/runtime/drive_policy.h', work / 'pidos_drive_policy.h')
+    shutil.copyfile(ROOT / 'src/runtime/dos_sharing.h', work / 'pidos_dos_sharing.h')
     system = (ROOT / 'src/runtime/system_drive_dos.h').read_text()
     system = system.replace('"/dosdata/"', json.dumps(str(work / 'system-root') + '/'))
     system = system.replace('"/dosdata"', json.dumps(str(work / 'system-root')))

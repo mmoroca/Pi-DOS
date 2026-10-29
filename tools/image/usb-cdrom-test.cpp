@@ -141,10 +141,12 @@ enum { DOSERR_DRIVE_NOT_READY = 21, ISO_FRAMESIZE = 2048 };
 static unsigned dos_error = 0;
 static void DOS_SetError(unsigned error) { dos_error = error; }
 struct isoDirEntry { uint8_t bytes[256]; };
+#include "pidos_dos_sharing.h"
 class isoDrive {
 public:
     CDROM_Interface *cdrom;
     uint64_t usb_generation = 0;
+    uint64_t sharing_media = pidos_sharing::next_media_id();
     bool usb_loading = false, usb_ready = false, dataCD = false, iso = false;
     bool is_joliet = false, is_udf = false, is_rock_ridge = false;
     char curdir[256] = {}, discLabel[32] = {};
@@ -232,6 +234,7 @@ int main(int argc, char **argv)
         assert(cd.GetAudioStatus(playing, paused) && !playing && !paused);
         isoDrive dos_drive(&cd);
         assert(dos_drive.USBReady() && !strcmp(dos_drive.GetLabel(), "DISC31"));
+        const auto sharing_media = dos_drive.sharing_media;
         isoFile old_file(&dos_drive);
         uint8_t data[32]; uint16_t size = sizeof(data);
         assert(old_file.Read(data, &size) && size == sizeof(data) && data[0] == 0x31);
@@ -243,6 +246,7 @@ int main(int argc, char **argv)
         size = sizeof(data);
         assert(!old_file.Read(data, &size) && size == 0 && dos_error == DOSERR_DRIVE_NOT_READY);
         assert(!*dos_drive.curdir && !strcmp(dos_drive.GetLabel(), "DISC52"));
+        assert(dos_drive.sharing_media != sharing_media);
         isoFile new_file(&dos_drive); size = sizeof(data);
         assert(new_file.Read(data, &size) && data[0] == 0x52);
         isoFile interrupted_file(&dos_drive); size = sizeof(data); read_attention = true;

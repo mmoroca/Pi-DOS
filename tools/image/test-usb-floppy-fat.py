@@ -20,7 +20,7 @@ if 'usbSectorDirty' not in source or 'direntry encoded = {};' not in source:
     parser.error('runtime sources need 0015-usb-floppy-fat-io.patch and 0016-usb-floppy-metadata.patch')
 start=source.index('class fatFile :')
 parts=[source[start:source.index('\n};',start)+3]]
-for signature in ['fatFile::fatFile(', 'void fatFile::Flush(', 'bool fatFile::Read(', 'bool fatFile::Write(', 'bool fatFile::Seek(', 'bool fatFile::Close(', 'uint16_t fatFile::GetInformation(', 'bool fatFile::UpdateDateTimeFromHost(', 'uint32_t fatFile::GetSeekPos(', 'char const *fatDrive::GetLabel(', 'void fatDrive::UpdateBootVolumeLabel(', 'void fatDrive::SetLabel(']:
+for signature in ['fatFile::fatFile(', 'void fatFile::Flush(', 'bool fatFile::Read(', 'bool fatFile::Write(', 'bool fatFile::Seek(', 'bool fatFile::Close(', 'uint16_t fatFile::GetInformation(', 'bool fatFile::UpdateDateTimeFromHost(', 'bool fatFile::SharingRefresh(', 'uint32_t fatFile::GetSeekPos(', 'char const *fatDrive::GetLabel(', 'void fatDrive::UpdateBootVolumeLabel(', 'void fatDrive::SetLabel(']:
     start=source.index(signature)
     parts.append(source[start:source.index('\n}',start)+2])
 for signature in ['static void copyDirEntry(', 'bool fatDrive::directoryChange(', 'void fatDrive::UpdateDPB(']:
@@ -51,6 +51,7 @@ static void fake_log(const char*,...) {}
 #define OPEN_WRITE 1
 #define OPEN_READ_NO_MOD 4
 #define DOSERR_ACCESS_DENIED 5
+#define DOSERR_FILE_NOT_FOUND 2
 #define DOS_ATTR_READ_ONLY 1
 #define DOS_ATTR_HIDDEN 2
 #define DOS_ATTR_SYSTEM 4
@@ -70,6 +71,8 @@ static void time_t_to_DOS_DateTime(uint16_t &t,uint16_t &d,time_t) {t=1;d=2;}
 class DOS_File {
 public:
  virtual ~DOS_File() = default;
+ virtual bool SharingRefresh(){return true;}
+ virtual void SharingAbandon(){}
  uint32_t flags=2; bool open=true,newtime=false; uint16_t time=0,date=0,attr=0;
  void SetName(const char*){}
  virtual bool Read(uint8_t*,uint16_t*)=0;
@@ -108,7 +111,7 @@ public:
  uint32_t getAbsoluteSectFromBytePos(uint32_t,uint32_t pos,clusterChainMemory*){return pos/512<allocated?pos/512+1:0;}
  uint8_t readSector(uint32_t sector,void*data){assert(sector&&sector<100);++reads;memcpy(data,media[sector],512);return read_failure?1:0;}
  void writeSector(uint32_t sector,void*data){assert(sector&&sector<100);++writes;memcpy(media[sector],data,512);}
- void directoryBrowse(uint32_t,direntry*e,int32_t){*e=entry;}
+ bool directoryBrowse(uint32_t,direntry*e,int32_t){*e=entry;return true;}
  void directoryChange(uint32_t,const direntry*e,int32_t){entry=*e;}
  struct BootParameters {
   struct {uint16_t BPB_RootEntCnt=224; uint8_t BPB_BootSig=0x29;} v;
@@ -209,6 +212,22 @@ int main(){
  uint16_t attrs=0;assert(protected_drive.GetFileAttr("SUB",&attrs)&&attrs==(DOS_ATTR_DIRECTORY|DOS_ATTR_SYSTEM));
  protected_drive.readonly=true;
  assert(!protected_drive.SetFileAttr("SUB",0)&&dos_error==DOSERR_WRITE_PROTECTED);
+ // Two opens must see current contents/length, and closing a reader must not
+ // write its old cached sector over data written through another handle.
+ for(bool native:{false,true}) {
+  fatDrive shared;shared.native=native;
+  fatFile writer("",0,0,&shared),reader("",0,0,&shared);
+  uint8_t value=0x11;uint16_t count=1;
+  assert(writer.Write(&value,&count));assert(reader.SharingRefresh());
+  assert(reader.Read(&value,&count)&&count==1&&value==0x11);
+  uint32_t start=0;writer.Seek(&start,DOS_SEEK_SET);value=0x22;count=1;
+  assert(writer.Write(&value,&count));unsigned written=shared.writes;
+  assert(reader.Close()&&shared.writes==written&&shared.media[1][0]==0x22);
+  start=0;reader.Seek(&start,DOS_SEEK_SET);assert(reader.SharingRefresh());count=1;
+  assert(reader.Read(&value,&count)&&count==1&&value==0x22);
+  start=0;writer.Seek(&start,DOS_SEEK_SET);count=0;assert(writer.Write(&value,&count));
+  assert(reader.SharingRefresh());count=1;assert(reader.Read(&value,&count)&&count==0);
+ }
  // Consecutive full-sector overwrites inside an existing file.
  uint32_t pos=0;file.Seek(&pos,DOS_SEEK_SET);
  memset(bytes,0x55,512);size=512;assert(file.Write(bytes,&size));

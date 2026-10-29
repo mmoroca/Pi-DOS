@@ -841,6 +841,53 @@ optical devices, already mounted volumes, EFI/reserved/recovery/hidden
 partitions, unsupported filesystems and conflicting signatures are skipped.
 No volume is automatically repaired, repartitioned or formatted.
 
+#### DOS file sharing and record locking
+
+On Linux, Pi-DOS implements sharing and record locks in the DOS file layer for
+C:, USB volumes, FAT floppies/disk images and optical/image file handles.
+The existing `[dos] share=true` default enables enforcement and reports SHARE
+as installed; a separate SHARE.EXE is not required. `share=false` disables
+sharing/record-lock enforcement. File access permissions still apply.
+
+DOS opens honour compatibility, deny-all, deny-write, deny-read and deny-none
+modes, checking both the existing grant and the requested grant. Independent
+opens conflict even inside one emulator process. Compatibility-mode read-only
+exceptions respect the DOS version and the file's read-only attribute. Short
+and long aliases resolve to the same case-insensitive sharing key without
+disturbing the caller's find-first/find-next result.
+
+INT 21h AH=5Ch supports 32-bit offsets and lengths, exact-range unlocks and
+PSP-owned record locks. A program can access its own locked bytes; other DOS
+owners receive a lock violation on overlapping reads, writes or truncation.
+Overlapping lock requests fail even for the same owner. Zero-length lock
+requests are no-ops; ranges wrapping past the 32-bit address space are rejected.
+There is a limit of 4096 active ranges. Failures return DOS sharing violation
+(32), lock violation (33), or sharing-buffer overflow (36), as applicable.
+
+Deleting or renaming an open file is rejected. Renaming a directory containing
+open files is also rejected. Creation/replacement checks sharing and locks
+before truncating data; extended open/create preserves its requested sharing,
+access and inheritance flags. A failed shared open cannot fall through into
+file replacement. Duplicated/inherited handles retain their open grant until
+the final reference closes. Normal program exit releases its record locks and
+FCB opens; TSR termination retains them.
+
+Ownership is tracked inside one DOS emulator instance, independently of Linux
+process locks. Attribute queries and unrelated handle closes cannot release
+DOS locks. Local file streams use unbuffered stdio for visibility between
+handles; Linux filesystem caching remains available. FAT handles refresh their
+directory metadata and cached sectors before shared I/O. Closing a reader
+does not write an old cached sector over another handle's changes. Existing USB
+write commits and floppy write batches remain checked. Media generations keep
+old grants/locks separate from replacement USB, floppy and optical media.
+
+Host checks exercise the real DOS file API methods with simulated PSPs and
+media, the explicit sharing-mode/access matrix, compatibility cases, wide lock
+ranges, destructive operations, aliases, DTA preservation, duplicate/inherited
+handles, process/FCB cleanup, media replacement and metadata-query interactions.
+Additional checks cover real local-drive/FAT cache coherence and the existing
+USB/floppy/optical adapters. Physical Pi validation is still pending.
+
 #### DOS file attributes
 
 Managed C:, USB FAT12/16/32 and exFAT volumes, and FAT floppy media expose the

@@ -18,6 +18,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "pidos_dos_sharing.h"
 #include <blkid/blkid.h>
 #include <dirent.h>
 #include <fcntl.h>
@@ -200,6 +201,7 @@ public:
     virtual bool UpdateDateTimeFromHost() { return true; }
     virtual void Flush() {}
     virtual bool FlushSucceeded() const { return true; }
+    virtual bool SharingReady() { return true; }
     uint32_t flags = OPEN_READWRITE;
     uint16_t attr = 0, time = 0, date = 0;
     int refCtr = 1;
@@ -231,6 +233,8 @@ protected:
     Cache dirCache;
 public:
     bool readonly = false;
+    uint64_t sharing_media = pidos_sharing::next_media_id();
+    virtual uint64_t SharingMediaId() { return sharing_media; }
     localDrive(const char *path, uint16_t, uint8_t, uint16_t, uint16_t, uint8_t, std::vector<std::string> &) : base(path) {}
     virtual ~localDrive() = default;
     virtual bool FileOpen(DOS_File **file, const char *name, uint32_t flags)

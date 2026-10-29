@@ -67,6 +67,7 @@ enum {OPEN_READ=0,OPEN_WRITE=1,OPEN_READWRITE=2,OPEN_READ_NO_MOD=4};
 static int error=0;
 static void DOS_SetError(int n){error=n;}
 static bool nocachedir=false,enable_share_exe=false,uselfn=false,inshell=false,ctrlbrk=false;
+static bool DOS_UsesInternalSharing(){return true;}
 static const bool IS_PC98_ARCH=false;
 static bool dos_kernel_disabled=false;
 static int file_access_tries=0,lfn_filefind_handle=258;
@@ -205,7 +206,15 @@ int main(int argc,char **argv){
     d.state().search=0x37;assert(drive.FindFirst("",d));
     bool found=false;do{if(d.state().name=="ONE.TXT"){assert(d.state().attr==7);found=true;}}while(drive.FindNext(d));assert(found);
     attrib(shell,"-R -H -S +A E:\\ONE.TXT");assert(!dos.return_code&&drive.GetFileAttr("ONE.TXT",&a)&&a==32);
-    assert(drive.FileOpen(&file,"ONE.TXT",OPEN_READWRITE));delete file;
+    assert(drive.FileOpen(&file,"ONE.TXT",OPEN_READWRITE));
+    DOS_File *peer=nullptr;assert(drive.FileOpen(&peer,"ONE.TXT",OPEN_READWRITE));
+    auto first_stream=static_cast<LocalFile*>(file)->fhandle;
+    auto peer_stream=static_cast<LocalFile*>(peer)->fhandle;
+    assert(fwrite("A",1,1,first_stream)==1);
+    char byte=0;assert(fread(&byte,1,1,peer_stream)==1&&byte=='A');
+    assert(!fseek(first_stream,0,SEEK_SET)&&fwrite("B",1,1,first_stream)==1);
+    assert(!fseek(peer_stream,0,SEEK_SET)&&fread(&byte,1,1,peer_stream)==1&&byte=='B');
+    delete peer;delete file;
     attrib(shell,"-A E:\\*.TXT /S");assert(!dos.return_code);
     assert(drive.GetFileAttr("ONE.TXT",&a)&&a==0);assert(drive.GetFileAttr("SUB\\TWO.TXT",&a)&&a==0);
     attrib(shell,"+H +S E:\\SUB");assert(!dos.return_code);assert(drive.GetFileAttr("SUB",&a)&&a==22);

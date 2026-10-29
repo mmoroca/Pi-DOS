@@ -117,6 +117,7 @@ public:
     { return ready() && LocalFile::Seek(position, type); }
     bool LockFile(uint8_t mode, uint32_t position, uint16_t size) override
     { return ready() && LocalFile::LockFile(mode, position, size); }
+    bool SharingReady() override { return ready(); }
     uint32_t GetSeekPos() override
     { return ready() ? LocalFile::GetSeekPos() : 0xffffffff; }
     bool UpdateDateTimeFromHost() override
@@ -205,6 +206,7 @@ public:
         volume->detach();
     }
     bool present() const { return volume->present(); }
+    uint64_t SharingMediaId() override { return ready() ? sharing_media : 0; }
     std::string key() const { return volume->candidate.key(); }
     bool FileOpen(DOS_File **file, const char *name, uint32_t flags) override
     {

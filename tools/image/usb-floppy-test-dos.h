@@ -3,6 +3,7 @@
  * media lifecycle, BIOS and IOCTL code come from the production headers. */
 #include <string>
 #include <vector>
+#include "dos_sharing.h"
 using Bits = intptr_t;
 using PhysPt = uint32_t;
 using RealPt = uint32_t;
@@ -28,6 +29,8 @@ public:
     virtual void Flush() {}
     virtual uint16_t GetInformation() { return 0; }
     virtual uint32_t GetSeekPos() { return 0; }
+    virtual bool SharingReady() { return true; }
+    virtual bool SharingRefresh() { return true; }
     const char *GetName() { return name.c_str(); }
     void SetName(const char *value) { name = value; }
 };
@@ -36,6 +39,8 @@ public:
     char info[256] = {}, curdir[256] = {};
     bool readonly = false;
     virtual ~DOS_Drive() = default;
+    uint64_t sharing_media = pidos_sharing::next_media_id();
+    virtual uint64_t SharingMediaId() { return sharing_media; }
 #define DOS_TEST_METHOD(name, args) virtual bool name args { return false; }
     DOS_TEST_METHOD(FileOpen, (DOS_File **, const char *, uint32_t))
     DOS_TEST_METHOD(FileCreate, (DOS_File **, const char *, uint16_t))

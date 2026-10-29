@@ -1,0 +1,579 @@
+--- a/include/dos_inc.h
++++ b/include/dos_inc.h
+@@ -269,6 +269,9 @@
+ 
+ /* Routines for File Class */
+ void DOS_SetupFiles (void);
++bool DOS_UsesInternalSharing();
++void DOS_ReleaseSharingLocks(uint16_t owner);
++bool DOS_SharingSFNPath(const char *path, char *result);
+ bool DOS_ReadFile(uint16_t entry,uint8_t * data,uint16_t * amount, bool fcb = false);
+ bool DOS_WriteFile(uint16_t entry,const uint8_t * data,uint16_t * amount,bool fcb = false);
+ bool DOS_SeekFile(uint16_t entry,uint32_t * pos,uint32_t type,bool fcb = false);
+@@ -285,7 +288,7 @@
+ bool DOS_OpenFile(char const * name,uint8_t flags,uint16_t * entry,bool fcb = false);
+ bool DOS_OpenExistingSFTEntry(uint16_t jft_handle,int sft_handle);
+ bool DOS_OpenFileExtended(char const * name, uint16_t flags, uint16_t createAttr, uint16_t action, uint16_t *entry, uint16_t* status);
+-bool DOS_CreateFile(char const * name,uint16_t attributes,uint16_t * entry, bool fcb = false);
++bool DOS_CreateFile(char const * name,uint16_t attributes,uint16_t * entry, bool fcb = false, uint8_t flags = 2);
+ bool DOS_UnlinkFile(char const * const name);
+ bool DOS_GetSFNPath(char const * const path, char *SFNpath, bool LFN);
+ bool DOS_FindFirst(const char *search,uint16_t attr,bool fcb_findfirst=false);
+--- a/include/dos_system.h
++++ b/include/dos_system.h
+@@ -21,6 +21,7 @@
+ #define DOSBOX_DOS_SYSTEM_H
+ 
+ #include "cross.h"
++#include "pidos_dos_sharing.h"
+ #include "string.h"
+ #include "support.h"
+ #include "mem.h"
+@@ -87,6 +88,9 @@
+ 	virtual void	AddRef()					{ refCtr++; };
+ 	virtual Bits	RemoveRef()					{ return --refCtr; };
+ 	virtual bool	UpdateDateTimeFromHost()	{ return true; }
++	virtual bool SharingReady() { return IsOpen(); }
++    virtual bool SharingRefresh() { return true; }
++    virtual void SharingAbandon() {}
+ 	virtual uint32_t	GetSeekPos()	{ return 0xffffffff; }
+ 	void SetDrive(uint8_t drv) { hdrive=drv;}
+ 	uint8_t GetDrive(void) const { return hdrive;}
+@@ -95,6 +99,7 @@
+     virtual void    Flush(void) { }
+     virtual bool    FlushSucceeded() const { return true; }
+ 
++    std::shared_ptr<pidos_sharing::Open> sharing;
+ 	char* name = NULL;
+ 	uint8_t drive = 0;
+ 	uint32_t flags = 0;
+@@ -302,6 +307,8 @@
+ public:
+ 	DOS_Drive();
+ 	virtual ~DOS_Drive(){};
++    uint64_t sharing_media = pidos_sharing::next_media_id();
++    virtual uint64_t SharingMediaId() { return sharing_media; }
+ 	virtual bool FileOpen(DOS_File * * file,const char * name,uint32_t flags)=0;
+ 	virtual bool FileCreate(DOS_File * * file,const char * name,uint16_t attributes)=0;
+ 	virtual bool FileUnlink(const char * _name)=0;
+--- a/src/dos/dos_classes.cpp
++++ b/src/dos/dos_classes.cpp
+@@ -441,6 +441,17 @@
+ 	return true;
+ }
+ 
++// Sharing lookups must not disturb the caller's find-first/find-next result.
++bool DOS_SharingSFNPath(const char *path, char *result) {
++    const auto saved_result = fd;
++    uint8_t saved_dta[43];
++    MEM_BlockRead(Real2Phys(dos.tables.tempdta), saved_dta, sizeof(saved_dta));
++    const bool ok = DOS_GetSFNPath(path, result, false);
++    MEM_BlockWrite(Real2Phys(dos.tables.tempdta), saved_dta, sizeof(saved_dta));
++    fd = saved_result;
++    return ok;
++}
++
+ void DOS_DTA::SetupSearch(uint8_t _sdrive,uint8_t _sattr,const char * pattern) {
+ 	unsigned int i;
+ 
+--- a/src/dos/dos_execute.cpp
++++ b/src/dos/dos_execute.cpp
+@@ -116,7 +116,7 @@
+ 	DOS_PSP curpsp(pspseg);
+ 	if (pspseg==curpsp.GetParent()) return;
+ 	/* Free Files owned by process */
+-	if (!tsr) curpsp.CloseFiles();
++	if (!tsr) { curpsp.CloseFiles(); DOS_ReleaseSharingLocks(pspseg); }
+ 	
+ 	/* Get the termination address */
+ 	RealPt old22 = curpsp.GetInt22();
+--- a/src/dos/dos_files.cpp
++++ b/src/dos/dos_files.cpp
+@@ -56,6 +56,24 @@
+ extern bool log_int21;
+ extern bool log_fileio;
+ extern bool enable_share_exe, enable_dbcs_tables;
++static pidos_sharing::Table dos_sharing;
++bool DOS_UsesInternalSharing() {
++#if defined(LINUX) && !defined(OSFREE)
++    return true;
++#else
++    return false;
++#endif
++}
++void DOS_ReleaseSharingLocks(uint16_t owner) {
++    // FCB handles have no PSP/JFT entry for CloseFiles to visit.
++    if (Files) for (uint32_t i = 0; i < DOS_FILES; ++i) {
++        if (Files[i] && Files[i]->sharing && Files[i]->sharing->fcb_owner == owner) {
++            Files[i]->sharing->fcb_owner = 0;
++            DOS_CloseFile(uint16_t(i), true);
++        }
++    }
++    dos_sharing.release_owner(owner);
++}
+ extern int dos_clipboard_device_access;
+ extern const char *dos_clipboard_device_name;
+ 
+@@ -451,7 +469,7 @@
+ 			*s = '\\';
+ 			p = s + 1;
+ 			lfn_filefind_handle=LFN_FILEFIND_INTERNAL;
+-			if (DOS_FindFirst(pdir,0xffff & DOS_ATTR_DIRECTORY & ~DOS_ATTR_VOLUME,false)) {
++			if (DOS_FindFirst(pdir,(DOS_ATTR_DIRECTORY | DOS_ATTR_HIDDEN | DOS_ATTR_SYSTEM),false)) {
+ 				lfn_filefind_handle=fbak;
+ 				dta.GetResult(name,lname,size,hsize,date,time,attr);
+ 				strcat(SFNPath,name);
+@@ -622,6 +640,51 @@
+ 	return true;
+ }
+ 
++static bool PiDosShareError(int error) {
++    if (!error) return true;
++    DOS_SetError(uint16_t(error)); return false;
++}
++
++static bool PiDosShareKey(uint8_t drive, const char *name, pidos_sharing::Key &key) {
++    char qualified[DOS_PATHLENGTH + 8], short_name[DOS_PATHLENGTH + 8];
++    snprintf(qualified, sizeof(qualified), "\"%c:\\%s\"", 'A' + drive, name);
++    const auto saved_error = dos.errorcode;
++    std::string path = DOS_SharingSFNPath(qualified, short_name) ? short_name + 3 : name;
++    dos.errorcode = saved_error;
++    std::vector<char> normalized(path.begin(), path.end()); normalized.push_back(0);
++    DBCS_upcase(normalized.data());
++    key.path = normalized.data();
++    key.media = Drives[drive] ? Drives[drive]->SharingMediaId() : 0;
++    if (!key.media) { DOS_SetError(DOSERR_DRIVE_NOT_READY); return false; }
++    return true;
++}
++
++static bool PiDosShareCurrent(DOS_File *file) {
++    const auto drive = file->GetDrive();
++    if (drive >= DOS_DRIVES || !Drives[drive] ||
++        Drives[drive]->SharingMediaId() != file->sharing->key.media) {
++        DOS_SetError(DOSERR_DRIVE_NOT_READY); return false;
++    }
++    return file->SharingReady();
++}
++
++static bool PiDosShareAccess(DOS_File *file, uint32_t count, bool write) {
++    if (!DOS_UsesInternalSharing() || !file->sharing) return true;
++    if (!(file->sharing->access & (write ? 2 : 1))) { DOS_SetError(DOSERR_ACCESS_DENIED); return false; }
++    if (!PiDosShareCurrent(file) || !file->SharingRefresh()) return false;
++    if (!enable_share_exe) return true;
++    const uint32_t position = file->GetSeekPos();
++    uint64_t begin = position, end = uint64_t(position) + count;
++    if (write && !count) {
++        uint32_t length = 0;
++        if (!file->Seek(&length, DOS_SEEK_END)) return false;
++        uint32_t restore = position;
++        if (!file->Seek(&restore, DOS_SEEK_SET)) return false;
++        begin = std::min(position, length); end = std::max(position, length);
++    }
++    return PiDosShareError(dos_sharing.access(file->sharing->key, dos.psp(), begin, end));
++}
++
+ bool DOS_Rename(char const * const oldname,char const * const newname) {
+ 	uint8_t driveold;char fullold[DOS_PATHLENGTH];
+ 	uint8_t drivenew;char fullnew[DOS_PATHLENGTH];
+@@ -665,6 +728,11 @@
+ 		else DOS_SetError(DOSERR_FILE_NOT_FOUND);
+ 		return false;
+ 	}
++    if (enable_share_exe && DOS_UsesInternalSharing()) {
++        pidos_sharing::Key key;
++        if (!PiDosShareKey(driveold, fullold, key) ||
++            !PiDosShareError(dos_sharing.destructive(key, (attr & DOS_ATTR_DIRECTORY) != 0))) return false;
++    }
+ 	/*Test if target exists => no access */
+ 	if(Drives[drivenew]->GetFileAttr(fullnew,&attr)&&!(uselfn&&!force_sfn&&strcmp(fullold, fullnew)&&!strcasecmp(fullold, fullnew))) {
+ 		DOS_SetError(DOSERR_ACCESS_DENIED);
+@@ -835,6 +903,7 @@
+ 		return false;
+ 	}
+ */
++    if (!PiDosShareAccess(Files[handle], *amount, false)) { *amount = 0; return false; }
+ 	uint16_t toread=*amount;
+ 	bool ret=Files[handle]->Read(data,&toread);
+ 	*amount=toread;
+@@ -869,6 +938,7 @@
+ 		return false;
+ 	}
+ */
++    if (!PiDosShareAccess(Files[handle], *amount, true)) { *amount = 0; return false; }
+ 	uint16_t towrite=*amount;
+ 	bool ret=Files[handle]->Write(data,&towrite);
+ 	*amount=towrite;
+@@ -896,6 +966,8 @@
+ 		LOG(LOG_FILES, LOG_DEBUG)("Seeking to %d bytes from position type (%d) in %s ", *pos, type, Files[handle]->name);
+ 	}
+ 
++    if (DOS_UsesInternalSharing() && Files[handle]->sharing &&
++        (!PiDosShareCurrent(Files[handle]) || !Files[handle]->SharingRefresh())) return false;
+ 	return Files[handle]->Seek(pos,type);
+ }
+ 
+@@ -910,7 +982,13 @@
+ 		DOS_SetError(DOSERR_INVALID_HANDLE);
+ 		return false;
+ 	}
+-	return Files[handle]->LockFile(mode,pos,size);
++    if (!enable_share_exe) { DOS_SetError(DOSERR_FUNCTION_NUMBER_INVALID); return false; }
++    if (DOS_UsesInternalSharing() && Files[handle]->sharing) {
++        if (!PiDosShareCurrent(Files[handle])) return false;
++        return PiDosShareError(dos_sharing.lock(Files[handle]->sharing, dos.psp(), mode, pos, size));
++    }
++    if (size > 0xffff) { DOS_SetError(33); return false; }
++	return Files[handle]->LockFile(mode,pos,uint16_t(size));
+ }
+ 
+ bool DOS_CloseFile(uint16_t entry, bool fcb, uint8_t * refcnt) {
+@@ -935,7 +1013,10 @@
+         if (log_fileio) {
+             LOG(LOG_FILES, LOG_NORMAL)("Closing file %s", Files[handle]->name);
+         }
+-        closed_ok = Files[handle]->Close();
++        const bool refreshed = !Files[handle]->sharing ||
++            (PiDosShareCurrent(Files[handle]) && Files[handle]->SharingRefresh());
++        if (!refreshed) Files[handle]->SharingAbandon();
++        closed_ok = Files[handle]->Close() && refreshed;
+ 	}
+ 
+ 	DOS_PSP psp(dos.psp());
+@@ -979,7 +1060,7 @@
+ bool openfile_deny_non_z=true;
+ #endif
+ 
+-bool DOS_CreateFile(char const * name,uint16_t attributes,uint16_t * entry,bool fcb) {
++bool DOS_CreateFile(char const * name,uint16_t attributes,uint16_t * entry,bool fcb,uint8_t flags) {
+ 	// Creation of a device is the same as opening it
+ 	// Tc201 installer
+ 	if (DOS_FindDevice(name) != DOS_DEVICES)
+@@ -1030,9 +1111,27 @@
+ 		DOS_SetError(DOSERR_ACCESS_DENIED);
+ 		return false;
+ 	}
++    uint16_t sharing_attr = 0;
++    const auto sharing_error = dos.errorcode;
++    if (DOS_UsesInternalSharing()) Drives[drive]->GetFileAttr(fullname, &sharing_attr);
++    dos.errorcode = sharing_error;
++    pidos_sharing::Key share_key;
++    if (DOS_UsesInternalSharing() && !(attributes & DOS_ATTR_VOLUME)) {
++        if (!PiDosShareKey(drive, fullname, share_key) ||
++            (enable_share_exe && (!PiDosShareError(dos_sharing.check_open(share_key, flags, dos.version.major >= 7 || (sharing_attr & DOS_ATTR_READ_ONLY))) ||
++            !PiDosShareError(dos_sharing.access(share_key, dos.psp(), 0, uint64_t(1) << 32))))) return false;
++    }
+ 	bool foundit=Drives[drive]->FileCreate(&Files[handle],fullname,attributes);
+ 	if (foundit) { 
+ 		if (Files[handle]) {
++            if (DOS_UsesInternalSharing()) {
++                // A new long name has an SFN alias only after creation.
++                if (!PiDosShareKey(drive, fullname, share_key)) {
++                    Files[handle]->AddRef(); Files[handle]->Close(); delete Files[handle]; Files[handle] = nullptr; return false;
++                }
++                Files[handle]->sharing = dos_sharing.opened(share_key, flags, fcb ? dos.psp() : 0);
++                Files[handle]->flags = flags;
++            }
+ 			Files[handle]->SetDrive(drive);
+ 			Files[handle]->AddRef();
+ 			Files[handle]->drive = drive;
+@@ -1041,7 +1140,7 @@
+ 		if (Files[handle]) Drives[drive]->EmptyCache();
+ 		return true;
+ 	} else {
+-		if(dos.errorcode==DOSERR_ACCESS_DENIED||dos.errorcode==DOSERR_WRITE_PROTECTED) return false;
++		if(dos.errorcode==DOSERR_ACCESS_DENIED||dos.errorcode==DOSERR_WRITE_PROTECTED||dos.errorcode==32||dos.errorcode==33) return false;
+ 		if(!PathExists(name)) DOS_SetError(DOSERR_PATH_NOT_FOUND); 
+ 		else DOS_SetError(DOSERR_FILE_NOT_FOUND);
+ 		return false;
+@@ -1105,6 +1204,11 @@
+ 		DOS_SetError(DOSERR_TOO_MANY_OPEN_FILES);
+ 		return false;
+ 	}
++    pidos_sharing::Key share_key;
++    if (!device && DOS_UsesInternalSharing()) {
++        if (!PiDosShareKey(drive, fullname, share_key) ||
++            (enable_share_exe && !PiDosShareError(dos_sharing.check_open(share_key, flags, dos.version.major >= 7 || (attr & DOS_ATTR_READ_ONLY))))) return false;
++    }
+ 	bool exists=false;
+ 	if (device) {
+ 		if (Devices[devnum]->GetInformation() & DeviceInfoFlags::ExternalDevice)
+@@ -1128,6 +1232,9 @@
+ 		else if (dos.errorcode==DOSERR_ACCESS_CODE_INVALID) return false;
+ 		dos.errorcode=olderror;
+ 	}
++    if (exists && DOS_UsesInternalSharing()) {
++        Files[handle]->sharing = dos_sharing.opened(share_key, flags, fcb ? dos.psp() : 0);
++    }
+ 	if (exists || device) { 
+ 		Files[handle]->AddRef();
+ 		psp.SetFileHandle(*entry,handle);
+@@ -1165,14 +1272,15 @@
+ 		// File already exists
+ 		switch (action & 0x0f) {
+ 			case 0x00:		// failed
+-				DOS_SetError(DOSERR_FILE_ALREADY_EXISTS);
++				DOS_CloseFile(*entry);
++                DOS_SetError(DOSERR_FILE_ALREADY_EXISTS);
+ 				return false;
+ 			case 0x01:		// file open (already done)
+ 				result = 1;
+ 				break;
+ 			case 0x02:		// replace
+ 				DOS_CloseFile(*entry);
+-				if (!DOS_CreateFile(name, createAttr, entry)) return false;
++				if (!DOS_CreateFile(name, createAttr, entry, false, uint8_t(flags))) return false;
+ 				result = 3;
+ 				break;
+ 			default:
+@@ -1181,13 +1289,14 @@
+ 				break;
+ 		}
+ 	} else {
++        if (dos.errorcode != DOSERR_FILE_NOT_FOUND) return false;
+ 		// File doesn't exist
+ 		if ((action & 0xf0)==0) {
+ 			// uses error code from failed open
+ 			return false;
+ 		}
+ 		// Create File
+-		if (!DOS_CreateFile(name, createAttr, entry)) {
++		if (!DOS_CreateFile(name, createAttr, entry, false, uint8_t(flags))) {
+ 			// uses error code from failed create
+ 			return false;
+ 		}
+@@ -1224,6 +1333,10 @@
+     if (Network_IsNetworkResource(name)) return Network_UnlinkFile(name);
+ # endif
+ #endif
++    if (enable_share_exe && DOS_UsesInternalSharing()) {
++        pidos_sharing::Key key;
++        if (!PiDosShareKey(drive, fullname, key) || !PiDosShareError(dos_sharing.destructive(key))) return false;
++    }
+ 	if(Drives[drive]->FileUnlink(fullname)){
+ 		return true;
+ 	} else if(uselfn&&!force_sfn&&(strchr(fullname, '*')||strchr(fullname, '?'))) { // Wildcard delete as used by MS-DOS 7+ "DEL *.*" in LFN mode
+@@ -1282,11 +1395,11 @@
+ 		if (removed)
+ 			return true;
+ 		else {
+-			if (dos.errorcode!=DOSERR_ACCESS_DENIED&&dos.errorcode!=DOSERR_WRITE_PROTECTED) DOS_SetError(DOSERR_FILE_NOT_FOUND);
++			if (dos.errorcode!=DOSERR_ACCESS_DENIED&&dos.errorcode!=DOSERR_WRITE_PROTECTED&&dos.errorcode!=32&&dos.errorcode!=33) DOS_SetError(DOSERR_FILE_NOT_FOUND);
+ 			return false;
+ 		}
+ 	} else {
+-		if (dos.errorcode!=DOSERR_ACCESS_DENIED&&dos.errorcode!=DOSERR_WRITE_PROTECTED) DOS_SetError(DOSERR_FILE_NOT_FOUND);
++		if (dos.errorcode!=DOSERR_ACCESS_DENIED&&dos.errorcode!=DOSERR_WRITE_PROTECTED&&dos.errorcode!=32&&dos.errorcode!=33) DOS_SetError(DOSERR_FILE_NOT_FOUND);
+ 		return false;
+ 	}
+ }
+@@ -1913,14 +2026,16 @@
+ 	
+ 	/* Check, if file is already opened */
+ 	for (uint8_t i = 0;i < DOS_FILES;i++) {
+-		if (Files[i] && Files[i]->IsOpen() && Files[i]->IsName(fullname)) {
++		if (!DOS_UsesInternalSharing() && Files[i] && Files[i]->IsOpen() && Files[i]->IsName(fullname)) {
+ 			Files[i]->AddRef();
+ 			fcb.FileOpen(i);
+ 			return true;
+ 		}
+ 	}
+ 	
+-	if (!DOS_OpenFile(shortname,OPEN_READWRITE,&handle,true)) return false;
++	uint16_t file_attr = 0;
++    const uint8_t access = DOS_GetFileAttr(shortname, &file_attr) && (file_attr & DOS_ATTR_READ_ONLY) ? OPEN_READ : OPEN_READWRITE;
++	if (!DOS_OpenFile(shortname,access,&handle,true)) return false;
+ 	fcb.FileOpen((uint8_t)handle);
+ 	return true;
+ }
+@@ -2357,6 +2472,7 @@
+ 
+ extern int swapInDisksSpecificDrive;
+ void DOS_SetupFiles (void) {
++    dos_sharing.clear();
+ 	/* Setup the File Handles */
+ 	Files = new DOS_File * [DOS_FILES];
+ 	uint32_t i;
+--- a/src/dos/drive_fat.cpp
++++ b/src/dos/drive_fat.cpp
+@@ -326,6 +326,10 @@
+                 void Flush() override;
+                 bool UpdateDateTimeFromHost() override;
+                 uint32_t GetSeekPos() override;
++                bool SharingRefresh() override;
++                void SharingAbandon() override {
++                    loadedSector = usbSectorDirty = modified = newtime = false;
++                }
+                 uint32_t firstCluster;
+                 uint32_t seekpos = 0;
+                 uint32_t filelength;
+@@ -420,13 +424,9 @@
+ 
+ #if !defined(OSFREE)
+ void fatFile::Flush(void) {
+-#if defined(LINUX) && !defined(OSFREE)
+-    const bool native_floppy = PI_DOS_IsUSBFloppyImage(myDrive->loadedDisk);
+-#else
+-    const bool native_floppy = false;
+-#endif
+-
+-	if (loadedSector && (!native_floppy || usbSectorDirty)) {
++
++
++	if (loadedSector && usbSectorDirty) {
+ 		myDrive->writeSector(currentSector, sectorBuffer);
+ 	}
+     loadedSector = false;
+@@ -642,7 +642,7 @@
+ 		}
+ 		--sizedec;
+ 		modified = true;
+-		if (native_floppy) usbSectorDirty = true;
++		usbSectorDirty = true;
+ 		sectorBuffer[curSectOff++] = data[sizecount++];
+ 		seekpos++;
+ 		if(curSectOff >= myDrive->getSectorSize()) {
+@@ -737,17 +737,13 @@
+ 
+ #if !defined(OSFREE)
+ bool fatFile::Close() {
+-#if defined(LINUX) && !defined(OSFREE)
+-    const bool native_floppy = PI_DOS_IsUSBFloppyImage(myDrive->loadedDisk);
+-#else
+-    const bool native_floppy = false;
+-#endif
++
+ 
+ 	//TODO
+ 	file_ccm = fatDrive::clusterChainMemory();
+ 
+ 	/* Flush buffer */
+-	if (loadedSector && (!native_floppy || usbSectorDirty)) myDrive->writeSector(currentSector, sectorBuffer);
++	if (loadedSector && usbSectorDirty) myDrive->writeSector(currentSector, sectorBuffer);
+ 
+ 	if (modified || newtime) {
+ 		direntry tmpentry = {};
+@@ -770,7 +766,7 @@
+ 		myDrive->directoryChange(dirCluster, &tmpentry, (int32_t)dirIndex);
+ 	}
+ 
+-	return false;
++	return true;
+ }
+ #endif
+ 
+@@ -781,6 +777,24 @@
+ 
+ bool fatFile::UpdateDateTimeFromHost() {
+ 	return true;
++}
++
++bool fatFile::SharingRefresh() {
++    // A second open may have changed the directory entry or cached sector.
++    // Every DOS write has already committed its data before this refresh.
++    direntry entry = {};
++    if (!myDrive->directoryBrowse(dirCluster, &entry, (int32_t)dirIndex)) {
++        DOS_SetError(DOSERR_FILE_NOT_FOUND); return false;
++    }
++    filelength = entry.entrysize;
++    firstCluster = myDrive->GetBPB().is_fat32() ? entry.Cluster32() : entry.loFirstClust;
++    file_ccm = fatDrive::clusterChainMemory();
++    loadedSector = false; usbSectorDirty = false;
++#if defined(LINUX) && !defined(OSFREE)
++    if (PI_DOS_IsUSBFloppyImage(myDrive->loadedDisk)) return true;
++#endif
++    uint32_t position = seekpos;
++    return Seek(&position, DOS_SEEK_SET);
+ }
+ 
+ uint32_t fatFile::GetSeekPos() {
+@@ -4201,6 +4215,7 @@
+ 	 * directory and FAT table to make the next "disk" appear, even if the volume label does not. */
+ 	if (loadedDisk->detectDiskChange() && !BPB.is_fat32() && partSectOff == 0) {
+ 		LOG(LOG_MISC,LOG_DEBUG)("FAT: disk change");
++        sharing_media = pidos_sharing::next_media_id();
+ 
+ 		FAT_BootSector bootbuffer = {};
+ 		loadedDisk->Read_AbsoluteSector(0+partSectOff,&bootbuffer);
+--- a/src/dos/drive_iso.cpp
++++ b/src/dos/drive_iso.cpp
+@@ -2577,12 +2577,14 @@
+ #endif
+ 
+ void isoDrive :: MediaChange() {
++    sharing_media = pidos_sharing::next_media_id();
+ #if !defined(OSFREE)
+ 	IDE_ATAPI_MediaChangeNotify(toupper(driveLetter) - 'A',/*immediate*/false); /* ewwww */
+ #endif
+ }
+ 
+ void isoDrive :: MediaChangeImmediate() {
++    sharing_media = pidos_sharing::next_media_id();
+ #if !defined(OSFREE)
+ 	IDE_ATAPI_MediaChangeNotify(toupper(driveLetter) - 'A',/*immediate*/true); /* ewwww */
+ #endif
+@@ -2642,6 +2644,7 @@
+ 	const uint64_t generation = USBGeneration();
+ 	if (generation != usb_generation || (present && !usb_ready)) {
+ 		usb_generation = generation; usb_ready = false;
++        sharing_media = pidos_sharing::next_media_id();
+ 		curdir[0] = discLabel[0] = 0;
+ #if !defined(OSFREE)
+ 		nextFreeDirIterator = 0;
+--- a/src/dos/drive_local.cpp
++++ b/src/dos/drive_local.cpp
+@@ -1442,7 +1442,7 @@
+ #endif
+ 
+     FILE * hand;
+-    if (enable_share_exe && (!existing_file || special_attributes)) {
++    if (enable_share_exe && !DOS_UsesInternalSharing() && (!existing_file || special_attributes)) {
+ #if defined(WIN32)
+         // 🌟 Fix: Safely combine multiple standard DOS attribute bits into a single bitmask 
+         // to prevent attributes from overriding/erasing each other.
+@@ -1496,6 +1496,9 @@
+ 	}
+ 
+ 	/* Make the 16 bit device information */
++#if defined(LINUX)
++    if (DOS_UsesInternalSharing()) setvbuf(hand, nullptr, _IONBF, 0);
++#endif
+ 	*file=new LocalFile(name,hand);
+ 	(*file)->flags=OPEN_READWRITE;
+ #if defined(LINUX)
+@@ -1662,7 +1665,7 @@
+     }
+ #endif
+     FILE * hand;
+-    if (enable_share_exe) {
++    if (enable_share_exe && !DOS_UsesInternalSharing()) {
+ #if defined(WIN32)
+         int ohFlag = (flags&0xf)==OPEN_READ||(flags&0xf)==OPEN_READ_NO_MOD?GENERIC_READ:((flags&0xf)==OPEN_WRITE?GENERIC_WRITE:GENERIC_READ|GENERIC_WRITE);
+         int shhFlag = (flags&0x70)==0x10?0:((flags&0x70)==0x20?FILE_SHARE_READ:((flags&0x70)==0x30?FILE_SHARE_WRITE:FILE_SHARE_READ|FILE_SHARE_WRITE));
+@@ -1709,6 +1712,9 @@
+ 		return false;
+ 	}
+ 
++#if defined(LINUX)
++    if (DOS_UsesInternalSharing()) setvbuf(hand, nullptr, _IONBF, 0);
++#endif
+ 	*file=new LocalFile(name,hand);
+ #if defined(LINUX)
+     if (native_dos_attributes) (*file)->attr = native_attributes;
+--- a/src/dos/drives.h
++++ b/src/dos/drives.h
+@@ -524,6 +524,7 @@
+ 	uint8_t Write_AbsoluteSector_INT25(uint32_t sectnum, void * data) override;
+ 	void UpdateDPB(unsigned char dos_drive) override;
+ 
++    uint64_t SharingMediaId() override { checkDiskChange(); return sharing_media; }
+ 	char const * GetLabel() override;
+ 	void SetLabel(const char *label, bool iscdrom, bool updatable) override;
+ 	virtual void UpdateBootVolumeLabel(const char *label);
+@@ -1145,6 +1146,7 @@
+ 	void setFileName(const char* fileName);
+     bool SetLabelChecked(const char *) override { DOS_SetError(19); return false; }
+ 	char const* GetLabel(void) override;
++    uint64_t SharingMediaId() override { return USBReady() ? sharing_media : 0; }
+ 	bool USBReady(uint64_t expected = 0);
+ 	uint64_t USBGeneration() const;
+ private:

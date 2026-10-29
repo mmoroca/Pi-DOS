@@ -109,6 +109,7 @@ public:
 };
 
 struct Medium {
+    const uint64_t sharing_media = pidos_sharing::next_media_id();
     std::shared_ptr<Device> device;
     std::unique_ptr<fatDrive> fat;
     explicit Medium(std::shared_ptr<Device> source) : device(source) {}
@@ -271,6 +272,9 @@ public:
     }
     bool Seek(uint32_t *pos, uint32_t type) override
     { return medium->ready() && file->Seek(pos, type) && medium->device->valid; }
+    bool SharingReady() override { return medium->ready(); }
+    bool SharingRefresh() override
+    { return medium->ready() && file->SharingRefresh() && medium->device->valid; }
     bool Close() override
     {
         const bool ready = medium->ready(true);
@@ -390,6 +394,7 @@ public:
         return medium->device->valid;
     }
     char const *GetLabel() override { return ready() ? medium->fat->GetLabel() : ""; }
+    uint64_t SharingMediaId() override { return ready() ? medium->sharing_media : 0; }
     bool SetLabelChecked(const char *label) override
     {
         return mutate([&] {

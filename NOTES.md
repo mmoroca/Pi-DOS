@@ -103,6 +103,7 @@
 - [v] DOS drive-letter mapping
 - [ ] FAT12 / FAT16 / FAT32 disk images
 - [ ] Floppy disk images
+- [ ] Read-only disk images
 - [ ] Hard disk images
 - [ ] CD-ROM emulation
 - [ ] ISO image mounting
@@ -117,11 +118,10 @@
 - [v] DOS volume labels
 - [v] USB storage mounting
 - [v] Automatic USB drive mapping
-- [ ] Read-only disk images
-- [ ] Writable disk overlays
-- [ ] File sharing and locking
-- [ ] Disk caching
-- [ ] Persistent user configuration
+- [x] Writable disk overlays
+- [v] File sharing and locking
+- [v] Disk caching
+- [v] Persistent user configuration
 
 ### Input and Controllers
 

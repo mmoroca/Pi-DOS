@@ -54,6 +54,7 @@ with tempfile.TemporaryDirectory(prefix='pi-dos-cdrom.') as temporary:
     sector = iso[start:iso.index('\n}', start) + 2]
     media = iso[iso.index('// Native optical media are replaceable'):]
     (work / 'test-cdrom-media.h').write_text(sector + '\n' + read + '\n' + media)
+    shutil.copyfile(ROOT / 'src/runtime/dos_sharing.h', work / 'pidos_dos_sharing.h')
     for name in ('linux', 'player', 'backend'):
         content = (ROOT / f'src/runtime/usb_cdrom_{name}.h').read_text()
         if name == 'player':

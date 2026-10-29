@@ -241,3 +241,12 @@ filter hidden/system entries according to DOS search attributes. Internal FAT
 path traversal can still enter hidden/system directories. ATTRIB retains its
 existing syntax and recursion, with a failing ERRORLEVEL on update failures.
 See [DOS file attributes](../../docs/buildroot-pi5.md#dos-file-attributes).
+
+`0028-dos-file-sharing-locks.patch` replaces Linux process-associated sharing
+with the DOS-level table in `src/runtime/dos_sharing.h`. It checks open modes,
+PSP-owned byte ranges and destructive operations at the DOS file API, including
+32-bit lengths, duplicate/inherited grants, FCB/exit cleanup and media identity.
+Local stdio and FAT sector/metadata caches remain coherent across independent
+opens. Extended create preserves sharing/access flags and cannot truncate after
+a sharing failure. DOS name resolution preserves active search results.
+See [file sharing and locking](../../docs/buildroot-pi5.md#dos-file-sharing-and-record-locking).
