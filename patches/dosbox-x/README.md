@@ -2,6 +2,15 @@
 
 Base: `4f19017c5f565dc40d01fede0f1382892e7243d7` (`dosbox-x-v2026.08.31`).
 
+`0034-captures-and-image-switching.patch` fixes supervised capture output at
+`C:\SYSTEM\CAPTURES` and rejects writes when persistent storage is read-only or
+missing. The existing PNG writer and program-based sequence numbering are reused.
+`src/runtime/image_switch.h` cycles only multi-image IMGMOUNT CD/floppy sets,
+refreshing caches and BIOS/IDE media notifications without disturbing physical
+USB drives, single images or protected C:/Z:. The shared shortcut helper exposes
+screenshot/next-CD/next-floppy actions through PIDOSCFG's System tab, including
+Linux Print Screen/SysRq handling. See [shortcut usage](../../src/doscfg/README.md#input-and-controllers).
+
 `0029-zip-overlay-mounts.patch` registers `ZIPMOUNT.COM` and integrates the
 headers `src/runtime/zip_{mount_dos,drive,overlay}.h`. ZIPs are read by PhysFS;
 normal DOS file operations write to an ordinary sibling `.PFS` directory.

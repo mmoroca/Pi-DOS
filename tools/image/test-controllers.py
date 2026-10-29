@@ -18,14 +18,22 @@ with tempfile.TemporaryDirectory(prefix='pidos-input.') as directory:
     config.pi_dos_input_prepare(None)
     assert libc.getenv(b'PI_DOS_SHORTCUT_REBOOT') == b'1'
     assert libc.getenv(b'PI_DOS_SHORTCUT_POWEROFF') == b'0'
+    assert libc.getenv(b'PI_DOS_SHORTCUT_SCREENSHOT') == b'12'
+    assert libc.getenv(b'PI_DOS_SHORTCUT_NEXT_CD') == b'5'
+    assert libc.getenv(b'PI_DOS_SHORTCUT_NEXT_FLOPPY') == b'6'
     path = work/'PIDOS.CFG'
     path.write_text('[pidos]\ncontroller_layout=RAW\ncontroller_direction=dpad\n'
-                    'shortcut_reboot=none\nshortcut_poweroff=Ctrl+Alt+F2\nshortcut_pause=ctrl+alt+f2\n')
+                    'shortcut_reboot=none\nshortcut_poweroff=Ctrl+Alt+F2\nshortcut_pause=ctrl+alt+f2\n'
+                    'shortcut_screenshot=ctrl+alt+printscreen\nshortcut_next_cd=Ctrl+Alt+PrintScreen\n'
+                    'shortcut_next_floppy=invalid\n')
     config.pi_dos_input_prepare(str(path).encode())
     assert libc.getenv(b'PI_DOS_CONTROLLER_LAYOUT') == b'raw'
     assert libc.getenv(b'PI_DOS_SHORTCUT_REBOOT') == b'0'
     assert libc.getenv(b'PI_DOS_SHORTCUT_POWEROFF') == b'3'
     assert libc.getenv(b'PI_DOS_SHORTCUT_PAUSE') == b'0'  # duplicate disabled
+    assert libc.getenv(b'PI_DOS_SHORTCUT_SCREENSHOT') == b'12'
+    assert libc.getenv(b'PI_DOS_SHORTCUT_NEXT_CD') == b'0'  # duplicate disabled
+    assert libc.getenv(b'PI_DOS_SHORTCUT_NEXT_FLOPPY') == b'6'  # invalid falls back
     source = work/'controllers.cpp'
     source.write_text(r'''
 #include <assert.h>

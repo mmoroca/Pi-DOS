@@ -98,11 +98,14 @@ void pi_dos_input_prepare(const char *source)
         for (char *at=value; *at; ++at) *at=(char)tolower((unsigned char)*at);
         setenv(variables[i],value,1);
     }
-    const char *shortcuts[] = {"shortcut_reboot", "shortcut_poweroff", "shortcut_pause"};
-    const char *env[] = {"PI_DOS_SHORTCUT_REBOOT", "PI_DOS_SHORTCUT_POWEROFF", "PI_DOS_SHORTCUT_PAUSE"};
-    int selected[3] = {0};
-    for (size_t i=0; i<3; ++i) {
-        int code = i==0 ? 1 : 0;
+    const char *shortcuts[] = {"shortcut_reboot", "shortcut_poweroff", "shortcut_pause",
+                              "shortcut_screenshot", "shortcut_next_cd", "shortcut_next_floppy"};
+    const char *env[] = {"PI_DOS_SHORTCUT_REBOOT", "PI_DOS_SHORTCUT_POWEROFF", "PI_DOS_SHORTCUT_PAUSE",
+                        "PI_DOS_SHORTCUT_SCREENSHOT", "PI_DOS_SHORTCUT_NEXT_CD", "PI_DOS_SHORTCUT_NEXT_FLOPPY"};
+    const int shortcut_defaults[] = {1, 0, 0, 12, 5, 6};
+    int selected[6] = {0};
+    for (size_t i=0; i<6; ++i) {
+        int code = shortcut_defaults[i];
         if (pi_dos_config_value(source,"pidos",shortcuts[i],value,sizeof(value))) {
             int parsed = pidos_shortcut_key(value);
             if (parsed>=0) code=parsed;

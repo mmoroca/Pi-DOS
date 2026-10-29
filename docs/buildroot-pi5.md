@@ -1301,7 +1301,11 @@ The shortcut is enabled only for the child launched by Pi-DOS PID 1 through
 `PI_DOS_SUPERVISED=1`; standalone desktop runs keep their existing behavior.
 
 PIDOSCFG's System tab can change or disable this shortcut, and assign clean
-poweroff and pause combinations. The Input tab selects global DOS joystick hardware,
+poweroff, pause, screenshot and image-switching combinations. Screenshots default
+to Ctrl+Alt+Print Screen and save numbered PNGs in `C:\SYSTEM\CAPTURES`, requiring
+writable persistent storage. Ctrl+Alt+F4 cycles multi-image CD sets loaded with
+`IMGMOUNT`; Ctrl+Alt+F5 cycles floppy image sets. Single images and physical USB
+media are excluded. The Input tab selects global DOS joystick hardware,
 controller layout, directional controls and dead zone. Save and reboot to apply.
 Controller hotplug uses stable slots and clears input on disconnect; host virtual
 controller checks pass, with physical game/controller validation still pending.

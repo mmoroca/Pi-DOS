@@ -8,6 +8,8 @@
 #include <string.h>
 #include <unistd.h>
 void PauseDOSBox(bool pressed);
+void CAPTURE_ScreenShotEvent(bool pressed);
+void PiDosNextImage(bool cdrom);
 static bool pi_dos_reboot_requested = false;
 static unsigned char pi_dos_shortcut_held[SDL_NUM_SCANCODES] = {};
 
@@ -23,7 +25,7 @@ static int pi_dos_shortcut_code(const char *name, int fallback)
     if (!value) return fallback;
     char *end=nullptr;
     long code=strtol(value,&end,10);
-    return *value && !*end && code>=0 && code<=11 ? (int)code : fallback;
+    return *value && !*end && code>=0 && code<=12 ? (int)code : fallback;
 }
 static bool pi_dos_reboot_shortcut(const SDL_Event &event, bool ctrl, bool alt)
 {
@@ -42,15 +44,26 @@ static bool pi_dos_reboot_shortcut(const SDL_Event &event, bool ctrl, bool alt)
     if (pi_dos_shortcut_held[key]) return true;
     /* Shift/GUI variants stay available to the guest. Caps/NumLock do not matter. */
     if (!ctrl || !alt || (event.key.keysym.mod & (KMOD_SHIFT|KMOD_GUI))) return false;
-    int code=(key==SDL_SCANCODE_DELETE || key==SDL_SCANCODE_KP_PERIOD)?1:
+    /* Linux evdev also reports the Print Screen key as SysRq. */
+    int code=(key==SDL_SCANCODE_PRINTSCREEN || key==SDL_SCANCODE_SYSREQ)?12:
+        (key==SDL_SCANCODE_DELETE || key==SDL_SCANCODE_KP_PERIOD)?1:
         (key>=SDL_SCANCODE_F1 && key<=SDL_SCANCODE_F10 ? key-SDL_SCANCODE_F1+2 : 0);
     if (!code) return false;
-    const char *names[]={"PI_DOS_SHORTCUT_REBOOT","PI_DOS_SHORTCUT_POWEROFF","PI_DOS_SHORTCUT_PAUSE"};
+    const char *names[]={"PI_DOS_SHORTCUT_REBOOT","PI_DOS_SHORTCUT_POWEROFF","PI_DOS_SHORTCUT_PAUSE",
+                        "PI_DOS_SHORTCUT_SCREENSHOT","PI_DOS_SHORTCUT_NEXT_CD","PI_DOS_SHORTCUT_NEXT_FLOPPY"};
+    const int defaults[]={1,0,0,12,5,6};
     int action=0;
-    for (int i=0;i<3;++i) if (code==pi_dos_shortcut_code(names[i],i==0?1:0)) { action=i+1; break; }
+    for (int i=0;i<6;++i) if (code==pi_dos_shortcut_code(names[i],defaults[i])) { action=i+1; break; }
     if (!action) return false;
     pi_dos_shortcut_held[key]=(unsigned char)action;
     if (event.key.repeat || action==3 || pi_dos_reboot_requested) return true;
+    if (action==4) {
+#if C_SSHOT
+        CAPTURE_ScreenShotEvent(true);
+#endif
+        return true;
+    }
+    if (action==5 || action==6) { PiDosNextImage(action==5); return true; }
     /* PID 1 owns storage synchronization and emulator teardown for both actions. */
     if (kill(1,action==1?SIGINT:SIGTERM)==0) {
         pi_dos_reboot_requested=true;

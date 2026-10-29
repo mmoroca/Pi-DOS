@@ -6,10 +6,13 @@
 #include "config.h"
 #include "live.h"
 #define CHANNELS (K_VOL_MIDI-K_VOL_MASTER+1)
+/* Only hardware settings through the MT-32 directory are compared live.
+ * Keep unrelated system/network settings out of the 16-bit data segment. */
+#define LIVE_KEY_COUNT (K_MT32_DIR+1)
 static const char *channels[CHANNELS]={"MASTER","SB","FM","GUS","CMS","SPKR","TANDY","TANDYDAC","DISNEY","SYNTH"};
 static char midi_channel[8]="SYNTH";
-static char runtime[K_COUNT][CFG_VALUE_SIZE];
-static unsigned char have[K_COUNT],active[CHANNELS],seeded[CHANNELS];
+static char runtime[LIVE_KEY_COUNT][CFG_VALUE_SIZE];
+static unsigned char have[LIVE_KEY_COUNT],active[CHANNELS],seeded[CHANNELS];
 static char original[CHANNELS][32],applied[CHANNELS][32];
 static int state,matching;
 
@@ -43,7 +46,7 @@ static int snapshot(void) {
   equals=strchr(line,'='); if(!equals) continue;
   *equals++=0; trim(line); trim(equals);
   if(strlen(equals)>=CFG_VALUE_SIZE) continue;
-  for(key=K_MACHINE;key<K_COUNT;++key) if(!stricmp(line,cfg_specs[key].key)) {
+  for(key=K_MACHINE;key<LIVE_KEY_COUNT;++key) if(!stricmp(line,cfg_specs[key].key)) {
    strcpy(runtime[key],equals); have[key]=1;
   }
  }

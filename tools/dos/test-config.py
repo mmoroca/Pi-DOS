@@ -177,14 +177,14 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     for key, value in (('K_MONITOR',b'lcd'),('K_LCD_MODE',b'1280x720'),
                        ('K_LCD_ASPECT',b'original'),('K_LCD_LINEAR',b'true')):
         assert set_value(key,value)
-    fields = ctypes.create_string_buffer(12 * 128)
-    assert editor.form_fields(7, fields) == 11  # LCD controls, region, diagnostics and shortcuts
+    fields = ctypes.create_string_buffer(16 * 128)
+    assert editor.form_fields(7, fields) == 14  # LCD controls, region, diagnostics and shortcuts
     assert editor.cfg_save_changes(encoded)
     assert editor.cfg_load(encoded) and get('K_MONITOR') == b'lcd'
     assert get('K_LCD_MODE') == b'1280x720' and get('K_LCD_ASPECT') == b'original'
     assert get('K_LCD_LINEAR') == b'true'
     assert set_value('K_MONITOR',b'crt')
-    assert editor.form_fields(7, fields) == 8
+    assert editor.form_fields(7, fields) == 11
     assert get('K_LCD_MODE') == b'1280x720'  # switching keeps LCD preferences
     assert get('K_LCD_LINEAR') == b'true'
     for key, value in (('K_MONITOR',b'auto'),('K_LCD_MODE',b'9999x9999'),
@@ -241,9 +241,22 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert get('K_JOY_TYPE') == b'2axis'
     assert get('K_SHORTCUT_POWEROFF') == b'ctrl+alt+f3'
     assert get('K_SHORTCUT_PAUSE') == b'Ctrl+Alt+F3'
-    editor.cfg_reset_page(7)  # System defaults reset the three shortcuts.
+    editor.cfg_reset_page(7)  # System defaults reset all shortcuts.
     assert get('K_SHORTCUT_REBOOT') == b'Ctrl+Alt+Delete'
     assert get('K_SHORTCUT_POWEROFF') == get('K_SHORTCUT_PAUSE') == b'none'
+    assert get('K_SHORTCUT_SCREENSHOT') == b'Ctrl+Alt+PrintScreen'
+    assert get('K_SHORTCUT_NEXT_CD') == b'Ctrl+Alt+F4'
+    assert get('K_SHORTCUT_NEXT_FLOPPY') == b'Ctrl+Alt+F5'
+    assert set_value('K_SHORTCUT_SCREENSHOT', b'ctrl+alt+printscreen')
+    assert set_value('K_SHORTCUT_NEXT_CD', b'Ctrl+Alt+PrintScreen')
+    assert not editor.cfg_save_changes(encoded)  # conflict with screenshot
+    assert set_value('K_SHORTCUT_NEXT_CD', b'none')
+    assert set_value('K_SHORTCUT_NEXT_FLOPPY', b'Ctrl+Alt+F8')
+    assert editor.cfg_save_changes(encoded)
+    assert editor.cfg_load(encoded)
+    assert get('K_SHORTCUT_NEXT_CD') == b'none'
+    assert get('K_SHORTCUT_NEXT_FLOPPY') == b'Ctrl+Alt+F8'
+    assert get('K_SHORTCUT_SCREENSHOT') == b'ctrl+alt+printscreen'
     assert get('K_JOY_TYPE') == b'2axis'
     assert editor.cfg_save_changes(encoded)
 

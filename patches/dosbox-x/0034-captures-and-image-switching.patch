@@ -1,0 +1,47 @@
+Pi-DOS: Keep captures on persistent C: and enable managed image switching.
+
+--- a/src/ints/bios_disk.cpp
++++ b/src/ints/bios_disk.cpp
+@@ -1400,6 +1400,8 @@
+         IDE_ATAPI_MediaChangeNotifyAll(/*immediate*/false);
+ }
+ 
++#include "pidos_image_switch.h"
++
+ Int13Status imageDisk::Read_Sector(uint32_t head,uint32_t cylinder,uint32_t sector,void * data,unsigned int req_sector_size) {
+     uint32_t sectnum;
+ 
+--- a/src/hardware/hardware.cpp
++++ b/src/hardware/hardware.cpp
+@@ -37,6 +37,7 @@
+ #include "mixer.h"
+ #include "render.h"
+ #include "cross.h"
++#include "pidos_drive_policy.h"
+ #include "wave_mmreg.h"
+ 
+ #if (C_SSHOT) || (C_AVCODEC)
+@@ -572,6 +573,15 @@
+ }
+ 
+ FILE * OpenCaptureFile(const char * type,const char * ext) {
++    if (PiDosApplianceDrives()) {
++        const char *storage = getenv("PI_DOS_SYSTEM_STORAGE");
++        if (!storage || strcmp(storage, "rw")) {
++            LOG_MSG("Pi-DOS: capture requires writable C: storage");
++            return nullptr;
++        }
++        /* Never fall back to the read-only system or volatile recovery root. */
++        capturedir = "/dosdata/SYSTEM/CAPTURES";
++    }
+     if (!strcmp(type, "Raw Midi")) pathmid = "";
+     if (!strcmp(type, "Raw Opl")) pathopl = "";
+     if (!strcmp(type, "Screenshot")) pathscr = "";
+@@ -2178,6 +2188,7 @@
+     else {
+          capturedir = working_dir + CROSS_FILESPLIT + captures_value;
+     }
++    if (PiDosApplianceDrives()) capturedir = "/dosdata/SYSTEM/CAPTURES";
+     LOG(LOG_MISC, LOG_DEBUG)("HARDWARE: Capture directory set to %s", capturedir.c_str());
+ 
+     SetGameState_Run(section->Get_int("saveslot")-1);

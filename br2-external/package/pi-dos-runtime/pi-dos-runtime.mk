@@ -14,6 +14,7 @@ PI_DOS_RUNTIME_CONF_OPTS = --enable-sdl2 \
 PI_DOS_RUNTIME_CONF_ENV = SDL2_CONFIG=$(STAGING_DIR)/usr/bin/sdl2-config LIBS="-lblkid"
 
 define PI_DOS_RUNTIME_APPLY_PATCHES
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/image_switch.h $(@D)/src/ints/pidos_image_switch.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/zip_overlay.h $(@D)/src/dos/pidos_zip_overlay.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/zip_drive.h $(@D)/src/dos/pidos_zip_drive.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/zip_mount_dos.h $(@D)/src/dos/pidos_zip_mount_dos.h
@@ -43,6 +44,8 @@ endef
 PI_DOS_RUNTIME_POST_PATCH_HOOKS += PI_DOS_RUNTIME_APPLY_PATCHES
 
 define PI_DOS_RUNTIME_CHECK_MIDI
+	grep -q '^#define C_SSHOT 1' $(@D)/config.h
+	grep -q '^#define C_LIBPNG 1' $(@D)/config.h
 	grep -q '^#define C_FLUIDSYNTH 1' $(@D)/config.h
 	grep -q '^#define C_MT32 1' $(@D)/config.h
 	grep -q '^#define C_SDL2_NET 1' $(@D)/config.h

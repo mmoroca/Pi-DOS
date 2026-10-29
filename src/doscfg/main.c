@@ -548,8 +548,13 @@ static void select_memory(int selected) {
   cfg_set(K_RAM,memory_sizes[selected]); cfg_set(K_RAM_KB,"0");
  }
 }
+static int field_offset(int n,int focus) {
+ if(focus>=n) focus=n-1;
+ return focus>=FORM_VISIBLE_FIELDS?focus-FORM_VISIBLE_FIELDS+1:0;
+}
 static void draw_page(int page,int focus,const char *path) {
- Field fields[12]; int i,n=(page==PAGE_CPU || page==PAGE_MEMORY)?1:form_fields(page,fields);
+ Field fields[FORM_MAX_FIELDS]; int i,n=(page==PAGE_CPU || page==PAGE_MEMORY)?1:form_fields(page,fields);
+ int offset=field_offset(n,focus),row;
  int selected=page==PAGE_MEMORY?memory_selected():cfg_profile(); char value[CFG_VALUE_SIZE],line[160];
  mouse_visible(0); fill(0,0,80,25,NORMAL); fill(0,0,80,1,SELECTED);
  text(3,0,"Pi-DOS Setup",SELECTED,40); text(56,0,cfg_changed()?"Unsaved changes":"Configuration loaded",SELECTED,23);
@@ -580,12 +585,15 @@ static void draw_page(int page,int focus,const char *path) {
   } else text(4,18,"Above 16 MiB can break older software. Use 16 unless an app needs more.",PANEL,72);
   text(4,19,"Some older programs need less RAM; CPU type can also limit usable RAM.",DIM,72);
  } else {
-  for(i=0;i<n;++i) {
+  if(offset>0) text(65,4,"\x18 More",PANEL,8);
+  if(offset+FORM_VISIBLE_FIELDS<n) text(65,16,"\x19 More",PANEL,8);
+  for(i=offset;i<n && i<offset+FORM_VISIBLE_FIELDS;++i) {
    unsigned char color=focus==i?SELECTED:NORMAL;
-   field_value(&fields[i],value); fill(5,5+i,70,1,color); text(7,5+i,fields[i].label,color,28);
+   row=5+i-offset;
+   field_value(&fields[i],value); fill(5,row,70,1,color); text(7,row,fields[i].label,color,28);
    if(fields[i].type==FIELD_VOLUME) {
-    text(38,5+i,"[-]",color,3); text(44,5+i,value,color,20); text(70,5+i,"[+]",color,3);
-   } else text(37,5+i,value,color,37);
+    text(38,row,"[-]",color,3); text(44,row,value,color,20); text(70,row,"[+]",color,3);
+   } else text(37,row,value,color,37);
   }
   if(focus<n) text(4,18,fields[focus].help,PANEL,72);
   if(page==PAGE_MIXER) text(4,19,live_status(),DIM,72);
@@ -611,7 +619,7 @@ static void draw_page(int page,int focus,const char *path) {
 }
 static int setup(const char *path) {
  int page=PAGE_CPU,focus=0,redraw=1,n,selected,count,action,x,y,previous=0; unsigned int key,ch,scan;
- Field fields[12]; union REGS r;
+ Field fields[FORM_MAX_FIELDS]; union REGS r;
  screen_start();
  for(;;) {
   n=(page==PAGE_CPU || page==PAGE_MEMORY)?1:form_fields(page,fields);
@@ -649,11 +657,14 @@ static int setup(const char *path) {
     else if(y==22 && x>=4 && x<32) action=3;
     else if(y==22 && x>=44 && x<58) action=1;
     else if(y==22 && x>=60 && x<75) action=2;
+    else if(x>=65 && x<73 && y==4 && field_offset(n,focus)>0) focus=field_offset(n,focus)-1;
+    else if(x>=65 && x<73 && y==16 && field_offset(n,focus)+FORM_VISIBLE_FIELDS<n)
+     focus=field_offset(n,focus)+FORM_VISIBLE_FIELDS;
     else if(x>=5 && x<75 && y>=5) {
      if(page==PAGE_CPU && y<5+PROFILE_COUNT) { cfg_select_cpu(y-5); focus=0; }
      else if(page==PAGE_MEMORY && y<5+MEMORY_COUNT) { select_memory(y-5); focus=0; }
-     else if(page!=PAGE_CPU && page!=PAGE_MEMORY && y<5+n) {
-      focus=y-5;
+     else if(page!=PAGE_CPU && page!=PAGE_MEMORY && y<5+FORM_VISIBLE_FIELDS && y-5+field_offset(n,focus)<n) {
+      focus=y-5+field_offset(n,focus);
       if(page==PAGE_MIXER && x>=37 && x<42) step_volume(&fields[focus],-1);
       else if(page==PAGE_MIXER && x>=69) step_volume(&fields[focus],1);
       else edit_field(&fields[focus]);

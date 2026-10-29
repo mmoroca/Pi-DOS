@@ -1,18 +1,18 @@
 {
   "target": "16-bit DOS MZ, 8086 instruction set, small memory model, no FPU/extender",
   "source_sha256": {
-    "src/doscfg/main.c": "ef8dfbdf51f6c0da2ce26d24d8924d3e0b88752c271e03a1ac3226c494f43539",
-    "src/doscfg/config.c": "be0736d1d45ce60b19f17b78a9b11afccb173b70b2091e49e408ebae2778122f",
-    "src/doscfg/config.h": "bb7f8abad56479ba4b449a7658bc8a0645afaa9779bbb2be56110b2b7c373e05",
-    "src/doscfg/forms.c": "1b54c7f3dbae3358a02f557352f4628fc3bc2ea6f43afbc87954ca6efd9ca8a1",
-    "src/doscfg/forms.h": "a8542626060694d2c0f342417671a4912797653cab2a553711bf932a13342e80",
-    "src/doscfg/live.c": "88657e71177a3c61dabb74b366e6230239d1bd03636161f59b7f40430ec282e2",
+    "src/doscfg/main.c": "e47f89266441d17371426ccfc361c407fbbf15724c8bd22e625586b36f23482f",
+    "src/doscfg/config.c": "1f5b461255c65bc07e232d6dd0f72f5e37f6685020dec1a691b3f2fe0a521515",
+    "src/doscfg/config.h": "fd9786557f83dedfd8fd27911f12bd8f700b815fcb8accff7b37ef1e513af809",
+    "src/doscfg/forms.c": "d55f7f8fc7268d2dfeeaf43769845fcc3dab4308a9d9a966a0cb08f0a0179686",
+    "src/doscfg/forms.h": "5d429c5a20f92582517ead643081cb3d1de85d3fa0d904ebb6f43dd64743bfd5",
+    "src/doscfg/live.c": "5a98f4e458562c086e053b82ed58b7440287e8f322ccd9cacda5b6b4b2777c43",
     "src/doscfg/live.h": "9955defaa71863402ee7d212effac4b46ffe8169aa076daf8906bc6cf3f62e38",
     "src/doscfg/midi.c": "88ed06d67c4905534e28e05382c75b102eb77aa240cab8dc18dd8dc31ec76e78",
     "src/doscfg/midi.h": "f3516d0183bbb875ed45514ce2a49665a0f3e3a22380fe6d45302260ca3cfb57",
     "src/common/cpu_profiles.c": "57d000c86fd12638f771e516d30ea80d541af838511f57487c409b9991c2a020",
     "src/common/cpu_profiles.h": "30aa46d83b8e761b8ca0ee2371e90469b31e40be11b5d0be1b3427cc8bfb01b6",
-    "src/common/input_options.h": "902de2d11d4b49f72be5542cb2ee44f07e3dd57818a85484b75f2df33f9b2075",
+    "src/common/input_options.h": "3f8d86a5da7db66c1778c1cf2f22f15acbb0c4d390bcacd83f8ab5dfb3046b0d",
     "src/common/network_options.h": "3ca51340f0e5032c9ccbaef64a8a099d5bb8a6c9f49e92e4d7bdf15d93ccdf59",
     "src/common/video_profiles.c": "5c84868fbacde3ff0c4c68a0575bd48256b2dccaf01becdcd9ff4fb49fc923df",
     "src/common/video_profiles.h": "a2f348d8f61945545962895d2161c290f3a151c17b15397e0181c60e666cd9f6",
@@ -22,5 +22,5 @@
     "tools/dos/toolchain.json": "13cbef97b8c3607083dbe8cddc9e971705292942ae2f76e8c9cdf197a3b3bd50"
   },
   "compiler_driver_sha256": "9bf1c208df56c8c154e08a4c42b05183b39e1f3c21e2c3f3b4fa9a66b81aa071",
-  "executable_sha256": "82ed3dc43b79c31cb5b64e7dbe79d84e93a9d68c2d226c721eb5df62fc6e47a2"
+  "executable_sha256": "d7b3a206eeec5145310df30f7fa80b9da2090ef369d299515eb2a50444684904"
 }

@@ -192,6 +192,7 @@ static void prepare_dos_folders(enum storage storage)
     if (storage != READ_WRITE) return;
     const char *directories[] = {"/dosdata/PROGRAMS", "/dosdata/PROGRAMS/TOOLS",
                                  "/dosdata/GAMES", "/dosdata/DOCS", "/dosdata/TEMP",
+                                 "/dosdata/SYSTEM/CAPTURES",
                                  MIDI_ASSET_ROOT, MIDI_ASSET_ROOT "/MT32", MIDI_ASSET_ROOT "/CM32L"};
     for (size_t i = 0; i < sizeof(directories) / sizeof(directories[0]); ++i)
         make_dir(directories[i], 0755);

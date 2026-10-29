@@ -2,6 +2,7 @@
 #include "input_options.h"
 #include <string.h>
 const char *page_names[PAGE_COUNT] = {"CPU", "Memory", "Video", "Sound", "Mixer", "Input", "Network", "System"};
+static const char shortcut_choices[] = PIDOS_SHORTCUT_CHOICES;
 const char *memory_sizes[MEMORY_COUNT] = {"1", "2", "4", "8", "16", "32", "64", "128"};
 #define ADD(k,t,l,c,f,h) do { fields[n].key=k; fields[n].type=t; fields[n].label=l; fields[n].choices=c; fields[n].catalog=f; fields[n].help=h; ++n; } while(0)
 int form_fields(int page, Field *fields)
@@ -80,9 +81,12 @@ int form_fields(int page, Field *fields)
   ADD(K_COUNTRY,FIELD_CHOICE,"DOS country",0,"COUNTRY.LST","Country controls DOS date, number and currency formatting.");
   ADD(K_TIMEZONE,FIELD_CHOICE,"Local timezone",0,"TIMEZONE.LST","Installed IANA timezones; daylight saving changes are automatic.");
   ADD(K_DIAGNOSTICS,FIELD_CHECKBOX,"Diagnostic logs",0,0,"Checked captures diagnostic logs in C:\\SYSTEM after reboot; default off.");
-  ADD(K_SHORTCUT_REBOOT,FIELD_CHOICE,"Reboot shortcut",PIDOS_SHORTCUT_CHOICES,0,"Clean reboot. Select None to pass the combination through to DOS.");
-  ADD(K_SHORTCUT_POWEROFF,FIELD_CHOICE,"Poweroff shortcut",PIDOS_SHORTCUT_CHOICES,0,"Clean poweroff through the system supervisor; disabled by default.");
-  ADD(K_SHORTCUT_PAUSE,FIELD_CHOICE,"Pause shortcut",PIDOS_SHORTCUT_CHOICES,0,"Pause emulation. Repeat this shortcut, or press Escape, to resume.");
+  ADD(K_SHORTCUT_REBOOT,FIELD_CHOICE,"Reboot shortcut",shortcut_choices,0,"Clean reboot. Select None to pass the combination through to DOS.");
+  ADD(K_SHORTCUT_POWEROFF,FIELD_CHOICE,"Poweroff shortcut",shortcut_choices,0,"Clean poweroff through the system supervisor; disabled by default.");
+  ADD(K_SHORTCUT_PAUSE,FIELD_CHOICE,"Pause shortcut",shortcut_choices,0,"Pause emulation. Repeat this shortcut, or press Escape, to resume.");
+  ADD(K_SHORTCUT_SCREENSHOT,FIELD_CHOICE,"Screenshot shortcut",shortcut_choices,0,"Save a PNG in C:\\SYSTEM\\CAPTURES. Requires writable C: storage.");
+  ADD(K_SHORTCUT_NEXT_CD,FIELD_CHOICE,"Next CD shortcut",shortcut_choices,0,"Cycle CD images loaded together with IMGMOUNT, without exiting a game.");
+  ADD(K_SHORTCUT_NEXT_FLOPPY,FIELD_CHOICE,"Next floppy shortcut",shortcut_choices,0,"Cycle floppy images loaded together with IMGMOUNT in A: or B:.");
  }
  return n;
 }

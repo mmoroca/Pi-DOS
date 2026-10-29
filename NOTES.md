@@ -6,6 +6,7 @@
     - external usb dac
 - [ ] first boot should ask for some defaults like time/zone,. country etc
 - [ ] custom formatting/partition/volume letter assigment tool
+- [ ] image viewer?
 
 ---------------------------------------------
 
@@ -165,54 +166,54 @@
 
 ### Gaming and Convenience
 
-- [ ] Per-game configuration profiles
-- [ ] Automatic game configuration
-- [ ] Game-specific CPU settings
-- [ ] Automatic sound-card configuration
-- [ ] Save states
-- [ ] Load states
-- [ ] Rewind
-- [ ] Screenshots
-- [ ] Video recording
-- [ ] Gamepad-friendly navigation
-- [ ] Automatic mounting of game directories
-- [ ] ZIP game launching
-- [ ] Automatic CD image selection
-- [ ] Multi-disc management
-- [ ] Optional graphical game launcher
-- [ ] Optional DOS-style game browser
-- [ ] Game compatibility database
-- [ ] Game-specific performance optimizations
+- [x] Per-game configuration profiles
+- [x] Automatic game configuration
+- [x] Game-specific CPU settings
+- [v] Automatic sound-card configuration
+- [x] Save states
+- [x] Load states
+- [x] Rewind
+- [v] Screenshots
+- [x] Video recording
+- [x] Gamepad-friendly navigation
+- [x] Automatic mounting of game directories
+- [x] ZIP game launching
+- [x] Automatic CD image selection
+- [~] Multi-disc management (basic image switching; no saved disc lists)
+- [x] Optional graphical game launcher
+- [x] Optional DOS-style game browser
+- [x] Game compatibility database
+- [x] Game-specific performance optimizations
 
 ### Operating System and Boot
 
-- [ ] Boot directly to `C:\>`
-- [ ] No Linux desktop
-- [ ] No X11 or Wayland
-- [ ] No systemd
-- [ ] No login or user accounts
-- [ ] Root-only execution
-- [ ] Minimal Buildroot system
-- [ ] Custom PID 1
-- [ ] Embedded initramfs
-- [ ] Read-only system image
-- [ ] Separate persistent DOS partition
-- [ ] Native SDL3
-- [ ] Direct DRM/KMS
-- [ ] Direct ALSA
-- [ ] Direct USB and input access
-- [ ] Fast boot optimization
-- [ ] Minimal RAM consumption
-- [ ] Minimal background processes
-- [ ] Silent Linux initialization
-- [ ] DOS-style startup screen
-- [ ] DOS-style shutdown and reboot
-- [ ] Automatic hardware detection
-- [ ] Raspberry Pi 3/4/5 ARM64 support
-- [ ] Reproducible SD card images
-- [ ] Automatic DOS storage mounting
-- [ ] Recovery from filesystem errors
-- [ ] Optional serial debugging
-- [ ] Offline operation without networking services
+- [v] Boot directly to `C:\>`
+- [v] No Linux desktop
+- [v] No X11 or Wayland
+- [v] No systemd
+- [v] No login or user accounts
+- [v] Root-only execution
+- [v] Minimal Buildroot system
+- [v] Custom PID 1
+- [v] Embedded initramfs
+- [x] Read-only system image
+- [v] Separate persistent DOS partition
+- [v] Native SDL2/SDL3
+- [v] Direct DRM/KMS
+- [v] Direct ALSA
+- [v] Direct USB and input access
+- [v] Fast boot optimization
+- [v] Minimal RAM consumption
+- [v] Minimal background processes
+- [v] Silent Linux initialization
+- [v] DOS-style startup screen
+- [v] DOS-style shutdown and reboot
+- [v] Automatic hardware detection
+- [v] Raspberry Pi 3/4/5 ARM64 support
+- [v] Reproducible SD card images
+- [v] Automatic DOS storage mounting
+- [~] Recovery from filesystem errors
+- [v] Optional serial debugging
+- [v] Offline operation without networking services
 
 Note: This is a consolidated feature wishlist, not a list of features already implemented or guaranteed compatible. It includes existing DOSBox-X capabilities, proposed Pi-DOS functionality and longer-term enhancements.

@@ -169,18 +169,54 @@ probe or calibrate during their own setup/startup and must be restarted afterwar
 Generic fallback layouts vary between devices; extra modern controls cannot
 exceed the selected DOS joystick's capabilities.
 
-The System page configures reboot, poweroff and pause shortcuts, stored under `[pidos]` as
-`shortcut_reboot`, `shortcut_poweroff`, and `shortcut_pause`. Choices are `none`,
-`Ctrl+Alt+Delete`, and `Ctrl+Alt+F1` through `Ctrl+Alt+F10`. Reboot retains
-Ctrl+Alt+Delete by default; poweroff and pause default to disabled. F12 remains
-the emulator's Host key. Duplicate assignments are rejected before saving;
-hand-edited duplicates are disabled at boot in reboot/poweroff/pause priority.
+The System page configures these shortcuts under `[pidos]`:
+
+| Setting | Default | Action |
+| --- | --- | --- |
+| `shortcut_reboot` | Ctrl+Alt+Delete | Clean reboot |
+| `shortcut_poweroff` | none | Clean poweroff |
+| `shortcut_pause` | none | Pause/resume emulation |
+| `shortcut_screenshot` | Ctrl+Alt+PrintScreen | Save a PNG to `C:\SYSTEM\CAPTURES` |
+| `shortcut_next_cd` | Ctrl+Alt+F4 | Next image in mounted CD image sets |
+| `shortcut_next_floppy` | Ctrl+Alt+F5 | Next image in mounted floppy image sets |
+
+Choices are `none`, `Ctrl+Alt+Delete`, `Ctrl+Alt+F1` through `Ctrl+Alt+F10`,
+and `Ctrl+Alt+PrintScreen`. F12 remains the emulator's Host key. Use Up/Down or
+Tab to reach fields below the visible System rows; the More indicators also
+scroll with the mouse. Duplicate assignments are rejected before saving;
+hand-edited duplicates are disabled at boot in the table's order.
 Invalid hand-edited shortcuts fall back to their defaults and log a diagnostic.
+Save and reboot to apply shortcut changes.
 
 Reboot and poweroff use PID 1's existing synchronized shutdown. Pause runs on
 key release; repeat the shortcut or press Escape to resume. Disabling a shortcut
 passes that combination to the normal DOS input path. Ordinary upstream emulator
 shortcuts remain available. No mapper file is loaded or saved for these options.
+
+Screenshots capture the DOS image before host LCD scaling and borders. Names
+use the running program and a sequence number, for example `doom_000.png`.
+The capture folder is created on writable boots; read-only or missing C:
+storage prevents capture without writing elsewhere. Linux's SysRq scancode
+for the Print Screen key is accepted too. Holding a shortcut does not repeat it.
+
+Load all discs for a game together, for example:
+
+```dos
+MOUNT -U D
+IMGMOUNT D C:\IMAGES\DISC1.ISO C:\IMAGES\DISC2.ISO -t iso
+```
+
+While playing, Ctrl+Alt+F4 advances to the next disc and wraps to the first.
+Use CUE files for CUE/BIN discs. For floppy image sets, release A: first and use
+`IMGMOUNT A C:\IMAGES\DISK1.IMG C:\IMAGES\DISK2.IMG -t floppy`, then Ctrl+Alt+F5.
+Each action cycles all multi-image drives of its type, keeping drive letters
+and notifying the guest of media changes. Physical USB drives, single images,
+and C:/Z: are excluded. `IMGSWAP D 2` selects a particular disc at the DOS prompt.
+Saved playlists and an in-game disc-selection menu are not implemented.
+
+Host checks cover shortcut dispatch, configuration, image-set selection and
+media notifications. Physical Pi capture and in-game disc changes still need
+hardware confirmation.
 
 Implementation checks use virtual SDL controllers and mocked system signals.
 Physical controller hotplug, game calibration and the Input tab's appearance on

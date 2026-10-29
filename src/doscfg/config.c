@@ -59,6 +59,9 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("pidos","shortcut_reboot","Ctrl+Alt+Delete",PAGE_SYSTEM),
  S("pidos","shortcut_poweroff","none",PAGE_SYSTEM),
  S("pidos","shortcut_pause","none",PAGE_SYSTEM),
+ S("pidos","shortcut_screenshot","Ctrl+Alt+PrintScreen",PAGE_SYSTEM),
+ S("pidos","shortcut_next_cd","Ctrl+Alt+F4",PAGE_SYSTEM),
+ S("pidos","shortcut_next_floppy","Ctrl+Alt+F5",PAGE_SYSTEM),
  S("ipx","ipx","false",PAGE_NETWORK),
  S("pidos","ipx_mode","manual",PAGE_NETWORK),
  S("pidos","ipx_server","192.168.1.50",PAGE_NETWORK),
@@ -148,6 +151,7 @@ int cfg_set(int key, const char *value) {
  case K_CONTROLLER_SWAP: case K_JOY_TIMED: case K_JOY_AUTOFIRE: case K_LCD_LINEAR:
   valid=one_of(value,"true|false"); break;
  case K_SHORTCUT_REBOOT: case K_SHORTCUT_POWEROFF: case K_SHORTCUT_PAUSE:
+ case K_SHORTCUT_SCREENSHOT: case K_SHORTCUT_NEXT_CD: case K_SHORTCUT_NEXT_FLOPPY:
   valid=pidos_shortcut_key(value)>=0; break;
  case K_MONITOR: valid=one_of(value,"lcd|crt"); break;
  case K_LCD_MODE: valid=lcd_mode_find(value)>=0; break;
@@ -368,12 +372,13 @@ int cfg_save_changes(const char *path) {
 #endif
  if(strlen(path)>=CFG_PATH_SIZE-5) { strcpy(cfg_error,"Configuration path is too long."); return 0; }
  if(!cfg_changed()) return 1;
- if(dirty[K_SHORTCUT_REBOOT] || dirty[K_SHORTCUT_POWEROFF] || dirty[K_SHORTCUT_PAUSE]) {
+ if(dirty[K_SHORTCUT_REBOOT] || dirty[K_SHORTCUT_POWEROFF] || dirty[K_SHORTCUT_PAUSE] ||
+    dirty[K_SHORTCUT_SCREENSHOT] || dirty[K_SHORTCUT_NEXT_CD] || dirty[K_SHORTCUT_NEXT_FLOPPY]) {
   int a,b;
-  for(a=K_SHORTCUT_REBOOT;a<=K_SHORTCUT_PAUSE;++a) {
+  for(a=K_SHORTCUT_REBOOT;a<=K_SHORTCUT_NEXT_FLOPPY;++a) {
    int code=pidos_shortcut_key(values[a]);
    if(code<0) { strcpy(cfg_error,"Choose a supported system shortcut before saving."); return 0; }
-   for(b=a+1;code>0 && b<=K_SHORTCUT_PAUSE;++b)
+   for(b=a+1;code>0 && b<=K_SHORTCUT_NEXT_FLOPPY;++b)
     if(code==pidos_shortcut_key(values[b])) {
      strcpy(cfg_error,"System shortcuts must use different key combinations."); return 0;
     }
