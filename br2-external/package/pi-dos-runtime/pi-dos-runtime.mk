@@ -3,7 +3,7 @@ PI_DOS_RUNTIME_SOURCE = dosbox-x-$(PI_DOS_RUNTIME_VERSION).tar.gz
 PI_DOS_RUNTIME_SITE = $(call github,joncampbell123,dosbox-x,$(PI_DOS_RUNTIME_VERSION))
 PI_DOS_RUNTIME_LICENSE = GPL-2.0-or-later
 PI_DOS_RUNTIME_LICENSE_FILES = COPYING
-PI_DOS_RUNTIME_DEPENDENCIES = sdl2 alsa-lib zlib libpng fluidsynth
+PI_DOS_RUNTIME_DEPENDENCIES = sdl2 alsa-lib zlib libpng fluidsynth util-linux
 PI_DOS_RUNTIME_AUTORECONF = YES
 # The top-level build does not use libtool; bundled vs/ dependencies are unused.
 # Patching their ltmain.sh files also breaks retries after a configure failure.
@@ -11,9 +11,15 @@ PI_DOS_RUNTIME_LIBTOOL_PATCH = NO
 PI_DOS_RUNTIME_CONF_OPTS = --enable-sdl2 --disable-sdlnet --disable-libslirp \
 	--disable-x11 --disable-opengl --disable-avcodec --disable-printer \
 	--disable-freetype --enable-libfluidsynth --enable-mt32
-PI_DOS_RUNTIME_CONF_ENV = SDL2_CONFIG=$(STAGING_DIR)/usr/bin/sdl2-config
+PI_DOS_RUNTIME_CONF_ENV = SDL2_CONFIG=$(STAGING_DIR)/usr/bin/sdl2-config LIBS="-lblkid"
 
 define PI_DOS_RUNTIME_APPLY_PATCHES
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/drive_policy.h $(@D)/include/pidos_drive_policy.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/system_drive_dos.h $(@D)/src/dos/pidos_system_drive_dos.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_storage_api.h $(@D)/include/pidos_usb_storage_api.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_storage_io.h $(@D)/src/dos/pidos_usb_storage_io.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_storage_linux.h $(@D)/src/dos/pidos_usb_storage_linux.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_storage_dos.h $(@D)/src/dos/pidos_usb_storage_dos.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_floppy_api.h $(@D)/include/pidos_usb_floppy_api.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_floppy_linux.h $(@D)/src/dos/pidos_usb_floppy_linux.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/usb_floppy_dos.h $(@D)/src/dos/pidos_usb_floppy_dos.h

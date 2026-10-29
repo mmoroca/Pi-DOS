@@ -1,0 +1,134 @@
+System-managed root C: and appliance drive ownership.
+
+--- a/src/dos/dos_programs.cpp
++++ b/src/dos/dos_programs.cpp
+@@ -74,6 +74,7 @@
+ #include "pidos_usb_floppy_dos.h"
+ #include "pidos_usb_cdrom_dos.h"
+ #include "pidos_usb_storage_dos.h"
++#include "pidos_system_drive_dos.h"
+ 
+ #if defined(OS2)
+ #define INCL DOSFILEMGR
+@@ -285,6 +286,8 @@
+ 
+     if (i_drive >= DOS_DRIVES || i_drive < 0)
+         return MSG_Get("PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED");
++    if (PiDosProtectedDrive(i_drive))
++        return "Pi-DOS: drive %c: is managed by the system and cannot be unmounted.\n";
+ 
+     if (i_drive < MAX_DISK_IMAGES && Drives[i_drive] == NULL && imageDiskList[i_drive] == NULL)
+         return MSG_Get("PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED");
+@@ -1164,6 +1167,7 @@
+ public:
+     std::vector<std::string> options;
+     void Move_Z(char new_z) {
++        if (PiDosApplianceDrives()) { WriteOut_NoParsing(PiDosDrivePolicyMessage()); return; }
+         char newz_drive = (char)toupper(new_z);
+         int i_newz = (int)newz_drive - (int)'A';
+         if (i_newz >= 0 && i_newz < DOS_DRIVES) {
+@@ -1438,6 +1442,7 @@
+                 return;
+             }
+             if (!temp_line.size()) goto showusage;
++            if (PiDosApplianceDrives()) { WriteOut_NoParsing(PiDosDrivePolicyMessage()); return; }
+ 			if (cmd->FindExist("-u",true)) {
+                 bool curdrv = toupper(i_drive)-'A' == DOS_GetDefaultDrive();
+                 const char *msg=UnmountHelper(i_drive);
+@@ -5874,6 +5879,10 @@
+ 				}
+ 			}
+ 
++			if (tdr >= 'A' && tdr <= 'Z' && PiDosProtectedDrive(tdr - 'A')) {
++                WriteOut_NoParsing(PiDosDrivePolicyMessage()); return;
++            }
++
+ 			if (unmount) {
+ 				if (tdr != 0) {
+ 					Unmount(tdr);
+@@ -6005,7 +6014,7 @@
+ 					if (tdr == '*') {
+ 						/* What drives are available? */
+ 						int i_drive = IS_PC98_ARCH ? 'A' : 'C';
+-						while (i_drive <= 'Z' && Drives[i_drive-'A'] != NULL && (i_drive-'A') < DOS_DRIVES) i_drive++;
++						while (i_drive <= 'Z' && (Drives[i_drive-'A'] != NULL || PiDosProtectedDrive(i_drive-'A'))) i_drive++;
+ 
+ 						if (i_drive > 'Z') {
+ 							WriteOut_NoParsing("No drive letters available");
+@@ -6086,6 +6095,11 @@
+ 			}
+ 
+ 			int i_drive = drive >= 0 ? drive - 'A' : -1;
++            if (PiDosApplianceDrives() && i_drive >= 0 && i_drive < DOS_DRIVES &&
++                (PiDosProtectedDrive(i_drive) || Drives[i_drive])) {
++                WriteOut_NoParsing("Pi-DOS: choose a free drive letter, or unmount the existing removable drive first.\n");
++                return;
++            }
+ 			bool exist = i_drive < DOS_DRIVES && i_drive >= 0 && Drives[i_drive];
+ 			//====== call the proper subroutine ======
+ 			if(fstype=="fat") {
+@@ -10165,6 +10179,7 @@
+ 	PROGRAMS_MakeFile("PIFLOPPY.COM",pidos_floppy::program,"/SYSTEM/");
+ 	PROGRAMS_MakeFile("PICDROM.COM",pidos_cdrom::program,"/SYSTEM/");
+ 	PROGRAMS_MakeFile("PIUSB.COM",pidos_storage::program,"/SYSTEM/");
++	PROGRAMS_MakeFile("PISYSTEM.COM",pidos_system::program,"/SYSTEM/");
+ #endif
+ #endif
+ 	PROGRAMS_MakeFile("BOOT.COM",BOOT_ProgramStart,"/SYSTEM/");
+--- a/src/dos/drives.cpp
++++ b/src/dos/drives.cpp
+@@ -21,6 +21,7 @@
+ #include "dos_system.h"
+ #include "bios_disk.h"
+ #include "drives.h"
++#include "pidos_drive_policy.h"
+ #include "setup.h"
+ #include "mapper.h"
+ #include "support.h"
+@@ -505,6 +506,7 @@
+ }
+ 
+ int DriveManager::UnmountDrive(int drive) {
++    if (!dos_kernel_disabled && PiDosProtectedDrive(drive)) return 1;
+ 	int result = 0;
+ 	// unmanaged drive
+ 	if (driveInfos[drive].disks.size() == 0) {
+--- a/src/shell/shell_cmds.cpp
++++ b/src/shell/shell_cmds.cpp
+@@ -54,6 +54,7 @@
+ #include "version_string.h"
+ #include "pi_dos_version.h"
+ #include "pidos_usb_floppy_api.h"
++#include "pidos_drive_policy.h"
+ 
+ #include <output/output_ttf.h>
+ 
+@@ -3459,6 +3460,9 @@
+ 		StripSpaces(args);
+ 		std::string arg;
+ 		CommandLine command(nullptr, args);
++        if (PiDosApplianceDrives() && command.GetCount()) {
++            WriteOut_NoParsing(PiDosDrivePolicyMessage()); return;
++        }
+ 		if (!command.GetCount()) {
+ 			char name[DOS_NAMELENGTH_ASCII],lname[LFN_NAMELENGTH];
+ 			uint32_t size,hsize;uint16_t date;uint16_t time;uint8_t attr;
+--- a/src/shell/shell.cpp
++++ b/src/shell/shell.cpp
+@@ -24,6 +24,7 @@
+ #include <gtest/gtest.h>
+ 
+ #include "dosbox.h"
++#include "pidos_drive_policy.h"
+ #include "logging.h"
+ #include "regs.h"
+ #include "control.h"
+@@ -1678,7 +1679,7 @@
+ 	MSG_Add("SHELL_CMD_DIR_BYTES_USED","%5d File(s) %17s Bytes\n");
+ 	MSG_Add("SHELL_CMD_DIR_BYTES_FREE","%5d Dir(s)  %17s Bytes free\n");
+ 	MSG_Add("SHELL_CMD_DIR_FILES_LISTED","Total files listed:\n");
+-	MSG_Add("SHELL_EXECUTE_DRIVE_NOT_FOUND","Drive %c does not exist!\nYou must \033[31mmount\033[0m it first. Type \033[1;33mintro\033[0m or \033[1;33mintro mount\033[0m for more information.\n");
++	MSG_Add("SHELL_EXECUTE_DRIVE_NOT_FOUND",PiDosApplianceDrives() ? PiDosUnavailableDriveMessage() : "Drive %c does not exist!\nYou must \033[31mmount\033[0m it first. Type \033[1;33mintro\033[0m or \033[1;33mintro mount\033[0m for more information.\n");
+ 	MSG_Add("SHELL_EXECUTE_DRIVE_ACCESS_CDROM","Do you want to give DOSBox-X access to your real CD-ROM drive %c [Y/N]?");
+ 	MSG_Add("SHELL_EXECUTE_DRIVE_ACCESS_FLOPPY","Do you want to give DOSBox-X access to your real floppy drive %c [Y/N]?");
+ 	MSG_Add("SHELL_EXECUTE_DRIVE_ACCESS_REMOVABLE","Do you want to give DOSBox-X access to your real removable drive %c [Y/N]?");

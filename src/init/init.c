@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 /* Pi-DOS PID 1. Original project code; license selection remains pending. */
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <glob.h>
 #include <limits.h>
@@ -38,7 +39,7 @@ static struct pi_dos_diagnostics diagnostics = {.kernel_fd = -1, .boot_fd = -1, 
 static struct pi_dos_network network = {.dhcp = -1, .clock = -1};
 static struct pi_dos_power_button power_button = {.fd = -1};
 
-#define USER_CONFIG_PATH "/dosdata/c/SYSTEM/PIDOS.CFG"
+#define USER_CONFIG_PATH "/dosdata/SYSTEM/PIDOS.CFG"
 
 static int open_device_events(void)
 {
@@ -169,10 +170,9 @@ static enum storage mount_data(void)
     unsigned long flags = MS_NODEV | MS_NOSUID | MS_NOEXEC;
     if (writable && !mount(device, "/dosdata", "vfat", flags,
                            "uid=0,gid=0,umask=0022,utf8=1,errors=remount-ro")) {
-        make_dir("/dosdata/c", 0755);
-        make_dir("/dosdata/c/SYSTEM", 0755);
+        make_dir("/dosdata/SYSTEM", 0755);
         /* A stale request must never cause a reboot loop after interrupted power. */
-        unlink("/dosdata/c/SYSTEM/CONTROL.REQ");
+        unlink("/dosdata/SYSTEM/CONTROL.REQ");
         return READ_WRITE;
     }
     if (writable) dprintf(2, "Pi-DOS: writable PI-DOS mount failed: %s\n", strerror(errno));
@@ -189,18 +189,11 @@ static enum storage mount_data(void)
 static void prepare_dos_folders(enum storage storage)
 {
     if (storage != READ_WRITE) return;
-    const char *directories[] = {"/dosdata/c/PROGRAMS", "/dosdata/c/PROGRAMS/TOOLS",
-                                 "/dosdata/c/GAMES", "/dosdata/c/DOCS", "/dosdata/c/TEMP",
+    const char *directories[] = {"/dosdata/PROGRAMS", "/dosdata/PROGRAMS/TOOLS",
+                                 "/dosdata/GAMES", "/dosdata/DOCS", "/dosdata/TEMP",
                                  MIDI_ASSET_ROOT, MIDI_ASSET_ROOT "/MT32", MIDI_ASSET_ROOT "/CM32L"};
     for (size_t i = 0; i < sizeof(directories) / sizeof(directories[0]); ++i)
         make_dir(directories[i], 0755);
-    /* PEDIT saves its preferences inside EDIT.COM. Move the existing writable
-     * copy without replacing a utility already installed in the new location. */
-    struct stat status;
-    if (lstat("/dosdata/c/PROGRAMS/TOOLS/EDIT.COM", &status) && errno == ENOENT &&
-        !lstat("/dosdata/c/SYSTEM/EDIT.COM", &status) && S_ISREG(status.st_mode) &&
-        rename("/dosdata/c/SYSTEM/EDIT.COM", "/dosdata/c/PROGRAMS/TOOLS/EDIT.COM"))
-        dprintf(2, "Pi-DOS: editor migration failed: %s\n", strerror(errno));
 }
 
 static void seed_user_file(enum storage storage, const char *source, const char *destination)
@@ -263,15 +256,17 @@ static bool make_config(enum storage storage, const char *user_config)
     bool valid = !ferror(input);
     fclose(input);
     fputs("\n[autoexec]\n@ECHO OFF\n", output);
+    fputs("Z:\\SYSTEM\\PISYSTEM.COM\n", output);
     fputs("Z:\\SYSTEM\\PIFLOPPY.COM\n", output);
     fputs("Z:\\SYSTEM\\PICDROM.COM\n", output);
-    bool drive_c = storage != NO_STORAGE && !access("/dosdata/c", R_OK | X_OK);
+    fputs("Z:\\SYSTEM\\PIUSB.COM\n", output);
+    bool drive_c = storage != NO_STORAGE && !access("/dosdata", R_OK | X_OK);
     if (drive_c) {
-        fprintf(output, "MOUNT C /dosdata/c -label SYSTEM%s\nC:\n", storage == READ_ONLY ? " -ro" : "");
+        fputs("C:\n", output);
         fputs("SET PATH=C:\\PROGRAMS\\TOOLS;C:\\SYSTEM;Z:\\;Z:\\SYSTEM;Z:\\DOS;Z:\\BIN;Z:\\TEXTUTIL;Z:\\DEBUG;Z:\\PATCHING;Z:\\4DOS\n", output);
         struct stat temporary;
-        if (storage == READ_WRITE && !stat("/dosdata/c/TEMP", &temporary) &&
-            S_ISDIR(temporary.st_mode) && !access("/dosdata/c/TEMP", W_OK | X_OK))
+        if (storage == READ_WRITE && !stat("/dosdata/TEMP", &temporary) &&
+            S_ISDIR(temporary.st_mode) && !access("/dosdata/TEMP", W_OK | X_OK))
             fputs("SET TEMP=C:\\TEMP\nSET TMP=C:\\TEMP\n", output);
         fputs("CLS\n", output);
     } else {
@@ -363,6 +358,18 @@ static void finish(enum storage storage, bool restart)
     pi_dos_network_stop(&network);
     pi_dos_diagnostics_stop(&diagnostics);
     sync();
+    DIR *usb = opendir("/run/pi-dos-usb");
+    if (usb) {
+        struct dirent *entry;
+        while ((entry = readdir(usb))) {
+            if (entry->d_name[0] == '.') continue;
+            char path[PATH_MAX];
+            snprintf(path, sizeof(path), "/run/pi-dos-usb/%s", entry->d_name);
+            if (umount(path) && errno != EINVAL && errno != ENOENT)
+                dprintf(2, "Pi-DOS: USB storage unmount failed: %s: %s\n", path, strerror(errno));
+        }
+        closedir(usb);
+    }
     if (storage != NO_STORAGE && umount("/dosdata")) {
         dprintf(2, "Pi-DOS: data unmount failed: %s; attempting read-only remount\n", strerror(errno));
         mount(NULL, "/dosdata", NULL, MS_REMOUNT | MS_RDONLY | MS_NODEV | MS_NOSUID | MS_NOEXEC, NULL);
@@ -409,7 +416,7 @@ int main(void)
     enum storage storage = mount_data();
     prepare_dos_folders(storage);
     seed_user_file(storage, "/pi-dos/PIDOS.CFG", USER_CONFIG_PATH);
-    seed_user_file(storage, "/pi-dos/AUTOEXEC.BAT", "/dosdata/c/AUTOEXEC.BAT");
+    seed_user_file(storage, "/pi-dos/AUTOEXEC.BAT", "/dosdata/AUTOEXEC.BAT");
     const char *midi_assets[] = {"SC55.SF2", "GMROLAND.SF2", "MT32/MT32_CONTROL.ROM", "MT32/MT32_PCM.ROM",
                                 "CM32L/CM32L_CONTROL.ROM", "CM32L/CM32L_PCM.ROM"};
     for (size_t i = 0; i < sizeof(midi_assets) / sizeof(midi_assets[0]); ++i) {
@@ -456,8 +463,14 @@ int main(void)
     pid_t runtime = fork();
     if (runtime == 0) {
         setenv("PI_DOS_SUPERVISED", "1", 1);
+        setenv("PI_DOS_SYSTEM_STORAGE", storage == READ_WRITE ? "rw" :
+               storage == READ_ONLY ? "ro" : "none", 1);
         setenv("PI_DOS_USB_FLOPPY", "1", 1);
         setenv("PI_DOS_USB_CDROM", "1", 1);
+        setenv("PI_DOS_USB_STORAGE", "1", 1);
+        char system_device[PATH_MAX];
+        data_device(system_device, sizeof(system_device));
+        setenv("PI_DOS_DATA_DEVICE", system_device, 1);
         pi_dos_diagnostics_redirect(&diagnostics);
         sigprocmask(SIG_UNBLOCK, &blocked, NULL);
         setsid();
@@ -509,9 +522,9 @@ int main(void)
                 break;
             }
             char request[32];
-            if (storage == READ_WRITE && read_line("/dosdata/c/SYSTEM/CONTROL.REQ", request, sizeof(request))) {
+            if (storage == READ_WRITE && read_line("/dosdata/SYSTEM/CONTROL.REQ", request, sizeof(request))) {
                 if (!requested) restart = !strcmp(request, "reboot");
-                unlink("/dosdata/c/SYSTEM/CONTROL.REQ");
+                unlink("/dosdata/SYSTEM/CONTROL.REQ");
             }
             finish(storage, restart);
         }

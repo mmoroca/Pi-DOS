@@ -15,10 +15,10 @@
     "src/common/video_profiles.c": "5c84868fbacde3ff0c4c68a0575bd48256b2dccaf01becdcd9ff4fb49fc923df",
     "src/common/video_profiles.h": "a2f348d8f61945545962895d2161c290f3a151c17b15397e0181c60e666cd9f6",
     "src/common/midi_profiles.c": "a97c9f8eaf100d8418cc08510438994f5a6025c76b45607718962896aa2035ac",
-    "src/common/midi_profiles.h": "8174ea852bf36c077fa9a7019d62b242f8728c69aa31c11075e191c24558403a",
+    "src/common/midi_profiles.h": "7ee82866c48c654e21f64c1a572e1b32c5db0032505260d21419eacfc7fec090",
     "tools/dos/build.sh": "a7aed724b2aaae43523450d901d9c6089fca5107cbbe73565cb9da8b57d0ce55",
     "tools/dos/toolchain.json": "13cbef97b8c3607083dbe8cddc9e971705292942ae2f76e8c9cdf197a3b3bd50"
   },
   "compiler_driver_sha256": "9bf1c208df56c8c154e08a4c42b05183b39e1f3c21e2c3f3b4fa9a66b81aa071",
-  "executable_sha256": "021c2d13331b2d3598f7304430bd08aebfec883bf11f8d23f7b612f3525b5f95"
+  "executable_sha256": "547c0939e46c25ebe480fc68113c7c066ad4eb450b9aecfb7ba3f33320db3b27"
 }

@@ -38,7 +38,7 @@ void pi_dos_network_start(struct pi_dos_network *network, bool capture_log)
 {
     int log_fd = -1;
     if (capture_log) {
-        log_fd = open("/dosdata/c/SYSTEM/NETWORK.LOG",
+        log_fd = open("/dosdata/SYSTEM/NETWORK.LOG",
                       O_WRONLY | O_CREAT | O_TRUNC | O_APPEND | O_CLOEXEC | O_NOFOLLOW, 0644);
         if (log_fd < 0)
             dprintf(2, "Pi-DOS: cannot create NETWORK.LOG: %s\n", strerror(errno));

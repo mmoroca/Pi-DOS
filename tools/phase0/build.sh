@@ -60,6 +60,12 @@ install -m 0644 "$root/src/runtime/usb_floppy_api.h" "$dosbox/include/pidos_usb_
 for name in linux player backend dos; do
     install -m 0644 "$root/src/runtime/usb_cdrom_$name.h" "$dosbox/src/dos/pidos_usb_cdrom_$name.h"
 done
+install -m 0644 "$root/src/runtime/usb_storage_api.h" "$dosbox/include/pidos_usb_storage_api.h"
+install -m 0644 "$root/src/runtime/drive_policy.h" "$dosbox/include/pidos_drive_policy.h"
+install -m 0644 "$root/src/runtime/system_drive_dos.h" "$dosbox/src/dos/pidos_system_drive_dos.h"
+for name in io linux dos; do
+    install -m 0644 "$root/src/runtime/usb_storage_$name.h" "$dosbox/src/dos/pidos_usb_storage_$name.h"
+done
 for source_patch in "$root"/patches/dosbox-x/*.patch; do
     [[ -f "$source_patch" ]] || continue
     if patch --batch --forward --fuzz=0 --dry-run -p1 -d "$dosbox" -i "$source_patch" >/dev/null 2>&1; then
@@ -88,7 +94,7 @@ fi
     "$dosbox/configure" --enable-sdl2 --disable-sdlnet --disable-libslirp \
         --disable-x11 --disable-avcodec --disable-printer --disable-freetype \
         --disable-libfluidsynth --disable-mt32 \
-        LDFLAGS="-Wl,-rpath,$prefix/lib ${LDFLAGS:-}"
+        LDFLAGS="-Wl,-rpath,$prefix/lib ${LDFLAGS:-}" LIBS="${LIBS:-} -lblkid"
 ) > "$logs/dosbox-x-sdl2-configure.log" 2>&1
 grep -q '^#define C_SDL2 1' "$dosbox_build/config.h"
 if grep -q '^#define C_SDL3 1' "$dosbox_build/config.h"; then

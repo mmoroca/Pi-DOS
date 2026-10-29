@@ -1,11 +1,11 @@
 - [ ] defrag fails on both c and d with "Divide error"
-- [x] command to display available video modes (`VIDEOMOD`, `/HOST`, `/DOS`, `/P`)
 - [ ] tool to measure disk/disc w/r speed
 - [ ] Add system option for audio output:
     - hdmi - default
     - jack (pi3/4)
     - external usb dac
 - [ ] first boot should ask for some defaults like time/zone,. country etc
+- [ ] custom formatting/partition/volume letter assigment tool
 
 ---------------------------------------------
 
@@ -78,28 +78,28 @@
 
 ### Audio and Music
 
-- [ ] PC speaker emulation
-- [ ] AdLib / OPL2
-- [ ] OPL3
-- [ ] Sound Blaster
-- [ ] Sound Blaster Pro
-- [ ] Sound Blaster 16
-- [ ] Gravis UltraSound
-- [ ] Roland MT-32 emulation
-- [ ] General MIDI
-- [ ] Roland Sound Canvas / SC-55 emulation
-- [ ] SoundFont support
-- [ ] External MIDI devices
-- [ ] MIDI device selection
-- [ ] Audio latency configuration
-- [ ] Accurate audio timing
-- [ ] Direct ALSA output
-- [ ] Audio/video synchronization
+- [v] PC speaker emulation
+- [v] AdLib / OPL2
+- [v] OPL3
+- [v] Sound Blaster
+- [v] Sound Blaster Pro
+- [v] Sound Blaster 16
+- [v] Gravis UltraSound
+- [v] Roland MT-32 emulation
+- [v] General MIDI
+- [v] Roland Sound Canvas / SC-55 emulation
+- [v] SoundFont support
+- [v] External MIDI devices
+- [v] MIDI device selection
+- [x] Audio latency configuration
+- [v] Accurate audio timing
+- [v] Direct ALSA output
+- [v] Audio/video synchronization
 
 ### Storage and Filesystems
 
-- [ ] Persistent C: drive
-- [ ] Multiple DOS drives (C:, D:, etc.)
+- [v] Persistent C: drive
+- [v] Multiple DOS drives (C:, D:, etc.)
 - [ ] DOS drive-letter mapping
 - [ ] FAT12 / FAT16 / FAT32 disk images
 - [ ] Host filesystem mapping

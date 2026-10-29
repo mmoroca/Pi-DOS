@@ -68,7 +68,8 @@ The default DOS PATH includes all bundled utility directories.
 DOS volume labels default to `SYSTEM` for C: and `PI-DOS` for Z:.
 C: uses the data partition's available space. D: is reserved for an automatic
 USB optical drive; CD/DVD/Blu-ray units can read regular CDs, including digital
-CD audio and mixed-mode game discs. The image contains only the `c` data folder.
+CD audio and mixed-mode game discs. C: exposes the PI-DOS volume root directly;
+`SYSTEM`, `PROGRAMS`, `GAMES`, `DOCS` and `TEMP` are at that root.
 Host checks pass; physical optical-drive validation is pending. See
 [USB CD-ROM support](docs/buildroot-pi5.md#usb-optical-drive-d).
 USB floppy drives automatically use `A:`, including when connected after boot.
@@ -93,6 +94,13 @@ network time synchronization may correct the clock after startup.
 Edit `C:\AUTOEXEC.BAT` to customize environment variables, PATH or programs run
 after standard startup. A minimal template is created only when missing;
 existing files are preserved. `C:\README.TXT` explains both configuration files.
+Pi-DOS owns C: and Z:. `MOUNT` lists drives and can eject removable drives;
+additional directory mounts and `SUBST` mappings are disabled in appliance mode.
+Use `IMGMOUNT` with a free letter for disk or CD images. The old `c/` layout is
+not migrated automatically; its contents must be placed at the volume root.
+See [managed drives](docs/buildroot-pi5.md#managed-drive-assignments-and-the-c-root).
+The shell shows uppercase 8.3 names by default; `DIR /-Z` shows long names.
+Original filenames on disk and long-filename access are preserved.
 The original Z: utility layout is retained, with the supplied ARJ at `Z:\BIN\ARJ.EXE`.
 Applications live under `C:\PROGRAMS`. Doszip Commander is included in
 `C:\PROGRAMS\DOSZIP`; type `DZ` to open its two-panel file manager.
@@ -102,7 +110,7 @@ SDL2 KMS/DRM teardown keeps the host mouse pointer hidden during reboot and powe
 visual confirmation on hardware is pending.
 
 Moving from the old ext4 image requires backing up `c` and `d`, flashing the
-new image, and restoring files into `c` (including any former D: files).
+new image, and restoring files into the PI-DOS volume root (including any former D: files).
 A kernel-only update does not convert
 the filesystem. The build does not flash any physical card.
 

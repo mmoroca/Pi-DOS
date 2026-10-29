@@ -1,0 +1,59 @@
+Report missing removable media in appliance directory listings.
+
+--- a/src/shell/shell_cmds.cpp
++++ b/src/shell/shell_cmds.cpp
+@@ -140,6 +140,30 @@
+ #endif
+ { nullptr, 0, nullptr, nullptr }
+ };
++
++// A missing disk/disc is an I/O error, not an empty directory. Probe the
++// root before pathname expansion, which can otherwise replace the DOS error.
++static bool PiDosShellMediaReady(DOS_Shell *shell, const char *path) {
++    if (!PiDosApplianceDrives()) return true;
++    while (*path == ' ' || *path == '\t' || *path == '"') ++path;
++    unsigned int drive = DOS_GetDefaultDrive();
++    if (*path && path[1] == ':') {
++        const unsigned char letter = static_cast<unsigned char>(*path);
++        if (!isalpha(letter)) return true;
++        drive = static_cast<unsigned int>(toupper(letter) - 'A');
++    }
++    if (drive >= DOS_DRIVES || !Drives[drive]) return true;
++    const auto previous_error = dos.errorcode;
++    DOS_SetError(0);
++    const bool ready = Drives[drive]->TestDir("");
++    if (!ready && dos.errorcode == DOSERR_DRIVE_NOT_READY) {
++        shell->WriteOut("Not ready reading drive %c\n", static_cast<int>('A' + drive));
++        dos.return_code = 1;
++        return false;
++    }
++    DOS_SetError(previous_error);
++    return true;
++}
+ 
+ const char *GetCmdName(int i) {
+     size_t n = sizeof(cmd_list)/sizeof(cmd_list[0])-1;
+@@ -1030,6 +1054,7 @@
+ 		return;
+ 	}
+ 	StripSpaces(args);
++    if (!PiDosShellMediaReady(this, args)) return;
+ 	char buffer[CROSS_LEN];
+     strcpy(buffer, "0:");
+     strcat(buffer, *args?args:".");
+@@ -2073,6 +2098,7 @@
+ 		WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),args);
+ 		return;
+ 	}
++    if (!PiDosShellMediaReady(this, args)) return;
+ 	if (!strrchr(args,'*') && !strrchr(args,'?')) {
+ 		uint16_t attribute=0;
+ 		if(!DOS_GetSFNPath(args,sargs,false)) {
+@@ -2216,6 +2242,7 @@
+ 		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
+ 		return;
+ 	}
++    if (!PiDosShellMediaReady(this, args)) return;
+ 	if (!outcon) optL = true;
+ 
+ 	RealPt save_dta=dos.dta();

@@ -17,7 +17,8 @@ a Pi-DOS version line to the complete original DOSBox-X version and build output
 `0006-brand-system-drive-label.patch` changes the built-in Z: volume label from
 `DOSBOX-X` to `PI-DOS`. The virtual drive returns a fixed label, so startup's
 `LABEL` command cannot rename it. C: receives the `SYSTEM` label through the
-supervisor's `MOUNT -label` option. D: is left available for CD-ROM images.
+managed system-drive backend added by patch 0022. D: uses automatic USB optical
+discovery and can be released for CD-ROM images.
 
 The native build helper applies `*.patch` in filename order, recognizes already
 applied patches, and rejects mismatches. Upstream source archives retain their
@@ -178,3 +179,39 @@ The host list combines duplicate pixel formats and marks the current timing.
 The guest list reads the adapter's legacy tables and the existing VESA ROM list,
 checking VBE support flags without switching modes. It needs no diagnostics or
 host shell. See [command usage](../../docs/buildroot-pi5.md#listing-available-video-modes).
+
+`0021-automatic-usb-storage.patch` registers `PIUSB.COM` and reconciles external
+USB filesystem drives at DOS operation boundaries. `src/runtime/usb_storage_*.h`
+uses libblkid and synchronous Linux FAT/exFAT mounts, allocating free letters
+from E: without persistent identities. Each connection owns a separate mount;
+removed media retire open file handles and directory searches before letters
+are reused. Checked file writes, metadata flushes and close results reach DOS;
+the generic close/flush dispatchers preserve errors instead of reporting success.
+The storage I/O worker keeps emulator video/events running during blocking file
+transfers and flushes. DOS still waits for completion, with guest interrupts
+held to prevent storage reentry; quit/reset drains the pending operation before
+releasing its borrowed buffers.
+Native builds remain opt-in through `PI_DOS_USB_STORAGE=1` and `PIUSB.COM`.
+See [USB storage](../../docs/buildroot-pi5.md#usb-storage-drives-e-onward) for
+behavior, host checks and outstanding physical validation.
+
+`0022-managed-system-drive.patch` registers `PISYSTEM.COM` to expose the PI-DOS
+volume root as a protected C: drive. PID 1 passes the storage mode through its
+host environment; user AUTOEXEC commands do not mount internal storage.
+Appliance mode rejects C:/Z: unmounts, Z: relocation, additional host-directory
+mounts and SUBST changes. Disk/CD images can use free drive letters, with
+explicit unmount required before replacing a removable drive. The shell's
+unassigned-drive message points to MOUNT's drive listing. Native development
+mounting behavior is unchanged. See [managed drives](../../docs/buildroot-pi5.md#managed-drive-assignments-and-the-c-root).
+
+`0023-classic-shell-names.patch` defaults the supervised shell to uppercase DOS
+8.3 aliases in directory listings, prompts, completion and file-operation
+feedback. `DIR /-Z` retains an explicit long-name view. File operations and guest
+long-filename APIs retain their existing behavior; names on disk are not
+rewritten. Native shell display defaults remain unchanged.
+
+`0024-shell-drive-not-ready.patch` checks media readiness before appliance
+`DIR`, `LS` and `TREE` pathname expansion. Missing media reports
+`Not ready reading drive A`/`D` and returns an error before an empty listing or
+summary. Readable media keeps its usual behavior, and native shell commands
+are unchanged. Guest DOS media-error reporting stays in the existing backends.

@@ -100,15 +100,17 @@ def main():
     require(('SET PATH=' + default_path).encode() in packed_init, 'Default DOS PATH is incomplete')
     require(b'SET TEMP=C:\\TEMP\nSET TMP=C:\\TEMP\n' in packed_init,
             'PID 1 lacks the default DOS temporary directory')
-    require(b'/dosdata/c/SYSTEM/PIDOS.CFG' in packed_init,
+    require(b'/dosdata/SYSTEM/PIDOS.CFG' in packed_init,
             'PID 1 does not load the editable DOSBox configuration')
-    require(b'/dosdata/c/SYSTEM/DOSBOX.CFG' not in packed_init,
+    require(b'/dosdata/SYSTEM/DOSBOX.CFG' not in packed_init,
             'PID 1 still supports the obsolete DOSBOX.CFG path')
     for value in (b'PI_DOS_DIAGNOSTICS', b'/dev/kmsg',
-                  b'/dosdata/c/SYSTEM/BOOT.LOG', b'/dosdata/c/SYSTEM/RUNTIME.LOG'):
+                  b'/dosdata/SYSTEM/BOOT.LOG', b'/dosdata/SYSTEM/RUNTIME.LOG'):
         require(value in packed_init, 'PID 1 lacks diagnostic file logging support')
-    require(b'MOUNT C /dosdata/c -label SYSTEM' in packed_init,
-            'PID 1 lacks the default C: volume label')
+    require(b'Z:\\SYSTEM\\PISYSTEM.COM\n' in packed_init and b'PI_DOS_SYSTEM_STORAGE' in packed_init,
+            'PID 1 lacks the managed root C: startup')
+    require(b'/dosdata/c' not in packed_init and b'MOUNT C ' not in packed_init,
+            'PID 1 still uses the old C: directory or editable mount command')
     require(b'/dosdata/d' not in packed_init,
             'PID 1 still creates or mounts the obsolete D: data directory')
     require(b'C:\\SYSTEM\\RUNTIME' not in (target / 'pi-dos/pi-dos').read_bytes(),
@@ -134,6 +136,14 @@ def main():
     for value in (b'PICDROM.COM', b'USB CD-ROM D: automatic discovery enabled (digital audio)',
                   b'Pi-DOS USB CD-ROM: media=', b'USBCD'):
         require(value in packed_runtime, 'Runtime lacks USB CD-ROM/digital audio support; rebuild pi-dos-runtime')
+    require(b'Z:\\SYSTEM\\PIUSB.COM\n' in packed_init and b'PI_DOS_USB_STORAGE' in packed_init and
+            b'PI_DOS_DATA_DEVICE' in packed_init,
+            'PID 1 lacks automatic USB storage startup/system-disk exclusion; rebuild pi-dos-init')
+    for value in (b'PIUSB.COM', b'Pi-DOS USB storage:', b'/run/pi-dos-usb'):
+        require(value in packed_runtime, 'Runtime lacks automatic USB filesystem drives; rebuild pi-dos-runtime')
+    for value in (b'PISYSTEM.COM', b'PI_DOS_SYSTEM_STORAGE', b'Pi-DOS manages drive mappings.',
+                  b'Type MOUNT to list available drives.', b'Not ready reading drive %c\n'):
+        require(value in packed_runtime, 'Runtime lacks managed system drives; rebuild pi-dos-runtime')
     require(b'PI_DOS_SUPERVISED' in packed_init and
             b'Ctrl+Alt+Delete requested a supervised reboot' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Image lacks the supervised Ctrl+Alt+Delete reboot path')
@@ -174,13 +184,15 @@ def main():
     require('v3d' in drivers and 'vc4' in drivers, 'Mesa lacks Pi VC4/V3D drivers')
     require(any('libudev.so' in name for name in names), 'Daemon-free libudev missing')
     require(any('libfdisk.so' in name for name in names), 'PI-DOS expansion library missing')
+    require(any('libblkid.so' in name for name in names), 'USB filesystem probing library missing')
     require(any('libparted-fs-resize.so' in name for name in names), 'FAT32 resizer missing')
     linux_dirs = list((OUT / 'build').glob('linux-*/.config'))
     require(len(linux_dirs) == 1, 'Cannot identify kernel build configuration')
     kernel = linux_dirs[0].read_text()
     require(b'Pi-DOS: USB floppy status polling endpoint' in (images / 'Image').read_bytes(),
             'Kernel lacks the shared UFI/CBI USB floppy polling cap; rebuild linux')
-    for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'INPUT_EVDEV', 'KEYBOARD_GPIO',
+    for setting in ('ARM64_4K_PAGES', 'DEVTMPFS', 'VFAT_FS', 'EXFAT_FS', 'NLS_UTF8',
+                    'MSDOS_PARTITION', 'EFI_PARTITION', 'USB_UAS', 'INPUT_EVDEV', 'KEYBOARD_GPIO',
                     'SIGNALFD', 'BINFMT_ELF', 'FUTEX', 'PROC_FS', 'SYSFS', 'TMPFS', 'UNIX98_PTYS', 'PRINTK',
                     'USB_HID', 'SCSI', 'BLK_DEV_SD', 'BLK_DEV_SR', 'USB_STORAGE',
                     'USB_DWCOTG', 'USB_DWC2', 'USB_DWC3', 'MMC_BCM2835',
@@ -258,32 +270,36 @@ def main():
                 'PI-DOS hidden-sector offset is incorrect')
     mcopy = OUT / 'host/bin/mcopy'
     data_volume = f'{disk}@@{partitions[1]["start_sector"] * 512}'
-    for name in ('c/README.TXT', 'c/SYSTEM/REBOOT.BAT', 'c/SYSTEM/POWEROFF.BAT'):
+    for name in ('README.TXT', 'SYSTEM/REBOOT.BAT', 'SYSTEM/POWEROFF.BAT'):
         require(subprocess.check_output([str(mcopy), '-i', data_volume, f'::{name}', '-']),
                 f'PI-DOS missing {name}')
     setup_manual = subprocess.check_output([
-        str(mcopy), '-i', data_volume, '::c/DOCS/PIDOSCFG.TXT', '-'])
+        str(mcopy), '-i', data_volume, '::DOCS/PIDOSCFG.TXT', '-'])
     require(setup_manual == (ROOT / 'src/doscfg/README.DOS').read_text().replace(
         '\n', '\r\n').encode('ascii'), 'PIDOSCFG manual missing/stale in PI-DOS')
     watcom_notice = subprocess.check_output([
-        str(mcopy), '-i', data_volume, '::c/DOCS/WATCOM.TXT', '-'])
+        str(mcopy), '-i', data_volume, '::DOCS/WATCOM.TXT', '-'])
     require(b'https://github.com/open-watcom/open-watcom-v2/tree/2026-10-01-Build'
             in watcom_notice and (ROOT / 'LICENSES/OpenWatcom.txt').read_text().replace(
                 '\n', '\r\n').encode('ascii') in watcom_notice,
             'Open Watcom runtime source/license notice missing in PI-DOS')
     # Existing user startup files are preserved, including intentionally empty ones.
-    subprocess.check_call([str(mcopy), '-i', data_volume, '::c/AUTOEXEC.BAT', '-'],
+    subprocess.check_call([str(mcopy), '-i', data_volume, '::AUTOEXEC.BAT', '-'],
                           stdout=subprocess.DEVNULL)
     editor = ROOT / 'br2-external/board/raspberrypi/dos/EDIT.COM'
     packed_editor = subprocess.check_output([
-        str(mcopy), '-i', data_volume, '::c/PROGRAMS/TOOLS/EDIT.COM', '-'])
+        str(mcopy), '-i', data_volume, '::PROGRAMS/TOOLS/EDIT.COM', '-'])
     require(packed_editor == editor.read_bytes(), 'Personalized EDIT.COM missing/stale in PI-DOS')
     mdir = OUT / 'host/bin/mdir'
+    root_files = subprocess.check_output([
+        str(mdir), '-b', '-i', data_volume, '::*'], text=True).upper().splitlines()
+    require(not any(name.rstrip('/').endswith('/C') for name in root_files),
+            'PI-DOS still contains the obsolete C: wrapper directory')
     for directory in ('SYSTEM', 'PROGRAMS', 'PROGRAMS/TOOLS', 'GAMES', 'DOCS', 'TEMP'):
-        require(subprocess.check_output([str(mdir), '-i', data_volume, f'::c/{directory}']),
+        require(subprocess.check_output([str(mdir), '-i', data_volume, f'::{directory}']),
                 f'PI-DOS missing standard directory C:/{directory}')
     system_files = subprocess.check_output([
-        str(mdir), '-b', '-i', data_volume, '::c/SYSTEM/*'], text=True).upper().splitlines()
+        str(mdir), '-b', '-i', data_volume, '::SYSTEM/*'], text=True).upper().splitlines()
     require(not any(name.rstrip('/').endswith('/EDIT.COM') for name in system_files),
             'Obsolete C:/SYSTEM/EDIT.COM would duplicate the tools copy')
     for obsolete in ('DOSBOX.CFG', 'TIMEZONE.CFG'):
@@ -292,7 +308,7 @@ def main():
     require([Path(name).name for name in system_files if name.endswith('.CFG')] == ['PIDOS.CFG'],
             'C:/SYSTEM must contain only PIDOS.CFG for persistent settings')
     packed_config = subprocess.check_output([
-        str(mcopy), '-i', data_volume, '::c/SYSTEM/PIDOS.CFG', '-'])
+        str(mcopy), '-i', data_volume, '::SYSTEM/PIDOS.CFG', '-'])
     default_config = (target / 'pi-dos/PIDOS.CFG').read_bytes()
     require(default_config.count(b'diagnostics=false\r\n') == 1,
             'Missing/ambiguous diagnostics default in PIDOS.CFG')
@@ -320,7 +336,7 @@ def main():
         require(len(packed) == asset['bytes'] and hashlib.sha256(packed).hexdigest() == asset['sha256'],
                 f'Invalid initramfs MIDI asset: {relative}')
         data_asset = subprocess.check_output([
-            str(mcopy), '-i', data_volume, '::c/SYSTEM/MIDI/' + relative, '-'])
+            str(mcopy), '-i', data_volume, '::SYSTEM/MIDI/' + relative, '-'])
         require(data_asset == packed, f'Missing/stale PI-DOS MIDI asset: {relative}')
     require(b'[voodoo]\r\nvoodoo_card=software\r\nvoodoo_maxmem=true\r\nglide=false\r\n'
             in packed_config, 'Missing Voodoo software defaults')
@@ -344,10 +360,10 @@ def main():
     for path in sorted(doszip.iterdir()):
         require(path.is_file(), f'Unexpected Doszip payload entry: {path.name}')
         packed = subprocess.check_output([
-            str(mcopy), '-i', data_volume, f'::c/PROGRAMS/DOSZIP/{path.name}', '-'])
+            str(mcopy), '-i', data_volume, f'::PROGRAMS/DOSZIP/{path.name}', '-'])
         require(packed == path.read_bytes(), f'Doszip missing/stale in PI-DOS: {path.name}')
     packed_launcher = subprocess.check_output([
-        str(mcopy), '-i', data_volume, '::c/SYSTEM/DZ.BAT', '-'])
+        str(mcopy), '-i', data_volume, '::SYSTEM/DZ.BAT', '-'])
     require(packed_launcher ==
             b'@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %1 %2 %3 %4 %5 %6 %7 %8 %9\r\n',
             'Doszip launcher missing/stale in PI-DOS')

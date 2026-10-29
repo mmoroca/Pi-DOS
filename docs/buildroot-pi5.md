@@ -53,7 +53,7 @@ The ReplayOS Pi was not modified.
 The shared FAT image contains the kernel, the device trees listed in
 `br2-external/board/raspberrypi/device-trees.txt`, KMS/USB overlays, boot firmware
 and configuration. PI-DOS is FAT32 for direct file access from modern Windows
-systems. Readback checks confirm the `c` directory and system batch
+systems. Readback checks confirm the root directories and system batch
 files, including the reboot request followed by `EXIT`.
 
 ## Build locally
@@ -108,7 +108,7 @@ There is no separate Linux root partition.
 | Partition | Format / initial size | Contents |
 | --- | --- | --- |
 | 1, BOOT | FAT32 / 256 MiB | ARM64 kernel with initramfs, device trees and boot configuration |
-| 2, PI-DOS | FAT32 / initially 512 MiB | Expands on first boot; `c/`, DOS system batch files and user data |
+| 2, PI-DOS | FAT32 / initially 512 MiB | Expands on first boot; C: at the volume root, DOS system batch files and user data |
 
 The first partition starts at 1 MiB. The fixed MBR signature is `a4d05001`.
 All targeted models use this same partition layout and data volume.
@@ -365,11 +365,12 @@ PI-DOS label before mounting. It automatically expands PI-DOS when unused
 card capacity is available, as described below; it never formats a device.
 The current image deliberately refuses an old ext4 data partition.
 
-Successful writable storage supplies C: from `/dosdata/c`, with the DOS volume
+Successful writable storage supplies C: from `/dosdata`, with the DOS volume
 label `SYSTEM`; the built-in Z: drive is labelled `PI-DOS`. These labels also
-apply on read-only boots. D: is not created or mounted at startup, leaving the
-letter available for CD-ROM images. Fresh images contain no `d` directory.
-C: is a directory on the FAT32 partition, labelled
+apply on read-only boots. A: and D: use the automatic USB floppy and optical
+backends described below. External USB data volumes receive free letters
+starting at E:. Fresh images contain no `d` directory.
+C: exposes the root of the FAT32 partition, labelled
 `PI-DOS` on the host. Storage detection requires this exact label; the old
 `DOSDATA` label is not accepted and is not automatically renamed. Existing FAT32
 cards need their data volume relabelled to `PI-DOS` before booting the updated
@@ -379,6 +380,52 @@ VFAT read-only options, and presents the drives read-only if usable.
 Missing, wrongly labelled or unmountable storage produces a DOS Z: recovery
 prompt, with no temporary replacement C: drive and no infinite device wait.
 That prompt does not include a filesystem-repair utility.
+
+### Managed drive assignments and the C: root
+
+`PISYSTEM.COM` registers C: from the PI-DOS volume root using the writable or
+read-only storage state supplied by PID 1. Configuration, logs, MIDI assets and
+shutdown requests all use `SYSTEM/` at that root. Fresh images contain
+`AUTOEXEC.BAT`, `README.TXT`, `SYSTEM/`, `PROGRAMS/`, `GAMES/`, `DOCS/` and `TEMP/`
+directly on PI-DOS; there is no `c/` wrapper directory.
+
+C: cannot be unmounted or replaced, including when persistent storage is
+unavailable. Z: stays the internal drive and cannot be relocated. These rules
+apply in the supervised appliance runtime, independently of DOS environment
+variables and whether commands come from the prompt or a batch file.
+
+`MOUNT` lists drives, and `MOUNT -U D` or `MOUNT -U E` can release removable
+volumes. Additional host-directory and overlay mounts and `SUBST` mappings are
+disabled. `IMGMOUNT` remains available for disk/CD images using a free letter;
+release an occupied removable drive explicitly before reusing its letter.
+An unassigned drive reports that it is unavailable and suggests `MOUNT` to list
+available drives. It no longer asks the user to create a host-directory mount.
+
+User `C:\AUTOEXEC.BAT` runs after these system assignments and remains available
+for environment variables, PATH additions and application startup. C: setup no
+longer relies on an ordinary `MOUNT C` command. Native development builds keep
+their usual mounting behavior unless appliance mode is explicitly enabled.
+
+The previous `c/` layout is not detected or migrated. Prepare a fresh image or
+place the contents of the former C: folder at the PI-DOS volume root before
+using this runtime. Replacing only BOOT's `Image` on an unchanged old layout is
+not sufficient to retain its configuration and application paths.
+
+The appliance shell displays uppercase DOS 8.3 aliases by default. `DIR`
+(including `/B`, `/W` and `/S`), `LS`, `TREE`, the current-directory display,
+prompt, filename completion and file-operation feedback use short names.
+`DIR /-Z` explicitly shows the long-name view when long filenames are enabled;
+`DIR /Z` selects short names. These are presentation choices: original names
+on disk and long-filename APIs remain available, and paths remain
+case-insensitive. Applications control their own filename displays. Native
+development builds keep their usual display defaults.
+
+In appliance mode, `DIR`, `LS` and `TREE` check media readiness before resolving
+paths. An empty or disconnected automatic A:/D: drive reports
+`Not ready reading drive A` (or `D`) and returns an error instead of an empty
+listing and zero-file summary. Insert media and repeat the command. A readable
+empty filesystem or audio CD retains its normal listing behavior. Selecting
+the drive letter alone still selects the installed drive.
 
 ### USB floppy drive A:
 
@@ -740,7 +787,7 @@ handlers to reenter the pending operation. Audio prefetch stops and discards
 its buffer after detecting removal, replacement or a read failure.
 
 `MOUNT -U D` releases the automatic drive if D: is needed for an image or
-another explicit mount. Run `Z:\SYSTEM\PICDROM.COM` with D: free to reinstall
+a disk/CD image. Run `Z:\SYSTEM\PICDROM.COM` with D: free to reinstall
 automatic discovery. Startup never replaces an existing D: drive.
 
 With diagnostic capture enabled, `C:\SYSTEM\RUNTIME.LOG` includes
@@ -763,6 +810,72 @@ pause/resume/volume and track transitions; swap equal-length discs; eject and
 unplug/reconnect during reads and playback. Check at least a USB CD/DVD unit
 and a USB Blu-ray unit. Rebuild with `make image`; an existing installation can
 use the rebuilt BOOT `Image` without replacing C:.
+
+### USB storage drives E: onward
+
+USB pendrives, external hard disks/SSDs and USB card readers expose each
+supported data volume as a separate DOS drive. FAT12, FAT16, FAT32 and exFAT
+are mounted by Linux and presented through DOSBox-X's directory-drive API.
+Both unpartitioned filesystems and MBR/GPT partitions are supported, including
+MBR logical volumes. This path provides file access, not raw sectors for DOS
+FORMAT, DEFRAG, FDISK or disk repair utilities.
+
+`PIUSB.COM` enables appliance discovery before user startup commands. Discovery
+runs on DOS pathname operations, drive changes, free-space queries and `MOUNT`
+listings, at most twice a second. There is no background mount daemon. A device
+connected after boot becomes available on the next such operation; a slow
+or temporarily unavailable volume is retried after five seconds.
+
+Each eligible volume receives the lowest free letter from E: through Z:;
+occupied letters, including the internal Z: drive and explicit mounts, are
+skipped. Partitions on a newly discovered disk are considered in partition-number
+order. Connected volumes keep their letters. Removing a volume frees its letter
+for the next volume; assignments are not saved across boots. A replacement
+device gets a fresh mount, directory cache and search generation. File handles
+from the old connection fail rather than accessing the replacement medium.
+
+Discovery requires USB ancestry and a direct-access SCSI device, not a
+`removable=1` flag, so external hard disks qualify too. The entire configured
+Pi-DOS system disk is excluded, including when booting from USB. Floppy and
+optical devices, already mounted volumes, EFI/reserved/recovery/hidden
+partitions, unsupported filesystems and conflicting signatures are skipped.
+No volume is automatically repaired, repartitioned or formatted.
+
+Writable volumes use synchronous Linux mounts. DOS file writes and truncates
+flush stdio and check `fsync`; file close also commits timestamps and checks
+filesystem flushing. Creation, deletion, rename and directory/attribute changes
+check filesystem flushing before reporting success. Write, flush and close
+failures propagate to DOS, so built-in COPY does not count a failed copy as
+successful. Writes can be substantially slower than cached writes. A volume
+that cannot be mounted writable is tried read-only.
+
+Blocking file transfers, timestamp commits and filesystem flushes run on a
+serialized host worker. The emulator continues video/event processing while
+waiting, so COPY's completed-file messages appear during multi-file copies.
+Each DOS operation still waits for the worker and its required flushes before
+returning; this does not defer writes until after COPY reports success. Guest
+interrupts are held during the wait to prevent reentry into DOS storage code.
+
+For normal use, wait for copying to finish successfully before unplugging.
+There is no required unmount command after a completed copy. This relies on
+the storage device honoring write/flush completion; disconnecting during a
+write can still lose data or damage FAT/exFAT. Abruptly removing Pi power can
+also affect the separate writable C: volume: use `POWEROFF` for the appliance.
+An optional `MOUNT -U E` ejects a volume when no DOS files remain open; that
+connection stays unmounted until physically reconnected. Automatic idle
+unmounting and persistent volume-to-letter assignments are not implemented.
+
+`python3 tools/image/test-usb-storage.py` uses sparse FAT/exFAT images, real
+libblkid probing and simulated sysfs/mount calls to exercise discovery,
+partition filtering, letter allocation/reuse, stale handles/searches, read-only
+fallback, write/flush failures, display processing during delayed I/O and safe
+completion before a quit/reset unwinds borrowed file buffers. The adapter is
+also cross-compiled against the pinned ARM64 runtime. Physical USB acceptance
+is pending: check devices
+connected before/after boot, several partitions/devices, removal/replacement,
+and completed copies followed by unplug/reconnect and content comparison.
+Rebuild with `make image`. Once using the volume-root layout described above,
+updating BOOT `Image` preserves C:.
 
 ### Editable Pi-DOS configuration
 
@@ -896,7 +1009,7 @@ On first boot, PID 1 grows partition 2 and its FAT32 filesystem to the remaining
 SD-card capacity before mounting C:, which uses the available data space. The
 image keeps an initial 512 MiB filesystem with 4 KiB clusters, MBR type `0x0c`,
 and the correct hidden-sector offset. Modern Windows can open PI-DOS directly:
-its `c` directory supplies C:.
+its root directory supplies C:.
 
 Expansion requires the Pi-DOS MBR identity, 512-byte sectors, the original
 BOOT partition and PI-DOS start, a valid FAT32 PI-DOS boot sector, and no
@@ -940,7 +1053,7 @@ loop-test results do not validate this FAT32 version.
 
 **Migration from the previous image requires a new flash.** Back up the old
 PI-DOS `c` and `d` directories, write the new SD image, then restore those
-files into the new FAT32 `c` directory, placing any former D: files in a suitable
+files into the new FAT32 volume root, placing any former D: files in a suitable
 subdirectory. Replacing only BOOT's `Image` will not
 convert ext4 into FAT32. No physical card is flashed by the build tools.
 Allow first boot extra time to finish expansion before the DOS prompt.
@@ -1245,8 +1358,8 @@ The host check is `python3 tools/image/test-diagnostics.py`.
 For the Pi 4 keyboard test, boot with the keyboard attached, wait for the DOS
 prompt, then unplug and reconnect it. Wait another 15 seconds. Power down, using
 `POWEROFF` if input works, and open the SD card on your computer. Copy
-`c/SYSTEM/BOOT.LOG`, `c/SYSTEM/RUNTIME.LOG`, `c/SYSTEM/NETWORK.LOG` and
-`c/SYSTEM/VIDEO.LOG` from its PI-DOS partition before
+`SYSTEM/BOOT.LOG`, `SYSTEM/RUNTIME.LOG`, `SYSTEM/NETWORK.LOG` and
+`SYSTEM/VIDEO.LOG` from its PI-DOS partition before
 booting it again. File flushing reduces missing output but does not make FAT32
 safe against interrupted power.
 

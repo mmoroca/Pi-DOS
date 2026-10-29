@@ -5,10 +5,10 @@ boot="$BINARIES_DIR/pi-dos-boot"
 data="$BINARIES_DIR/pi-dos-data"
 image_name=pi-dos-arm64-sdcard.img
 if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then image_name=pi-dos-arm64-diagnostic-sdcard.img; fi
-mkdir -p "$boot/overlays" "$data/c/SYSTEM" "$BINARIES_DIR/pi-dos-empty"
-# Remove the obsolete empty directory left by earlier image builds.
-if [[ -d "$data/d" ]]; then rmdir "$data/d"; fi
-mkdir -p "$data/c/PROGRAMS/TOOLS" "$data/c/GAMES" "$data/c/DOCS" "$data/c/TEMP"
+# This is generated image staging, never the mounted user data volume.
+rm -rf "$data"
+mkdir -p "$boot/overlays" "$data/SYSTEM" "$BINARIES_DIR/pi-dos-empty"
+mkdir -p "$data/PROGRAMS/TOOLS" "$data/GAMES" "$data/DOCS" "$data/TEMP"
 install -m 0644 "$BINARIES_DIR/Image" "$boot/Image"
 # Refresh generated device trees so incremental builds cannot retain a removed
 # board variant or an overlay from a different kernel profile.
@@ -33,11 +33,11 @@ words += ['loglevel=7', 'ignore_loglevel', 'log_buf_len=1M']
 path.write_text(' '.join(words) + '\n')
 PY
 fi
-printf '@ECHO OFF\r\nECHO reboot>C:\\SYSTEM\\CONTROL.REQ\r\nEXIT\r\n' > "$data/c/SYSTEM/REBOOT.BAT"
-printf '@ECHO OFF\r\nEXIT\r\n' > "$data/c/SYSTEM/POWEROFF.BAT"
+printf '@ECHO OFF\r\nECHO reboot>C:\\SYSTEM\\CONTROL.REQ\r\nEXIT\r\n' > "$data/SYSTEM/REBOOT.BAT"
+printf '@ECHO OFF\r\nEXIT\r\n' > "$data/SYSTEM/POWEROFF.BAT"
 # Keep the personalized editor writable: PEDIT saves settings in its executable.
-install -m 0644 "$board/dos/EDIT.COM" "$data/c/PROGRAMS/TOOLS/EDIT.COM"
-python3 - "$BR2_EXTERNAL_PI_DOS_PATH/.." "$data/c/DOCS" <<'PY'
+install -m 0644 "$board/dos/EDIT.COM" "$data/PROGRAMS/TOOLS/EDIT.COM"
+python3 - "$BR2_EXTERNAL_PI_DOS_PATH/.." "$data/DOCS" <<'PY'
 from pathlib import Path
 import sys
 project, docs = map(Path, sys.argv[1:])
@@ -51,14 +51,11 @@ notice = ('Open Watcom runtime used by PIDOSCFG.EXE\n\n'
           + (project / 'LICENSES/OpenWatcom.txt').read_text())
 docs.joinpath('WATCOM.TXT').write_bytes(notice.replace('\n', '\r\n').encode('ascii'))
 PY
-# Remove the old generated copy from an incremental image staging tree only.
-rm -f "$data/c/SYSTEM/EDIT.COM" "$data/c/SYSTEM/DOSBOX.CONF" \
-    "$data/c/SYSTEM/DOSBOX.CFG" "$data/c/SYSTEM/TIMEZONE.CFG"
-install -m 0644 "$TARGET_DIR/pi-dos/PIDOS.CFG" "$data/c/SYSTEM/PIDOS.CFG"
-mkdir -p "$data/c/SYSTEM/MIDI"
-cp -a "$TARGET_DIR/pi-dos/midi-assets/." "$data/c/SYSTEM/MIDI/"
+install -m 0644 "$TARGET_DIR/pi-dos/PIDOS.CFG" "$data/SYSTEM/PIDOS.CFG"
+mkdir -p "$data/SYSTEM/MIDI"
+cp -a "$TARGET_DIR/pi-dos/midi-assets/." "$data/SYSTEM/MIDI/"
 if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
-    python3 - "$data/c/SYSTEM/PIDOS.CFG" <<'PY'
+    python3 - "$data/SYSTEM/PIDOS.CFG" <<'PY'
 from pathlib import Path
 import sys
 path = Path(sys.argv[1])
@@ -67,17 +64,15 @@ assert config.count(b'diagnostics=false\r\n') == 1, 'Missing/ambiguous diagnosti
 path.write_bytes(config.replace(b'diagnostics=false\r\n', b'diagnostics=true\r\n'))
 PY
 fi
-if [[ ! -e "$data/c/AUTOEXEC.BAT" && ! -L "$data/c/AUTOEXEC.BAT" ]]; then
-    install -m 0644 "$TARGET_DIR/pi-dos/AUTOEXEC.BAT" "$data/c/AUTOEXEC.BAT"
-fi
-mkdir -p "$data/c/PROGRAMS/DOSZIP"
-cp -a "$board/dos/doszip/." "$data/c/PROGRAMS/DOSZIP/"
-printf '@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %%1 %%2 %%3 %%4 %%5 %%6 %%7 %%8 %%9\r\n' > "$data/c/SYSTEM/DZ.BAT"
+install -m 0644 "$TARGET_DIR/pi-dos/AUTOEXEC.BAT" "$data/AUTOEXEC.BAT"
+mkdir -p "$data/PROGRAMS/DOSZIP"
+cp -a "$board/dos/doszip/." "$data/PROGRAMS/DOSZIP/"
+printf '@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %%1 %%2 %%3 %%4 %%5 %%6 %%7 %%8 %%9\r\n' > "$data/SYSTEM/DZ.BAT"
 printf '%s\r\n' \
     'Pi-DOS persistent drive C:' '' \
     'Volume labels: C: SYSTEM, Z: PI-DOS.' \
-    'D: is left available for CD-ROM images.' '' \
-    'On another computer, open the PI-DOS partition and its c folder.' '' \
+    'A: USB floppy; D: USB optical; E: onward: external USB volumes.' '' \
+    'On another computer, open the PI-DOS partition and its root directory.' '' \
     'SYSTEM          Pi-DOS configuration, lifecycle commands and launchers' \
     'PROGRAMS        Installed applications, one folder per application' \
     'PROGRAMS\TOOLS  Self-contained utilities, including EDIT.COM' \
@@ -88,6 +83,11 @@ printf '%s\r\n' \
     '' 'Startup customization:' \
     'Edit C:\AUTOEXEC.BAT to set environment variables, extend PATH,' \
     'or start programs automatically. Pi-DOS calls it after standard setup.' \
+    'Pi-DOS manages C: and Z:. Directory mounts and SUBST mappings are disabled.' \
+    'MOUNT lists drives; MOUNT -U E optionally ejects a USB volume.' \
+    'Use IMGMOUNT with an available letter for disk or CD images.' \
+    'The shell shows uppercase 8.3 aliases; DIR /-Z shows long names.' \
+    'Original filenames on disk are preserved; paths ignore case.' \
     'Changes take effect on the next boot. Existing files are preserved;' \
     'a minimal template is created only when the file is missing.' \
     'PATH, TEMP, TMP and BLASTER defaults need no entries in this file.' \
@@ -108,7 +108,7 @@ printf '%s\r\n' \
     'In C:\SYSTEM\PIDOS.CFG, set diagnostics=true under [pidos] and reboot.' \
     'BOOT.LOG, RUNTIME.LOG, NETWORK.LOG and VIDEO.LOG are saved in C:\SYSTEM.' \
     'Set diagnostics=false and reboot to stop capture; existing logs remain.' \
-    > "$data/c/README.TXT"
+    > "$data/README.TXT"
 if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
     printf '%s\r\n' '' 'Diagnostic image:' \
         'SYSTEM\BOOT.LOG captures kernel messages and input-device snapshots.' \
@@ -118,7 +118,7 @@ if [[ "${PI_DOS_DIAGNOSTIC:-0}" == 1 ]]; then
         'This image enables diagnostics=true under [pidos] in SYSTEM\PIDOS.CFG.' \
         'Logs are replaced on every diagnostic boot and need writable C:.' \
         'After reconnecting the keyboard, wait 15 seconds before collecting logs.' \
-        >> "$data/c/README.TXT"
+        >> "$data/README.TXT"
 fi
 cat > "$BINARIES_DIR/genimage.cfg" <<EOF
 image boot.vfat {

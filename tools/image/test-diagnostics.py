@@ -23,8 +23,8 @@ def main():
         replacements = {
             '/proc/bus/input/devices': str(devices),
             '/proc/%ld/fd/*': str(work / 'fds/%ld/*'),
-            '/dosdata/c/SYSTEM/BOOT.LOG': str(boot),
-            '/dosdata/c/SYSTEM/RUNTIME.LOG': str(runtime),
+            '/dosdata/SYSTEM/BOOT.LOG': str(boot),
+            '/dosdata/SYSTEM/RUNTIME.LOG': str(runtime),
             '/dev/kmsg': str(kernel),
         }
         for original, replacement in replacements.items():

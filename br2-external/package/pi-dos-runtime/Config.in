@@ -9,6 +9,8 @@ config BR2_PACKAGE_PI_DOS_RUNTIME
 	depends on BR2_PACKAGE_FLUIDSYNTH
 	select BR2_PACKAGE_ZLIB
 	select BR2_PACKAGE_LIBPNG
+	select BR2_PACKAGE_UTIL_LINUX
+	select BR2_PACKAGE_UTIL_LINUX_LIBBLKID
 	select BR2_PACKAGE_ALSA_LIB_SEQ
 	help
 	  Pinned DOSBox-X-derived SDL2 runtime with Pi-DOS patches.

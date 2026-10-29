@@ -12,8 +12,8 @@
 #include <strings.h>
 #include <unistd.h>
 
-#define BOOT_LOG "/dosdata/c/SYSTEM/BOOT.LOG"
-#define RUNTIME_LOG "/dosdata/c/SYSTEM/RUNTIME.LOG"
+#define BOOT_LOG "/dosdata/SYSTEM/BOOT.LOG"
+#define RUNTIME_LOG "/dosdata/SYSTEM/RUNTIME.LOG"
 #define BOOT_LOG_LIMIT (4 * 1024 * 1024)
 
 bool pi_dos_diagnostics_enabled(const char *config)

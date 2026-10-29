@@ -1,0 +1,203 @@
+Classic DOS short-name presentation in the supervised shell; retain LFN APIs and stored names.
+
+--- a/src/shell/shell_cmds.cpp
++++ b/src/shell/shell_cmds.cpp
+@@ -675,14 +675,14 @@
+             exist = true;
+             strcpy(end, name);
+             strcpy(lend, lname);
+-            WriteOut(MSG_Get("SHELL_CMD_DEL_ERROR"), uselfn ? sfull : full);
++            WriteOut(MSG_Get("SHELL_CMD_DEL_ERROR"), (uselfn && !PiDosApplianceDrives()) ? sfull : full);
+         }
+         else if(!(attr & DOS_ATTR_DIRECTORY)) {
+             exist = true;
+             strcpy(end, name);
+             strcpy(lend, lname);
+             if(optP) {
+-                WriteOut(MSG_Get("SHELL_CMD_DEL_CONFIRM"), uselfn ? sfull : full);
++                WriteOut(MSG_Get("SHELL_CMD_DEL_CONFIRM"), (uselfn && !PiDosApplianceDrives()) ? sfull : full);
+                 uint8_t c;
+                 uint16_t n = 1;
+                 DOS_ReadFile(STDIN, &c, &n);
+@@ -697,10 +697,10 @@
+                 if(optF && (attr & DOS_ATTR_READ_ONLY) && DOS_SetFileAttr(pfull.c_str(), attr & ~DOS_ATTR_READ_ONLY)) reset = true;
+                 if(!DOS_UnlinkFile(pfull.c_str())) {
+                     if(optF && reset) DOS_SetFileAttr(pfull.c_str(), attr);
+-                    WriteOut(MSG_Get("SHELL_CMD_DEL_ERROR"), uselfn ? sfull : full);
++                    WriteOut(MSG_Get("SHELL_CMD_DEL_ERROR"), (uselfn && !PiDosApplianceDrives()) ? sfull : full);
+                 }
+             }
+-            else WriteOut(MSG_Get("SHELL_CMD_DEL_ERROR"), uselfn ? sfull : full);
++            else WriteOut(MSG_Get("SHELL_CMD_DEL_ERROR"), (uselfn && !PiDosApplianceDrives()) ? sfull : full);
+         }
+         res = DOS_FindNext();
+     }
+@@ -779,7 +779,7 @@
+             if(DOS_GetFileAttr(path,&attribute) && (attribute&DOS_ATTR_READ_ONLY)&&DOS_SetFileAttr(path, attribute & ~DOS_ATTR_READ_ONLY)) reset=true;
+             if (!DOS_RemoveDir(path)&&!(uselfn&&DOS_RemoveDir(sfull))) {
+                 if (reset) DOS_SetFileAttr(path, attribute);
+-                shell->WriteOut(MSG_Get("SHELL_CMD_RMDIR_ERROR"),uselfn?sfull:full);
++                shell->WriteOut(MSG_Get("SHELL_CMD_RMDIR_ERROR"),(uselfn && !PiDosApplianceDrives())?sfull:full);
+             }
+         }
+         return true;
+@@ -806,7 +806,7 @@
+                 if(attr&DOS_ATTR_DIRECTORY) {
+                     if (strcmp(name, ".")&&strcmp(name, "..")) {
+                         if (!optY&&first) {
+-                            shell->WriteOut(MSG_Get("SHELL_CMD_RMDIR_FULLTREE_CONFIRM"), uselfn ? sfull : full);
++                            shell->WriteOut(MSG_Get("SHELL_CMD_RMDIR_FULLTREE_CONFIRM"), (uselfn && !PiDosApplianceDrives()) ? sfull : full);
+                             DOS_ReadFile (STDIN,&c,&n);
+                             if (c==3) {shell->WriteOut("^C\r\n");break;}
+                             c = c==char_yes||c==char_yes_upper ? char_yes_upper:char_no_upper;
+@@ -820,7 +820,7 @@
+                     }
+                 } else {
+                     if (!optY&&first) {
+-                        shell->WriteOut(MSG_Get("SHELL_CMD_RMDIR_SINGLE_CONFIRM"), uselfn ? sfull : full);
++                        shell->WriteOut(MSG_Get("SHELL_CMD_RMDIR_SINGLE_CONFIRM"), (uselfn && !PiDosApplianceDrives()) ? sfull : full);
+                         DOS_ReadFile (STDIN,&c,&n);
+                         if (c==3) {shell->WriteOut("^C\r\n");break;}
+                         c = c==char_yes||c==char_yes_upper ? char_yes_upper:char_no_upper;
+@@ -858,7 +858,7 @@
+                 if(DOS_GetFileAttr(path,&attribute) && (attribute&DOS_ATTR_READ_ONLY)&&DOS_SetFileAttr(path, attribute & ~DOS_ATTR_READ_ONLY)) reset=true;
+                 if (!DOS_RemoveDir(path)&&!(uselfn&&DOS_RemoveDir(sfull))) {
+                     if (reset) DOS_SetFileAttr(path, attribute);
+-                    shell->WriteOut(MSG_Get("SHELL_CMD_RMDIR_ERROR"),uselfn?sfull:full);
++                    shell->WriteOut(MSG_Get("SHELL_CMD_RMDIR_ERROR"),(uselfn && !PiDosApplianceDrives())?sfull:full);
+                 }
+             }
+         }
+@@ -959,7 +959,8 @@
+ 		if (!level) shell->WriteOut(MSG_Get("SHELL_CMD_TREE_ERROR"));
+ 		return level;
+ 	}
+-	if (!uselfn||!DOS_GetSFNPath(args,sfull,true)) strcpy(sfull,full);
++	if (PiDosApplianceDrives()) strcpy(sfull,spath);
++	else if (!uselfn||!DOS_GetSFNPath(args,sfull,true)) strcpy(sfull,full);
+     if (level&&strlen(sfull)>4&&!strcasecmp(sfull+strlen(sfull)-4, "\\*.*")) {
+         *(sfull+strlen(sfull)-4)=0;
+         p=strrchr_dbcs(sfull, '\\');
+@@ -1002,7 +1003,7 @@
+                     }
+                 } else if (optF) {
+                     for (int i=1; i<=level; i++) shell->WriteOut("%c   ", (i==1&&level>1?!plast:cont[i])?(optA?'|':0xb3):' ');
+-                    shell->WriteOut("    %s\n", uselfn?lname:name);
++                    shell->WriteOut("    %s\n", (uselfn && !PiDosApplianceDrives())?lname:name);
+                 }
+             }
+ 		}
+@@ -1438,6 +1439,7 @@
+     if(!*args) {
+         // Display the current directory of the active drive
+         DOS_GetCurrentDir(0, dir, true);
++        if (PiDosApplianceDrives()) DOS_GetCurrentDir(0, dir, false);
+         WriteOut("%c:\\", drive);
+         WriteOut_NoParsing(dir, true);
+         WriteOut("\n");
+@@ -1456,6 +1458,7 @@
+             }
+             return;
+         }
++        if (PiDosApplianceDrives()) DOS_GetCurrentDir(targetdrive, dir, false);
+         WriteOut("%c:\\", toupper(targetdisplay));
+         WriteOut_NoParsing(dir, true);
+         WriteOut("\n");
+@@ -1938,7 +1941,7 @@
+ 	if (ScanCMDBool(args,"WP") || ScanCMDBool(args,"PW")) optW=optP=true;
+ 	if (ScanCMDBool(args,"-W")) optW=false;
+ 	if (ScanCMDBool(args,"-P")) optP=false;
+-	bool optZ=ScanCMDBool(args,"Z");
++	bool optZ=ScanCMDBool(args,"Z") || PiDosApplianceDrives();
+ 	if (ScanCMDBool(args,"-Z")) optZ=false;
+ 	bool optS=ScanCMDBool(args,"S");
+ 	if (ScanCMDBool(args,"-S")) optS=false;
+@@ -2207,7 +2210,7 @@
+ 	bool optA=ScanCMDBool(args,"A");
+ 	bool optL=ScanCMDBool(args,"L");
+ 	bool optP=ScanCMDBool(args,"P");
+-	bool optZ=ScanCMDBool(args,"Z");
++	bool optZ=ScanCMDBool(args,"Z") || PiDosApplianceDrives();
+ 	char * rem=ScanCMDRemain(args);
+ 	if (rem) {
+ 		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
+@@ -2715,7 +2718,7 @@
+                                 }
+                                 rsize = false;
+ 								if (no_free_space) {
+-									WriteOut(MSG_Get("SHELL_CMD_COPY_NOSPACE"), uselfn?lname:name);
++									WriteOut(MSG_Get("SHELL_CMD_COPY_NOSPACE"), (uselfn && !PiDosApplianceDrives())?lname:name);
+ 									DOS_CloseFile(sourceHandle);
+ 									ret = DOS_FindNext();
+ 									continue;
+@@ -2773,11 +2776,11 @@
+ #endif
+ 							if (!DOS_CloseFile(targetHandle)) failed=true;
+ 							if (failed)
+-                                WriteOut(MSG_Get("SHELL_CMD_COPY_ERROR"),uselfn?lname:name);
+-                            else if (strcmp(name,lname)&&uselfn)
++                                WriteOut(MSG_Get("SHELL_CMD_COPY_ERROR"),(uselfn && !PiDosApplianceDrives())?lname:name);
++                            else if (strcmp(name,lname)&&uselfn&&!PiDosApplianceDrives())
+                                 WriteOut(" %s [%s]\n",lname,name);
+                             else
+-                                WriteOut(" %s\n",uselfn?lname:name);
++                                WriteOut(" %s\n",(uselfn && !PiDosApplianceDrives())?lname:name);
+ 							if(!source.concat && !special && !failed) count++; //Only count concat files once
+ 						} else {
+ 							DOS_CloseFile(sourceHandle);
+@@ -3726,18 +3729,18 @@
+ 					if (DOS_SetFileAttr(((uselfn||strchr(full, ' ')?(full[0]!='"'?"\"":""):"")+std::string(full)+(uselfn||strchr(full, ' ')?(full[strlen(full)-1]!='"'?"\"":""):"")).c_str(), fattr)) {
+ 						if (DOS_GetFileAttr(((uselfn||strchr(full, ' ')?(full[0]!='"'?"\"":""):"")+std::string(full)+(uselfn||strchr(full, ' ')?(full[strlen(full)-1]!='"'?"\"":""):"")).c_str(), &fattr)) {
+ 							shell->WriteOut("  %c  %c%c%c	", fattr&DOS_ATTR_ARCHIVE?'A':' ', fattr&DOS_ATTR_SYSTEM?'S':' ', fattr&DOS_ATTR_HIDDEN?'H':' ', fattr&DOS_ATTR_READ_ONLY?'R':' ');
+-							shell->WriteOut_NoParsing(uselfn?sfull:full, true);
++							shell->WriteOut_NoParsing((uselfn && !PiDosApplianceDrives())?sfull:full, true);
+ 							shell->WriteOut("\n");
+ 						}
+ 					} else
+-						shell->WriteOut(MSG_Get("SHELL_CMD_ATTRIB_SET_ERROR"),uselfn?sfull:full);
++						shell->WriteOut(MSG_Get("SHELL_CMD_ATTRIB_SET_ERROR"),(uselfn && !PiDosApplianceDrives())?sfull:full);
+ 				} else {
+ 					shell->WriteOut("  %c  %c%c%c	", attra?'A':' ', attrs?'S':' ', attrh?'H':' ', attrr?'R':' ');
+-					shell->WriteOut_NoParsing(uselfn?sfull:full, true);
++					shell->WriteOut_NoParsing((uselfn && !PiDosApplianceDrives())?sfull:full, true);
+ 					shell->WriteOut("\n");
+ 				}
+ 			} else
+-				shell->WriteOut(MSG_Get("SHELL_CMD_ATTRIB_GET_ERROR"),uselfn?sfull:full);
++				shell->WriteOut(MSG_Get("SHELL_CMD_ATTRIB_GET_ERROR"),(uselfn && !PiDosApplianceDrives())?sfull:full);
+ 		}
+ 		res=DOS_FindNext();
+ 	}
+--- a/src/shell/shell_misc.cpp
++++ b/src/shell/shell_misc.cpp
+@@ -25,6 +25,7 @@
+ 
+ #include "logging.h"
+ #include "shell.h"
++#include "pidos_drive_policy.h"
+ #include "timer.h"
+ #include "bios.h"
+ #include "control.h"
+@@ -67,6 +68,8 @@
+ 	char dir[DOS_PATHLENGTH];
+ 	dir[0] = 0; //DOS_GetCurrentDir doesn't always return something. (if drive is messed up)
+ 	DOS_GetCurrentDir(0,dir,uselfn);
++    // The LFN query above normalizes curdir to its short path; display that path.
++    if (PiDosApplianceDrives()) DOS_GetCurrentDir(0,dir,false);
+ 	std::string line;
+ 	const char * promptstr = "\0";
+     inshell = true;
+@@ -284,10 +287,10 @@
+     lfn_filefind_handle=uselfn?LFN_FILEFIND_INTERNAL:LFN_FILEFIND_NONE;
+     while (res) {
+         dta.GetResult(name,lname,sz,hsz,date,time,att);
+-        if ((strchr(uselfn?lname:name,' ')!=NULL&&q/2*2==q)||r)
+-            sprintf(qlname,q/2*2!=q?"%s\"":"\"%s\"",uselfn?lname:name);
++        if ((strchr((uselfn && !PiDosApplianceDrives())?lname:name,' ')!=NULL&&q/2*2==q)||r)
++            sprintf(qlname,q/2*2!=q?"%s\"":"\"%s\"",(uselfn && !PiDosApplianceDrives())?lname:name);
+         else
+-            strcpy(qlname,uselfn?lname:name);
++            strcpy(qlname,(uselfn && !PiDosApplianceDrives())?lname:name);
+         // add result to completion list
+ 
+         if (strcmp(name, ".") && strcmp(name, "..")) {
