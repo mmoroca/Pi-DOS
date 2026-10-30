@@ -9,11 +9,12 @@ Inside opens its original SETUP before the demo: configure sound and save.
 
 Sound and performance
 ---------------------
-Select Sound Blaster (or SB16 where supported) in each demo's own setup.
-The Pi-DOS defaults are port 220h, IRQ 7, DMA 1, high DMA 5.
+Select Sound Blaster Pro in demos that offer it, or ordinary Sound Blaster.
+Pi-DOS defaults to Sound Blaster Pro 2 at port 220h, IRQ 7, DMA 1.
 If you changed them, use your configured values; SET BLASTER shows the
-current environment. SB Pro stereo requires an SB Pro emulated card;
-with the default SB16, select ordinary SB or SB16 where offered.
+current environment. Select SB16 in a demo only after configuring an
+emulated SB16 in PIDOSCFG. Crystal Dream I needs SB/SB Pro hardware behavior.
+Roland SC-55 MIDI is also enabled; tracker music uses the selected sound card.
 The menu does not change CPU, video, memory or sound-card settings.
 Gravis Ultrasound is optional and disabled in the default Pi-DOS setup.
 

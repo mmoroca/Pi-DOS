@@ -15,10 +15,10 @@
 #define S(section,key,value,page) {section,key,value,page}
 const CfgSpec cfg_specs[K_COUNT] = {
  S("cpu","cputype","pentium",PAGE_CPU), S("cpu","core","dynamic_rec",PAGE_CPU),
- S("cpu","cycles","fixed 71240",PAGE_CPU),
+ S("cpu","cycles","fixed 64180",PAGE_CPU),
  S("dosbox","memsize","16",PAGE_MEMORY), S("dosbox","memsizekb","0",PAGE_MEMORY),
  S("dosbox","machine","svga_s3",PAGE_VIDEO),
- S("sblaster","sbtype","sb16",PAGE_SOUND), S("sblaster","sbbase","220",PAGE_SOUND),
+ S("sblaster","sbtype","sbpro2",PAGE_SOUND), S("sblaster","sbbase","220",PAGE_SOUND),
  S("sblaster","irq","7",PAGE_SOUND), S("sblaster","dma","1",PAGE_SOUND),
  S("sblaster","hdma","5",PAGE_SOUND), S("sblaster","oplmode","auto",PAGE_SOUND),
  S("sblaster","cms","off",PAGE_SOUND),
@@ -37,10 +37,10 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("voodoo","voodoo_card","software",PAGE_VIDEO),
  S("voodoo","voodoo_maxmem","true",PAGE_VIDEO), S("voodoo","glide","false",PAGE_VIDEO),
  S("pidos","diagnostics","false",PAGE_SYSTEM),
- S("pidos","midi_profile","none",PAGE_SOUND),
- S("midi","mpu401","none",PAGE_SOUND), S("midi","mpubase","330",PAGE_SOUND),
- S("midi","mpuirq","-1",PAGE_SOUND), S("midi","mididevice","none",PAGE_SOUND),
- S("midi","midiconfig","",PAGE_SOUND), S("midi","mt32.model","auto",PAGE_SOUND),
+ S("pidos","midi_profile","sc55",PAGE_SOUND),
+ S("midi","mpu401","intelligent",PAGE_SOUND), S("midi","mpubase","330",PAGE_SOUND),
+ S("midi","mpuirq","-1",PAGE_SOUND), S("midi","mididevice","synth",PAGE_SOUND),
+ S("midi","midiconfig",MIDI_ASSET_ROOT "/SC55.SF2",PAGE_SOUND), S("midi","mt32.model","auto",PAGE_SOUND),
  S("midi","mt32.romdir","",PAGE_SOUND), S("pidos","midi_port","",PAGE_SOUND),
  S("pidos","midi_delaysysex","false",PAGE_SOUND),
  S("pidos","monitor","crt",PAGE_SYSTEM),
@@ -82,11 +82,13 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("pidos","net_ipx_path","C:\\NETWORK\\IPX",PAGE_NETWORK),
  S("pidos","net_ipx_frame","Ethernet_802.2",PAGE_NETWORK),
  S("pidos","net_windows","C:\\WINDOWS",PAGE_NETWORK),
- S("pidos","audio_output","hdmi",PAGE_SYSTEM)
+ S("pidos","audio_output","hdmi",PAGE_SYSTEM),
+ /* Missing on existing installations: never interrupt their normal startup. */
+ S("pidos","first_boot","done",-1)
 };
 const char *card_names[CARD_COUNT] = {"None", "Tandy sound", "AdLib",
- "Creative Game Blaster / CMS", "Sound Blaster 2.0", "Sound Blaster Pro 2",
- "Sound Blaster 16 (default)", "Gravis Ultrasound Classic"};
+ "Creative Game Blaster / CMS", "Sound Blaster 2.0", "Sound Blaster Pro 2 (default)",
+ "Sound Blaster 16", "Gravis Ultrasound Classic"};
 char cfg_error[160], cfg_type[CFG_VALUE_SIZE], cfg_core[CFG_VALUE_SIZE], cfg_cycles[CFG_VALUE_SIZE];
 static char values[K_COUNT][CFG_VALUE_SIZE], contents[CFG_CAPACITY + 1];
 static unsigned char dirty[K_COUNT];
@@ -127,6 +129,7 @@ int cfg_set(int key, const char *value) {
  if(valid) for(i=0;value[i];++i) if((unsigned char)value[i]<32 || (unsigned char)value[i]>126) valid=0;
  if(!valid) { strcpy(cfg_error,"Invalid or overlong configuration value."); return 0; }
  switch(key) {
+ case K_FIRST_BOOT: valid=one_of(value,"pending|clock|done"); break;
  case K_AUDIO_OUTPUT: valid=one_of(value,"hdmi|jack|usb"); break;
  case K_IPX: case K_NE2000: valid=one_of(value,"true|false"); break;
  case K_IPX_MODE: valid=one_of(value,"manual|server|client"); break;
@@ -257,7 +260,7 @@ void cfg_reset_page(int page) {
  int i;
  if(page==PAGE_CPU) { cfg_select_cpu(cpu_profile_default()); return; }
  for(i=0;i<K_COUNT;++i) if(cfg_specs[i].page==page) cfg_set(i,cfg_specs[i].default_value);
- if(page==PAGE_SOUND) cfg_select_midi(MIDI_NONE);
+ if(page==PAGE_SOUND) cfg_select_midi(DEFAULT_MIDI_PROFILE);
 }
 int cfg_midi(void) {
  int profile=midi_profile_find(cfg_get(K_MIDI_PROFILE));

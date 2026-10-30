@@ -1,6 +1,7 @@
 /* Boot summary rendered by the DOS shell in its native 80x25 text mode. */
 #define _GNU_SOURCE
 #include "startup.h"
+#include "config.h"
 #include "cpu_profiles.h"
 #include "video_profiles.h"
 #include "midi.h"
@@ -23,6 +24,18 @@
  * junctions become accented letters in CP850. These characters also avoid the
  * shell's ASCII pipe/redirection operators. */
 enum { CELL = 36, WIDTH = CELL * 2 + 1 };
+
+void pi_dos_first_boot(FILE *out, const char *user_config, bool writable, bool drive_c)
+{
+    char state[32];
+    if (!writable || !drive_c ||
+        !pi_dos_config_value(user_config, "pidos", "first_boot", state, sizeof(state)) ||
+        (strcasecmp(state, "pending") && strcasecmp(state, "clock"))) return;
+    /* Only the welcome's successful Save requests a supervised clean reboot.
+     * Other failures leave setup pending for the next boot. */
+    fputs("Z:\\BIN\\PIDOSCFG.EXE /FIRSTBOOT\n"
+          "IF ERRORLEVEL 10 CALL C:\\SYSTEM\\REBOOT.BAT\n", out);
+}
 
 static void safe_text(char *text)
 {

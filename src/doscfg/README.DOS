@@ -39,7 +39,7 @@ Toggling it saves voodoo_card=software (or false), voodoo_maxmem=true and
 glide=false. Glide passthrough stays disabled. Reboot to apply changes.
 
 Sound: None, Tandy sound, AdLib, Creative Game Blaster/CMS, Sound Blaster
-2.0, Sound Blaster Pro 2, Sound Blaster 16 (default), or GUS Classic.
+2.0, Sound Blaster Pro 2 (default), Sound Blaster 16, or GUS Classic.
 Choose matching port/IRQ/DMA in the game's setup. Applicable controls
 include SB16 high DMA, FM mode, and GUS sample RAM/patch directory.
 AdLib and Tandy ports are fixed. GUS patches are not bundled; some games
@@ -47,7 +47,7 @@ need patch files under C:\ULTRASND\MIDI. Selecting a preset disables other
 managed cards. MIDI remains independent. PC speaker is separately enabled
 by default; PC Speaker is the first control and is checked when enabled.
 
-MIDI output is independent: None (default), Roland SC-55, Roland GM,
+MIDI output is independent: None, Roland SC-55 (default), Roland GM,
 Roland MT-32, Roland CM-32L or External USB MIDI. SC-55 and Roland GM use
 the supplied GM banks; MT-32/CM-32L use Munt with control and PCM ROMs.
 Internal MIDI plays through the same selected output as the sound card.
@@ -83,6 +83,21 @@ be in the installed list. Diagnostic logs is unchecked by default; check
 it to capture boot/runtime/network/video logs in C:\SYSTEM after reboot.
 These settings take effect after REBOOT.
 
+First boot:
+  Fresh installations ask for keyboard, country, timezone and CRT/LCD.
+  LCD also offers a fixed resolution. F2 saves and reboots cleanly.
+  Esc skips, discards pending edits, and keeps the saved defaults.
+  After reboot, test typing and review the selected local date/time.
+  Enter edits date/time; F2 or Esc finishes with the current clock.
+  Manual clock changes affect this DOS session only. DATE /S resumes
+  host-time synchronization after a manual adjustment.
+  Settings remain editable on System; DATE and TIME adjust the clock.
+  Existing installations and read-only/recovery boots are not interrupted.
+  PIDOSCFG /FIRSTBOOT reopens welcome or the pending clock review.
+  When opened manually, run REBOOT after saving regional settings.
+  State in [pidos]: first_boot=pending, then clock, then done.
+  Failed saves keep setup pending. Normal page resets keep this state.
+
 Profiles:
   Automatic
   286 12 MHz
@@ -90,9 +105,10 @@ Profiles:
   486DX 33 MHz
   486DX2 66 MHz
   486DX4 100 MHz
+  Pentium 75 MHz
   Pentium 100 MHz
-  Pentium 133 MHz        Default for fresh images and Restore defaults
-  Pentium MMX 200 MHz
+  Pentium 120 MHz       Default for fresh images and Restore defaults
+  Pentium MMX 166 MHz
 
 MHz labels describe approximate performance equivalents, not exact clocks.
 The Raspberry Pi must be fast enough to sustain the requested speed.

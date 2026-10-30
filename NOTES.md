@@ -1,9 +1,3 @@
-- [ ] tool to measure disk/disc w/r speed
-- [ ] first boot should ask for some defaults like time/zone,. country etc
-- [ ] image viewer?
-
----------------------------------------------
-
 ## Pi-DOS — Complete Feature List
 
 ### DOS Environment

@@ -91,6 +91,14 @@ int form_fields(int page, Field *fields)
  }
  return n;
 }
+int form_first_boot_fields(Field *fields) {
+ Field system[FORM_MAX_FIELDS];
+ static const int keys[]={K_KEYBOARD,K_COUNTRY,K_TIMEZONE,K_MONITOR,K_LCD_MODE};
+ int n=0,count=form_fields(PAGE_SYSTEM,system),i,j;
+ for(i=0;i<5;++i) for(j=0;j<count;++j)
+  if(system[j].key==keys[i]) fields[n++]=system[j];
+ return n;
+}
 int form_midi_fields(Field *fields) {
  int n=0;
  ADD(K_MPU,FIELD_CHOICE,"MPU-401 interface","intelligent=Intelligent (default)|uart=UART",0,"Intelligent mode provides broad compatibility, including older Roland games.");

@@ -238,7 +238,7 @@ static int choices(const Field *field,const char *search,int offset) {
    }
   } else if(field->type==FIELD_MIDI) {
    if(index<MIDI_PROFILE_COUNT) {
-    sprintf(line,"%s=%s",midi_profiles[index].id,index?midi_profiles[index].label:"None (default)");
+    sprintf(line,"%s=%s%s",midi_profiles[index].id,index?midi_profiles[index].label:"None",index==DEFAULT_MIDI_PROFILE?" (default)":"");
     ++index; available=1;
    }
   } else if(field->type==FIELD_MIDI_PORT) {
@@ -299,7 +299,9 @@ static void field_value(const Field *field,char *result) {
  if(field->type==FIELD_MIDI_SETTINGS) { strcpy(result,"[ Open ]"); return; }
  if(field->type==FIELD_MIDI) {
   int profile=cfg_midi();
-  strcpy(result,profile<0?"Custom MIDI settings":profile?midi_profiles[profile].label:"None (default)"); return;
+  if(profile<0) strcpy(result,"Custom MIDI settings");
+  else sprintf(result,"%s%s",profile?midi_profiles[profile].label:"None",profile==DEFAULT_MIDI_PROFILE?" (default)":"");
+  return;
  }
  value=cfg_get(field->key);
  if(field->type==FIELD_MIDI_PORT) {
@@ -335,7 +337,7 @@ static void field_value(const Field *field,char *result) {
   if(offset+10>=total) return;
  }
 }
-static int input_dialog(const char *title,char *value) {
+static int input_dialog_mode(const char *title,char *value,int typing_test) {
  unsigned int key,ch,scan; int cursor=(int)strlen(value),selected=1,redraw=1,x,y,previous=1;
  union REGS r;
  for(;;) {
@@ -344,7 +346,8 @@ static int input_dialog(const char *title,char *value) {
    mouse_visible(0); box(7,7,66,9); text(10,8,title,PANEL,59);
    fill(10,10,59,1,SELECTED); text(11,10,value+start,SELECTED,56);
    text(11+cursor-start,10,"_",FOCUSED,1);
-   text(10,12,"Type a value. Ctrl+U clears; Enter accepts; Esc cancels.",DIM,59);
+   text(10,12,typing_test?"Try letters and symbols. Ctrl+U clears; Enter/Esc returns.":
+    "Type a value. Ctrl+U clears; Enter accepts; Esc cancels.",DIM,59);
    fill(33,14,12,1,BUTTON); text(33,14,"    OK      ",BUTTON,12);
    fill(49,14,17,1,BUTTON); text(49,14,"     Cancel      ",BUTTON,17);
    mouse_visible(1); redraw=0;
@@ -364,7 +367,7 @@ static int input_dialog(const char *title,char *value) {
     else if(cursor) { memmove(value+cursor-1,value+cursor,length-cursor+1); --cursor; }
     selected=0;
    } else if(scan==83 && !ch && cursor<length) { memmove(value+cursor,value+cursor+1,length-cursor); selected=0; }
-   else if(ch>=32 && ch<127) {
+   else if(ch>=32 && (ch<127 || (typing_test && ch>127))) {
     if(selected) { value[0]=0; cursor=0; length=0; selected=0; }
     if(length<CFG_VALUE_SIZE-1) { memmove(value+cursor+1,value+cursor,length-cursor+1); value[cursor++]=(char)ch; }
    }
@@ -379,6 +382,9 @@ static int input_dialog(const char *title,char *value) {
   }
   if(!key) int86(0x28,&r,&r);
  }
+}
+static int input_dialog(const char *title,char *value) {
+ return input_dialog_mode(title,value,0);
 }
 static int picker(const Field *field,char *result) {
  char search[32]="",current[CFG_VALUE_SIZE],line[80];
@@ -685,12 +691,158 @@ static int setup(const char *path) {
   if(!key) int86(0x28,&r,&r);
  }
 }
+static void clock_values(char *date,char *clock) {
+ struct dosdate_t d; struct dostime_t t;
+ _dos_getdate(&d); _dos_gettime(&t);
+ sprintf(date,"%04u-%02u-%02u",d.year,d.month,d.day);
+ sprintf(clock,"%02u:%02u:%02u",t.hour,t.minute,t.second);
+}
+static void edit_clock(int date_field) {
+ struct dosdate_t d; struct dostime_t t;
+ char date[CFG_VALUE_SIZE],clock[CFG_VALUE_SIZE],*value;
+ unsigned int a,b,c,i; int valid;
+ clock_values(date,clock); value=date_field?date:clock;
+ if(!input_dialog(date_field?"Date (YYYY-MM-DD)":"Time (HH:MM:SS)",value)) return;
+ valid=strlen(value)==(date_field?10:8);
+ for(i=0;valid && value[i];++i) {
+  if(i==(date_field?4:2) || i==(date_field?7:5)) {
+   if(value[i]!=(date_field?'-':':')) valid=0;
+  } else if(!isdigit((unsigned char)value[i])) valid=0;
+ }
+ if(valid && date_field) {
+  valid=sscanf(value,"%u-%u-%u",&a,&b,&c)==3 && a>=1980 && a<=2099 && b>=1 && b<=12 && c>=1 && c<=31;
+  if(valid) { _dos_getdate(&d); d.year=a; d.month=(unsigned char)b; d.day=(unsigned char)c; valid=!_dos_setdate(&d); }
+ } else if(valid) {
+  valid=sscanf(value,"%u:%u:%u",&a,&b,&c)==3 && a<24 && b<60 && c<60;
+  if(valid) { t.hour=(unsigned char)a; t.minute=(unsigned char)b; t.second=(unsigned char)c; t.hsecond=0; valid=!_dos_settime(&t); }
+ }
+ if(!valid) message("Invalid date/time",date_field?"Use a valid date from 1980-01-01 through 2099-12-31.":"Use a time from 00:00:00 through 23:59:59.");
+}
+/* The post-reboot review uses the selected layout, country and host timezone.
+ * DOS date/time edits deliberately retain the standard session-only behavior. */
+static int first_boot_review(const char *path) {
+ int focus=0,redraw=1,x,y,previous=1,action; unsigned int key,ch,scan;
+ char date[CFG_VALUE_SIZE],clock[CFG_VALUE_SIZE],last[CFG_VALUE_SIZE]="",sample[CFG_VALUE_SIZE]="",line[160];
+ union REGS r;
+ screen_start();
+ for(;;) {
+  clock_values(date,clock);
+  if(strcmp(clock,last)) { strcpy(last,clock); redraw=1; }
+  if(redraw) {
+   mouse_visible(0); fill(0,0,80,25,NORMAL); fill(0,0,80,1,SELECTED);
+   text(3,0,"Welcome to Pi-DOS - keyboard and clock",SELECTED,73);
+   text(5,2,"Your regional and display settings are active. Check them below.",PANEL,70);
+   box(3,4,74,13);
+   sprintf(line,"Keyboard: %.20s    Country: %.20s",cfg_get(K_KEYBOARD),cfg_get(K_COUNTRY)); text(6,5,line,PANEL,68);
+   sprintf(line,"Timezone: %.63s",cfg_get(K_TIMEZONE)); text(6,6,line,PANEL,68);
+   fill(5,8,70,1,focus==0?SELECTED:NORMAL); text(7,8,"Test keyboard...",focus==0?SELECTED:NORMAL,65);
+   fill(5,10,70,1,focus==1?SELECTED:NORMAL); text(7,10,"Date (YYYY-MM-DD)",focus==1?SELECTED:NORMAL,28); text(38,10,date,focus==1?SELECTED:NORMAL,30);
+   fill(5,12,70,1,focus==2?SELECTED:NORMAL); text(7,12,"Time (HH:MM:SS)",focus==2?SELECTED:NORMAL,28); text(38,12,clock,focus==2?SELECTED:NORMAL,30);
+   text(6,15,"Enter edits a field. The typing test does not save typed text.",DIM,68);
+   text(4,18,"Wired network time may correct the clock after startup.",PANEL,72);
+   text(4,19,"Manual date/time changes apply to this DOS session only.",DIM,72);
+   text(4,20,"Later: PIDOSCFG changes settings; DATE and TIME adjust the DOS clock.",DIM,72);
+   fill(43,22,32,1,focus==3?FOCUSED:BUTTON); text(43,22,"    Finish / keep clock (F2)    ",focus==3?FOCUSED:BUTTON,32);
+   fill(0,24,80,1,SELECTED); text(2,24,"Tab/arrows: focus   Enter: select   Esc: finish with current clock",SELECTED,76);
+   mouse_visible(1); redraw=0;
+  }
+  key=key_read(0); ch=key&255; scan=key>>8; action=-1;
+  if(key) {
+   redraw=1;
+   if(ch==27 || scan==60) action=3;
+   else if(ch==9 || scan==80) focus=(focus+1)%4;
+   else if(scan==72 || (scan==15 && !ch)) focus=(focus+3)%4;
+   else if(ch==13 || ch==' ') action=focus;
+  }
+  if(mouse_present) {
+   mouse_call(3,&r); x=r.x.cx/8; y=r.x.dx/8;
+   if((r.x.bx&1) && !(previous&1)) {
+    if(x>=5 && x<75 && (y==8 || y==10 || y==12)) { focus=(y-8)/2; action=focus; }
+    else if(y==22 && x>=43 && x<75) action=3;
+   }
+   previous=r.x.bx;
+  }
+  if(action==0) { input_dialog_mode("Keyboard typing test",sample,1); redraw=1; }
+  else if(action==1 || action==2) { edit_clock(action==1); redraw=1; }
+  else if(action==3) {
+   if(cfg_set(K_FIRST_BOOT,"done") && cfg_save_changes(path)) { screen_end(); return 0; }
+   message("Unable to finish setup",cfg_error); redraw=1;
+  }
+  if(!key) int86(0x28,&r,&r);
+ }
+}
+static int first_boot(const char *path) {
+ Field fields[5];
+ int n,focus=0,redraw=1,x,y,previous=1,action,i; unsigned int key,ch,scan;
+ char value[CFG_VALUE_SIZE]; union REGS r;
+ if(equal(cfg_get(K_FIRST_BOOT),"clock")) return first_boot_review(path);
+ screen_start();
+ for(;;) {
+  n=form_first_boot_fields(fields);
+  if(focus>=n+2) focus=n;
+  if(redraw) {
+   mouse_visible(0); fill(0,0,80,25,NORMAL); fill(0,0,80,1,SELECTED);
+   text(3,0,"Welcome to Pi-DOS",SELECTED,73);
+   text(5,2,"Choose your regional settings and monitor, or keep these defaults.",PANEL,70);
+   box(3,4,74,13);
+   for(i=0;i<n;++i) {
+    unsigned char color=focus==i?SELECTED:NORMAL;
+    field_value(&fields[i],value); fill(5,6+i*2,70,1,color);
+    text(7,6+i*2,fields[i].label,color,28); text(37,6+i*2,value,color,37);
+   }
+   text(4,18,focus<n?fields[focus].help:focus==n?"Save settings and reboot, then test the keyboard and review local time.":
+    "Skip discards pending changes and keeps the saved defaults.",PANEL,72);
+   text(4,19,"Keyboard, country and timezone can be selected independently.",DIM,72);
+   text(4,20,"You can change these and other settings later by running PIDOSCFG.",DIM,72);
+   fill(24,22,32,1,focus==n?FOCUSED:BUTTON); text(24,22,"    Save and reboot (F2)        ",focus==n?FOCUSED:BUTTON,32);
+   fill(59,22,16,1,focus==n+1?FOCUSED:BUTTON); text(59,22,"  Skip (Esc)    ",focus==n+1?FOCUSED:BUTTON,16);
+   fill(0,24,80,1,SELECTED); text(2,24,"Tab/arrows: focus   Enter: select   F2: save and reboot   Esc: skip",SELECTED,76);
+   mouse_visible(1); redraw=0;
+  }
+  key=key_read(0); ch=key&255; scan=key>>8; action=0;
+  if(key) {
+   redraw=1;
+   if(ch==27) action=2;
+   else if(scan==60) action=1;
+   else if(ch==9 || scan==80) focus=(focus+1)%(n+2);
+   else if(scan==72 || (scan==15 && !ch)) focus=(focus+n+1)%(n+2);
+   else if(ch==13 || ch==' ') {
+    if(focus==n) action=1;
+    else if(focus==n+1) action=2;
+    else edit_field(&fields[focus]);
+   }
+  }
+  if(mouse_present) {
+   mouse_call(3,&r); x=r.x.cx/8; y=r.x.dx/8;
+   if((r.x.bx&1) && !(previous&1)) {
+    redraw=1;
+    if(y==22 && x>=24 && x<56) action=1;
+    else if(y==22 && x>=59 && x<75) action=2;
+    else if(x>=5 && x<75 && y>=6 && y<6+n*2 && !(y%2)) {
+     focus=(y-6)/2; edit_field(&fields[focus]);
+    }
+   }
+   previous=r.x.bx;
+  }
+  if(action) {
+   /* Skip never writes any pending regional/display edits. */
+   if((action!=2 || cfg_load(path)) && cfg_set(K_FIRST_BOOT,action==1?"clock":"done") && cfg_save_changes(path)) {
+    screen_end();
+    if(action==1) puts("Settings saved. Reboot to apply; keyboard and clock review follows.");
+    return action==1?10:0;
+   }
+   message("Unable to save setup",cfg_error); redraw=1;
+  }
+  if(!key) int86(0x28,&r,&r);
+ }
+}
 static void usage(void)
 {
     puts("Pi-DOS Setup - hardware, network, mixer and system settings\n"
          "PIDOSCFG                         Open keyboard/mouse setup\n"
          "PIDOSCFG /LIST                   List profiles\n"
          "PIDOSCFG /PROFILE id             Save a profile without opening setup\n"
+         "PIDOSCFG /FIRSTBOOT              Run the welcome / pending clock review\n"
          "Optional: /CONFIG path           Use another configuration file\n"
          "Mixer can apply live; other changes need reboot. MHz labels are approximate.\n"
          "The previous configuration is backed up with a .BAK extension.\n"
@@ -700,14 +852,16 @@ static void usage(void)
 int main(int argc, char **argv)
 {
     const char *path = DEFAULT_CONFIG, *profile = NULL;
-    int i, chosen = -1, list = 0;
+    int i, chosen = -1, list = 0, welcome = 0;
     for (i = 1; i < argc; ++i) {
         if (equal(argv[i], "/?") || equal(argv[i], "/HELP")) { usage(); return 0; }
         if (equal(argv[i], "/LIST")) list = 1;
+        else if (equal(argv[i], "/FIRSTBOOT")) welcome = 1;
         else if (equal(argv[i], "/PROFILE") && i+1 < argc) profile = argv[++i];
         else if (equal(argv[i], "/CONFIG") && i+1 < argc) path = argv[++i];
         else { usage(); return 1; }
     }
+    if (welcome && (list || profile)) { usage(); return 1; }
     if (list) {
         for (i = 0; i < PROFILE_COUNT; ++i)
             printf("%-12s %-29s %s\n", cpu_profiles[i].id,
@@ -731,5 +885,5 @@ int main(int argc, char **argv)
             memcpy(catalog_dir,argv[0],last-argv[0]+1); catalog_dir[last-argv[0]+1]=0;
         }
     }
-    return setup(path);
+    return welcome ? first_boot(path) : setup(path);
 }

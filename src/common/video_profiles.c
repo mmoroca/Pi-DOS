@@ -13,7 +13,7 @@ static int same(const char *a,const char *b) {
 int video_profile_find(const char *machine) {
  int i;
  if(!machine) return -1;
- if(same(machine,"svga_s3trio64")) return DEFAULT_VIDEO_PROFILE;
+ if(same(machine,"svga_s3trio64")) machine="svga_s3";
  for(i=0;i<VIDEO_PROFILE_COUNT;++i) if(same(machine,video_profiles[i].id)) return i;
  return -1;
 }

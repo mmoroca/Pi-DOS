@@ -16,11 +16,13 @@ const CpuProfile cpu_profiles[PROFILE_COUNT] = {
      "A classic middle-ground 486 configuration."},
     {"486-100", "486DX4 100 MHz", "486", "dynamic_rec", "fixed 33445",
      "A faster 486 configuration."},
+    {"pentium-75", "Pentium 75 MHz", "pentium", "dynamic_rec", "fixed 40072",
+     "An entry-level Pentium configuration for DOS software."},
     {"pentium-100", "Pentium 100 MHz", "pentium", "dynamic_rec", "fixed 53430",
      "A representative Pentium configuration for later DOS software."},
-    {"pentium-133", "Pentium 133 MHz", "pentium", "dynamic_rec", "fixed 71240",
+    {"pentium-120", "Pentium 120 MHz", "pentium", "dynamic_rec", "fixed 64180",
      "A faster Pentium configuration for later DOS software."},
-    {"mmx-200", "Pentium MMX 200 MHz", "pentium_mmx", "dynamic_rec", "fixed 114657",
+    {"mmx-166", "Pentium MMX 166 MHz", "pentium_mmx", "dynamic_rec", "fixed 95548",
      "A fast late-DOS-era configuration with MMX instructions."}
 };
 

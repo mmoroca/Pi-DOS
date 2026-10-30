@@ -68,8 +68,22 @@ def main():
     require(packed_setup.startswith(b'MZ') and packed_setup ==
             (ROOT / 'br2-external/board/raspberrypi/dos/PIDOSCFG.EXE').read_bytes(),
             'Bundled PIDOSCFG.EXE missing/stale in initramfs')
+    for profile in (b'pentium-75', b'pentium-120', b'mmx-166'):
+        require(profile in packed_setup and profile in packed_init,
+                'Setup or PID 1 lacks CPU profile: ' + profile.decode())
+    for profile in (b'pentium-133', b'mmx-200'):
+        require(profile not in packed_setup and profile not in packed_init,
+                'Setup or PID 1 still contains removed CPU profile: ' + profile.decode())
     require(b'Restore defaults (F3)' in packed_setup,
             'PIDOSCFG lacks the Restore defaults button')
+    require(b'Welcome to Pi-DOS' in packed_setup and b'Save and reboot (F2)' in packed_setup
+            and b'Keyboard typing test' in packed_setup and b'/FIRSTBOOT' in packed_setup,
+            'PIDOSCFG lacks first-boot welcome and keyboard/clock review')
+    require(b'Z:\\BIN\\PIDOSCFG.EXE /FIRSTBOOT\n' in packed_init and b'first_boot' in packed_init
+            and b'IF ERRORLEVEL 10 CALL C:\\SYSTEM\\REBOOT.BAT\n' in packed_init,
+            'PID 1 lacks first-boot setup and supervised reboot handling')
+    require(b'first_boot=pending\r\n' in (target / 'pi-dos/PIDOS.CFG').read_bytes(),
+            'Fresh installations must start with first-boot setup pending')
     require(b'Diagnostic logs' in packed_setup and b'Video card' in packed_setup,
             'PIDOSCFG lacks video/system configuration controls')
     require(b'MIDI output' in packed_setup and b'MIDI settings' in packed_setup,
@@ -347,17 +361,21 @@ def main():
     if diagnostic:
         default_config = default_config.replace(b'diagnostics=false\r\n', b'diagnostics=true\r\n')
     require(packed_config == default_config, 'Editable PIDOS.CFG missing/stale in PI-DOS')
-    require(b'[cpu]\r\ncputype=pentium\r\ncore=dynamic_rec\r\ncycles=fixed 71240\r\n'
-            in packed_config, 'Fresh image must default to the Pentium 133 MHz CPU profile')
+    require(b'[cpu]\r\ncputype=pentium\r\ncore=dynamic_rec\r\ncycles=fixed 64180\r\n'
+            in packed_config, 'Fresh image must default to the Pentium 120 MHz CPU profile')
+    require(b'machine=svga_s3\r\n' in packed_config,
+            'Fresh image must default to S3 Trio64 video')
     require(b'[pidos]\r\n' in packed_config and b'timezone=Europe/Madrid\r\n' in packed_config,
             'Missing custom timezone defaults')
     require(b'audio_output=hdmi\r\n' in packed_config,
             'Missing default physical HDMI audio output')
     require(b'mixer_master=100:100\r\n' in packed_config and
-            b'sbtype=sb16\r\n' in packed_config and b'memsize=16\r\n' in packed_config,
-            'Missing default mixer, SB16 or RAM settings')
-    require(b'midi_profile=none\r\n' in packed_config and b'mixer_midi=100:100\r\n' in packed_config,
-            'Missing MIDI profile/volume defaults')
+            b'sbtype=sbpro2\r\n' in packed_config and b'memsize=16\r\n' in packed_config,
+            'Missing default mixer, SB Pro 2 or RAM settings')
+    require(b'midi_profile=sc55\r\n' in packed_config and b'mixer_midi=100:100\r\n' in packed_config
+            and b'mpu401=intelligent\r\n' in packed_config and b'mididevice=synth\r\n' in packed_config
+            and b'midiconfig=/dosdata/SYSTEM/MIDI/SC55.SF2\r\n' in packed_config,
+            'Missing enabled SC-55 SoundFont profile/volume defaults')
     require(b'monitor=crt\r\nlcd_mode=1024x768\r\nlcd_aspect=4:3\r\n'
             in packed_config and b'lcd_linear=false\r\n' in packed_config,
             'Missing fresh-install CRT monitor / disabled filtering defaults')

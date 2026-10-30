@@ -15,7 +15,7 @@ Eight pages configure CPU, Memory, Video, Sound, Mixer, Input, Network and Syste
 change pages; Tab/Shift+Tab move focus; Enter edits; F2 saves all pages; Esc
 cancels. Selection dialogs support typing to filter, arrows and page keys.
 **Restore defaults** (F3 or Alt+R) resets the current page only, pending Save.
-The CPU default is Pentium 133 MHz (`pentium`, `dynamic_rec`, `fixed 71240`),
+The CPU default is Pentium 120 MHz (`pentium`, `dynamic_rec`, `fixed 64180`),
 marked `(default)` in the profile list.
 Existing installations retain their configuration until explicitly changed.
 
@@ -83,7 +83,7 @@ unchecked. This control does not enable Glide passthrough. Video changes need
 a reboot. Existing custom video/Voodoo settings are retained until edited.
 
 Sound presets are None, Tandy, AdLib, Creative Game Blaster/CMS, Sound Blaster
-2.0, Sound Blaster Pro 2, Sound Blaster 16 (default), and Gravis Ultrasound
+2.0, Sound Blaster Pro 2 (default), Sound Blaster 16, and Gravis Ultrasound
 Classic. Each preset enables its devices and disables competing managed cards;
 MIDI remains independent. PC Speaker is the first Sound control, checked when
 enabled (the default). Applicable controls expose I/O address, IRQ, DMA, SB16 high DMA,
@@ -94,7 +94,7 @@ until a preset is selected. The boot table reports it as DOS sound.
 
 ### MIDI
 
-Sound also offers independent MIDI output: None (default), Roland SC-55,
+Sound also offers independent MIDI output: None, Roland SC-55 (default),
 Roland GM, Roland MT-32, Roland CM-32L and External USB MIDI. The two GM
 profiles use the supplied SF2 banks through FluidSynth; MT-32 and CM-32L use
 Munt with separate control/PCM ROM pairs. Internal synthesis joins DOSBox's
@@ -152,6 +152,30 @@ custom timezones must exist in the installed catalog. Regional settings apply
 after reboot, using the existing timezone/DOS startup handling. The Diagnostic
 logs checkbox controls `[pidos] diagnostics`, disabled by default. Enabling it
 captures the existing boot, runtime, network and video logs after reboot.
+
+## First-boot setup
+
+Fresh images set `[pidos] first_boot=pending` in `C:\SYSTEM\PIDOS.CFG`.
+Before user startup commands, writable boots open a small welcome screen with
+the existing keyboard, country, timezone and CRT/LCD selectors. LCD also exposes
+its fixed resolution. **Save and reboot (F2)** saves only edited settings and
+sets `first_boot=clock`; the supervisor performs a clean reboot. **Skip (Esc)**
+discards pending edits, records `first_boot=done`, and continues to DOS.
+
+After reboot, the selected regional/display settings are active. The second
+screen offers a typing test (including extended DOS characters), the local date
+and time, and optional manual DOS clock adjustment. **Finish (F2 or Esc)** keeps
+the current clock and records `first_boot=done`. Manual clock edits affect only
+the current DOS session and can suspend host-time synchronization; `DATE /S`
+resumes it. Network time can initially be unavailable; setup does not wait for it.
+
+Existing configurations without `first_boot` do not trigger setup. Read-only or
+missing C: storage never launches it. Failed saves retain the pending stage and
+the existing backup/recovery behavior. Normal page resets do not reset this state.
+Run `PIDOSCFG /FIRSTBOOT` to reopen welcome (or a pending clock review); when run
+manually, use `REBOOT` after saving. The automatic boot caller handles its exit
+code 10 by calling `C:\SYSTEM\REBOOT.BAT`. These controls remain available later
+on PIDOSCFG's System page, with standard `DATE` and `TIME` commands for the clock.
 
 ## Input and controllers
 
@@ -269,9 +293,10 @@ Physical Pi LAN and Windows file-sharing acceptance remain pending.
 | 486-33 | 486DX 33 MHz | 486 | dynamic_rec | fixed 12010 |
 | 486-66 | 486DX2 66 MHz | 486 | dynamic_rec | fixed 23880 |
 | 486-100 | 486DX4 100 MHz | 486 | dynamic_rec | fixed 33445 |
+| pentium-75 | Pentium 75 MHz | pentium | dynamic_rec | fixed 40072 |
 | pentium-100 | Pentium 100 MHz | pentium | dynamic_rec | fixed 53430 |
-| pentium-133 | Pentium 133 MHz (default) | pentium | dynamic_rec | fixed 71240 |
-| mmx-200 | Pentium MMX 200 MHz | pentium_mmx | dynamic_rec | fixed 114657 |
+| pentium-120 | Pentium 120 MHz (default) | pentium | dynamic_rec | fixed 64180 |
+| mmx-166 | Pentium MMX 166 MHz | pentium_mmx | dynamic_rec | fixed 95548 |
 
 MHz values are approximate speed equivalents, using the pinned DOSBox-X speed
 presets. Unlike those upstream speed-only presets, these Pi-DOS profiles also

@@ -300,7 +300,8 @@ Userspace includes native SDL2 KMS/DRM, ALSA, Mesa VC4/V3D, GBM/EGL/GLES and
 daemon provider; `external.mk` enables the libudev API and its dependency for
 `libudev-zero` instead. No device-management daemon runs.
 The runtime package declares libpng and ALSA sequencer APIs required by the
-selected engine sources. MIDI remains disabled in the default DOS configuration.
+selected engine sources. MIDI defaults to the Roland SC-55 SoundFont profile with an Intelligent
+MPU-401 interface at port 330h.
 
 No BusyBox, Linux shell, login/getty, SSH server, desktop or general-purpose
 init system is selected. The default command line sends diagnostics to serial;
@@ -359,6 +360,21 @@ DHCP/NTP operation still requires validation on the physical Pi
 with a wired connection and Internet access (DNS and outbound UDP 123).
 
 ## PID 1, storage and DOS startup
+
+Fresh images include `[pidos] first_boot=pending` in `SYSTEM/PIDOS.CFG`.
+On a writable C:, PID 1 runs `PIDOSCFG /FIRSTBOOT` before user startup commands.
+The welcome reuses the keyboard/country/timezone/monitor selectors, adding the
+fixed LCD resolution when selected. F2 saves `first_boot=clock` and returns 10;
+the generated startup calls `C:\SYSTEM\REBOOT.BAT` for a supervised clean reboot.
+The next boot offers the keyboard typing test and local clock review with the
+chosen settings active. Finish records `first_boot=done` and continues startup.
+Manual date/time edits use normal DOS clock services and last only this session;
+`DATE /S` resumes host-time synchronization. Esc on the initial welcome discards
+pending changes, marks setup done, and continues with saved defaults.
+Existing configurations without this setting, read-only mounts and recovery
+boots skip setup. Save failures leave the stage pending. The System page and
+`PIDOSCFG /FIRSTBOOT` remain available later; a manually launched welcome needs
+an explicit `REBOOT` after saving.
 
 `/init` checks that it is root PID 1 before doing anything. It mounts devtmpfs,
 procfs, sysfs, devpts and temporary memory-backed directories. It then waits up
@@ -1065,12 +1081,14 @@ preserving other settings, and backs up the previous file as `PIDOS.BAK`.
 Run `REBOOT` after saving. See [the utility documentation](../src/doscfg/README.md)
 or `C:\DOCS\PIDOSCFG.TXT` for profiles, controls and command-line options.
 
-`Restore defaults` (F3) selects Pentium 133 MHz; Save is required to
+`Restore defaults` (F3) on the CPU page selects Pentium 120 MHz; Save is required to
 persist it. The boot table shows Date above Time in the left column and the
 configured DOS CPU model directly above DOS video on the right, without cycles.
 Recognized profiles display their names without a prefix.
-Fresh images default to Pentium 133 MHz (`cputype=pentium`, `core=dynamic_rec`,
-`cycles=fixed 71240`). Existing installations retain their configuration until
+Fresh images default to Pentium 120 MHz (`cputype=pentium`, `core=dynamic_rec`,
+`cycles=fixed 64180`), S3 Trio64 (`machine=svga_s3`), Sound Blaster
+Pro 2 (`sbtype=sbpro2`), and Roland SC-55 MIDI (`midi_profile=sc55`,
+`mpu401=intelligent`, `mididevice=synth`) using the supplied `SC55.SF2` bank. Existing installations retain their configuration until
 changed with setup or an editor.
 
 Fresh images include a CRLF copy of the default configuration. Writable boots
@@ -1250,7 +1268,8 @@ a supervised child. A failed read-only remount is logged; the system image on
 the SD card is not used as a writable Linux root filesystem.
 
 The generated DOS environment uses the ARM64 dynrec core, US keyboard layout,
-SB16 audio defaults and the saved physical output selected by SDL. Its default PATH is:
+Sound Blaster Pro 2 and SC-55 MIDI defaults, and the saved physical output
+selected by SDL. Its default PATH is:
 
 ```dos
 PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS

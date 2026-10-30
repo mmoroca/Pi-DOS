@@ -20,7 +20,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     editor = ctypes.CDLL(str(library))
     editor.cfg_load.argtypes = [ctypes.c_char_p]
     editor.cfg_save.argtypes = [ctypes.c_char_p, ctypes.c_int]
-    default_profile = 7  # Pentium 133 MHz
+    default_profile = 8  # Pentium 120 MHz
     assert editor.cpu_profile_default() == default_profile
     assert editor.cfg_load(str(ROOT / 'configs/pi-dos.conf').encode()) == 1
     assert editor.cfg_profile() == editor.cpu_profile_default()
@@ -51,9 +51,9 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     sparse = b'[dosbox]\nmemsize=64\n[autoexec]\necho hello'
     path.write_bytes(sparse)
     assert editor.cfg_load(encoded) == 1 and editor.cfg_profile() == default_profile
-    assert editor.cfg_save(encoded, 6) == 1  # Pentium 100 MHz
+    assert editor.cfg_save(encoded, 7) == 1  # Pentium 100 MHz
     assert path.read_bytes().startswith(sparse + b'\r\n')
-    assert editor.cfg_profile() == 6
+    assert editor.cfg_profile() == 7
     assert b'cycles=fixed 53430\r\n' in path.read_bytes()
 
     # Saving reloads the file, retaining changes made after the UI was opened.
@@ -93,12 +93,12 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert path.read_bytes() == full and not path.with_suffix('.TMP').exists()
     path.unlink()
     assert editor.cfg_load(encoded) == 1 and editor.cfg_profile() == default_profile
-    assert editor.cfg_save(encoded, 7) == 1
-    assert editor.cfg_profile() == 7
+    assert editor.cfg_save(encoded, 8) == 1  # Pentium 120 MHz
+    assert editor.cfg_profile() == 8
     assert b'cputype=pentium\r\n' in path.read_bytes()
-    assert b'cycles=fixed 71240\r\n' in path.read_bytes()
+    assert b'cycles=fixed 64180\r\n' in path.read_bytes()
     assert editor.cfg_save(encoded, -1) == 0
-    assert editor.cfg_save(encoded, 9) == 0
+    assert editor.cfg_save(encoded, 10) == 0
     assert editor.cfg_save(str(path.with_suffix('.BAK')).encode(), 0) == 0
 
     # Exercise production settings APIs; only explicitly edited fields persist.
@@ -110,11 +110,34 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     editor.cfg_save_changes.argtypes = [ctypes.c_char_p]
     def get(name): return editor.cfg_get(keys[name])
     def set_value(name, value): return editor.cfg_set(keys[name], value)
+    # New Pentium presets persist their CPU model, core and upstream cycle budget.
+    for profile, model, cycles in ((6, b'pentium', b'fixed 40072'),
+                                   (8, b'pentium', b'fixed 64180'),
+                                   (9, b'pentium_mmx', b'fixed 95548')):
+        assert editor.cfg_save(encoded, profile) and editor.cfg_profile() == profile
+        assert (get('K_CPU_TYPE'), get('K_CPU_CORE'), get('K_CPU_CYCLES')) == (
+            model, b'dynamic_rec', cycles)
+    editor.cpu_profile_find.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
+    assert editor.cpu_profile_find(b'pentium', b'dynamic_rec', b'fixed 71240') == -1
+    assert editor.cpu_profile_find(b'pentium_mmx', b'dynamic_rec', b'fixed 114657') == -1
+    # Existing configs skip first boot; completion survives normal page resets.
+    assert get('K_FIRST_BOOT') == b'done'
+    path.write_bytes(b'# preserved\r\n[pidos]\r\nfirst_boot=pending\r\n')
+    assert editor.cfg_load(encoded) and get('K_FIRST_BOOT') == b'pending'
+    assert not set_value('K_FIRST_BOOT', b'unknown')
+    editor.cfg_reset_page(7)
+    assert get('K_FIRST_BOOT') == b'pending'
+    assert set_value('K_FIRST_BOOT', b'clock') and editor.cfg_save_changes(encoded)
+    assert get('K_FIRST_BOOT') == b'clock'
+    assert path.read_bytes().startswith(b'# preserved\r\n[pidos]\r\nfirst_boot=clock\r\n')
+    assert set_value('K_FIRST_BOOT', b'done') and editor.cfg_save_changes(encoded)
+    assert get('K_FIRST_BOOT') == b'done'
+    assert editor.cfg_load(encoded)
     assert editor.cfg_select_cpu(0)  # Automatic remains available explicitly.
     editor.cfg_reset_page(0)
     assert editor.cfg_profile() == default_profile
     assert (get('K_CPU_TYPE'), get('K_CPU_CORE'), get('K_CPU_CYCLES')) == (
-        b'pentium', b'dynamic_rec', b'fixed 71240')
+        b'pentium', b'dynamic_rec', b'fixed 64180')
     before = (ROOT / 'configs/pi-dos.conf').read_bytes() + b'\n[pidos]\ntimezone=Europe/Madrid\n# keep\n'
     for card, sb, opl, gus, tandy in (
         (0,b'none',b'none',b'false',b'off'), (1,b'none',b'none',b'false',b'on'),
@@ -127,6 +150,12 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
         assert editor.cfg_card() == card
         assert (get('K_SB_TYPE'),get('K_OPL'),get('K_GUS'),get('K_TANDY')) == (sb,opl,gus,tandy)
         assert get('K_SPEAKER') == b'true'
+    editor.cfg_select_midi(0)
+    editor.cfg_reset_page(3)  # Sound defaults include the complete SC-55 backend.
+    assert editor.cfg_card() == 5 and editor.cfg_midi() == 1
+    assert get('K_SB_TYPE') == b'sbpro2'
+    assert get('K_MPU') == b'intelligent' and get('K_MIDI_DEVICE') == b'synth'
+    assert get('K_MIDI_CONFIG') == b'/dosdata/SYSTEM/MIDI/SC55.SF2'
     assert set_value('K_RAM', b'128')
     assert set_value('K_SPEAKER', b'false')
     assert set_value('K_VOL_MASTER', b'65:75')
@@ -138,7 +167,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     for assignment in (b'memsize=128',b'pcspeaker=false',b'mixer_master=65:75',
                        b'keyboardlayout=us',b'country=1,437',b'timezone=Asia/Tokyo'):
         assert assignment + b'\r\n' in data
-    assert b'# keep\n' in data and b'lfn=true\n' in data and b'cycles=fixed 71240\n' in data
+    assert b'# keep\n' in data and b'lfn=true\n' in data and b'cycles=fixed 64180\n' in data
     for key, value in (('K_RAM',b'3'),('K_GUS_PORT',b'270'),('K_VOL_MASTER',b'201'),
                        ('K_VOL_MASTER',b'50:20 & echo BAD'),('K_TIMEZONE',b'../etc/passwd')):
         assert not set_value(key,value)

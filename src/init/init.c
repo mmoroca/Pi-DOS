@@ -279,6 +279,7 @@ static bool make_config(enum storage storage, const char *user_config)
     data_device(device, sizeof(device));
     pi_dos_startup(output, "/pi-dos/pi-dos.conf", user_config, device, storage != NO_STORAGE,
                    storage == READ_WRITE, drive_c);
+    pi_dos_first_boot(output, user_config, storage == READ_WRITE, drive_c);
     if (diagnostics.boot_fd >= 0 || diagnostics.runtime_fd >= 0)
         fputs("ECHO Diagnostic capture enabled; logs are in C:\\SYSTEM.\n", output);
     pi_dos_mixer(output, user_config);
