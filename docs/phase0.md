@@ -125,7 +125,8 @@ SDL_AUDIODRIVER=alsa
 
 The first Pi 5 SD image has now been generated and passed static image checks.
 It packages the kernel, custom C PID 1 and SDL2 DOS runtime with a separate
-DOSDATA partition. This does not establish a successful appliance boot or
+then-named `DOSDATA` partition (now `PI-DOS`). This does not establish a successful
+appliance boot or
 persistence across reboots. See the [image report](buildroot-pi5.md).
 Mouse validation and the audio teardown investigation are deferred at the
 user's request while moving to this image milestone.

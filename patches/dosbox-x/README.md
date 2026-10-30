@@ -86,9 +86,18 @@ CRT diagnosis. The opt-in diagnostics patch uses the unified `[pidos] diagnostic
 setting in `C:\SYSTEM\PIDOS.CFG`, disabled by default. PID 1
 passes the resolved setting to the emulator through the internal
 `PI_DOS_DIAGNOSTICS` environment variable. Enabled capture writes to
-`C:\SYSTEM\VIDEO.LOG` when no explicit `[log] logfile` is specified. With
+`C:\SYSTEM\VIDEO.LOG` (`/dosdata/SYSTEM/VIDEO.LOG` on the host) when no explicit
+`[log] logfile` is specified. With
 diagnostics off, the verbose tracing and presentation queries are skipped.
 Other SDL video backends retain their selection behavior.
+
+`0036-present-static-kms-first-frame.patch` presents the completed window surface
+again after the first changed frame following fullscreen KMS surface setup.
+SDL 2.32 defers KMSDRM EGL surface recreation until the first swap, which can
+discard that frame. Static screens then remain black until another guest change;
+the initial welcome reproduced this, while its updating clock review worked.
+The extra presentation runs once per surface setup for CRT and LCD, independently
+of diagnostics, and leaves normal frame updates unchanged.
 
 `0011-fixed-lcd-monitor.patch` adds a managed SDL2 surface path for fixed LCD
 output. PID 1 validates the manual mode and passes it through `PI_DOS_LCD_MODE`;

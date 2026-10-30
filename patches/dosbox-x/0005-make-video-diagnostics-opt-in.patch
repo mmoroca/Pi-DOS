@@ -85,7 +85,7 @@ The mode selection correction remains active independently of diagnostics.
 +    const char *diagnostics = getenv("PI_DOS_DIAGNOSTICS");
 +    if (logfile.empty() && !control->opt_nolog && diagnostics &&
 +        !strcmp(diagnostics, "1"))
-+        logfile = "/dosdata/c/SYSTEM/VIDEO.LOG";
++        logfile = "/dosdata/SYSTEM/VIDEO.LOG";
 +#endif
  	if (logfile.size()) {
  		ResolvePath(logfile);

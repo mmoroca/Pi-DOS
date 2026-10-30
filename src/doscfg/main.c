@@ -8,6 +8,7 @@
 #include "forms.h"
 #include "live.h"
 #include "midi.h"
+#include "pi_dos_version.h"
 
 #define DEFAULT_CONFIG "C:\\SYSTEM\\PIDOS.CFG"
 #define NORMAL 0x17
@@ -20,9 +21,13 @@
 #define TAB_WIDTH 8
 
 static unsigned short __far saved_screen[2000];
+static unsigned short __far setup_screen[2000];
 static unsigned short __far *video;
+static int screen_dirty;
+static unsigned char display_page;
 static int mouse_present;
 static int monochrome;
+static int changed_mode;
 static unsigned char old_mode, old_page;
 static unsigned short old_cursor, old_shape;
 
@@ -37,22 +42,65 @@ static void mouse_call(unsigned int function, union REGS *r)
     int86(0x33, r, r);
 }
 
+/* Present complete text rows through BIOS, rather than relying on direct
+ * guest stores to video RAM to invalidate the host's cached text rendering.
+ * AL=2 supplies each character's attribute and keeps the cursor stationary. */
+static void screen_present(void)
+{
+    union REGS r;
+    union REGPACK row_regs;
+    struct SREGS segments;
+    unsigned short cursor, last;
+    int row;
+    if (!screen_dirty) return;
+    r.h.ah = 3; r.h.bh = display_page;
+    int86(0x10, &r, &r);
+    cursor = r.x.dx;
+    for (row = 0; row < 25; ++row) {
+        segread(&segments);
+        memset(&row_regs, 0, sizeof(row_regs));
+        row_regs.w.ds = segments.ds;
+        row_regs.w.es = FP_SEG(setup_screen);
+        row_regs.w.ax = 0x1302;
+        row_regs.w.bx = (unsigned short)display_page << 8;
+        /* A teletype write of the bottom-right cell scrolls the screen.
+         * Write that cell separately with the non-advancing BIOS service. */
+        row_regs.w.cx = row == 24 ? 79 : 80;
+        row_regs.w.dx = (unsigned short)row << 8;
+        row_regs.w.bp = FP_OFF(setup_screen) + row * 160U;
+        intr(0x10, &row_regs);
+    }
+    r.x.ax = 0x0200; r.h.bh = display_page; r.x.dx = 0x184f;
+    int86(0x10, &r, &r);
+    last = setup_screen[1999];
+    r.h.ah = 9; r.h.al = (unsigned char)last;
+    r.h.bh = display_page; r.h.bl = (unsigned char)(last >> 8); r.x.cx = 1;
+    int86(0x10, &r, &r);
+    r.x.ax = 0x0200; r.h.bh = display_page; r.x.dx = cursor;
+    int86(0x10, &r, &r);
+    screen_dirty = 0;
+}
+
 static void mouse_visible(int visible)
 {
     union REGS r;
+    if (visible) screen_present();
     if (mouse_present) mouse_call(visible ? 1 : 2, &r);
 }
 
 static void screen_start(void)
 {
     union REGS r;
-    unsigned short __far *original;
+    volatile unsigned short __far *original;
     unsigned char __far *mouse_handler;
+    unsigned char columns, rows;
     int i;
     r.h.ah = 0x0f;
     int86(0x10, &r, &r);
     old_mode = r.h.al & 0x7f;
+    columns = r.h.ah;
     old_page = r.h.bh;
+    rows = *(unsigned char __far *)MK_FP(0x40, 0x84);
     r.h.ah = 3;
     r.h.bh = old_page;
     int86(0x10, &r, &r);
@@ -62,13 +110,23 @@ static void screen_start(void)
      * its monochrome adapter before we explicitly enter mode 7. */
     int86(0x11, &r, &r);
     monochrome = old_mode == 7 || (r.x.ax & 0x30) == 0x30;
-    original = (unsigned short __far *)MK_FP(old_mode == 7 ? 0xb000 : 0xb800,
+    original = (volatile unsigned short __far *)MK_FP(monochrome ? 0xb000 : 0xb800,
                                             old_page * 4096U);
-    for (i = 0; i < 2000; ++i) saved_screen[i] = original[i];
+    for (i = 0; i < 2000; ++i) setup_screen[i] = saved_screen[i] = original[i];
+    /* Boot already supplies 80x25 text. Re-entering mode 3 here needlessly
+     * restarts VGA drawing and the KMS surface before the welcome is visible.
+     * Keep its font, timings and active page; change mode only when required.
+     * Older CGA/MDA BIOSes leave the EGA row-count byte zero. */
+    changed_mode = old_mode != (monochrome ? 7 : 3) || columns != 80 ||
+                   (rows != 0 && rows != 24);
     if (monochrome) old_mode = 7;
-    r.x.ax = monochrome ? 7 : 3;
-    int86(0x10, &r, &r);
-    video = (unsigned short __far *)MK_FP(monochrome ? 0xb000 : 0xb800, 0);
+    if (changed_mode) {
+        r.x.ax = monochrome ? 7 : 3;
+        int86(0x10, &r, &r);
+    }
+    display_page = changed_mode ? 0 : old_page;
+    video = setup_screen;
+    screen_dirty = 0;
     r.h.ah = 1;
     r.x.cx = 0x2000;
     int86(0x10, &r, &r);
@@ -90,12 +148,14 @@ static void screen_start(void)
 static void screen_end(void)
 {
     union REGS r;
-    unsigned short __far *original;
+    volatile unsigned short __far *original;
     int i;
     mouse_visible(0);
-    r.x.ax = old_mode;
-    int86(0x10, &r, &r);
-    original = (unsigned short __far *)MK_FP(old_mode == 7 ? 0xb000 : 0xb800,
+    if (changed_mode) {
+        r.x.ax = old_mode;
+        int86(0x10, &r, &r);
+    }
+    original = (volatile unsigned short __far *)MK_FP(old_mode == 7 ? 0xb000 : 0xb800,
                                             old_page * 4096U);
     if (old_mode == 3 || old_mode == 7)
         for (i = 0; i < 2000; ++i) original[i] = saved_screen[i];
@@ -117,6 +177,7 @@ static unsigned char display_color(unsigned char color)
 static void fill(int x, int y, int width, int height, unsigned char color)
 {
     int row, col;
+    screen_dirty = 1;
     color = display_color(color);
     for (row = y; row < y + height; ++row)
         for (col = x; col < x + width; ++col)
@@ -126,6 +187,7 @@ static void fill(int x, int y, int width, int height, unsigned char color)
 static void text(int x, int y, const char *s, unsigned char color, int width)
 {
     int n;
+    screen_dirty = 1;
     color = display_color(color);
     for (n = 0; n < width && *s; ++n)
         video[y * 80 + x + n] = ((unsigned int)color << 8) | (unsigned char)*s++;
@@ -563,7 +625,7 @@ static void draw_page(int page,int focus,const char *path) {
  int offset=field_offset(n,focus),row;
  int selected=page==PAGE_MEMORY?memory_selected():cfg_profile(); char value[CFG_VALUE_SIZE],line[160];
  mouse_visible(0); fill(0,0,80,25,NORMAL); fill(0,0,80,1,SELECTED);
- text(3,0,"Pi-DOS Setup",SELECTED,40); text(56,0,cfg_changed()?"Unsaved changes":"Configuration loaded",SELECTED,23);
+ text(3,0,"Pi-DOS " PI_DOS_VERSION " Setup",SELECTED,40); text(56,0,cfg_changed()?"Unsaved changes":"Configuration loaded",SELECTED,23);
  for(i=0;i<PAGE_COUNT;++i) {
   unsigned char color=i==page?FOCUSED:BUTTON;
   fill(4+i*TAB_STEP,2,TAB_WIDTH,1,color); text(5+i*TAB_STEP,2,page_names[i],color,7);
@@ -730,7 +792,7 @@ static int first_boot_review(const char *path) {
   if(strcmp(clock,last)) { strcpy(last,clock); redraw=1; }
   if(redraw) {
    mouse_visible(0); fill(0,0,80,25,NORMAL); fill(0,0,80,1,SELECTED);
-   text(3,0,"Welcome to Pi-DOS - keyboard and clock",SELECTED,73);
+   text(3,0,"Welcome to Pi-DOS " PI_DOS_VERSION " - keyboard and clock",SELECTED,73);
    text(5,2,"Your regional and display settings are active. Check them below.",PANEL,70);
    box(3,4,74,13);
    sprintf(line,"Keyboard: %.20s    Country: %.20s",cfg_get(K_KEYBOARD),cfg_get(K_COUNTRY)); text(6,5,line,PANEL,68);
@@ -782,7 +844,7 @@ static int first_boot(const char *path) {
   if(focus>=n+2) focus=n;
   if(redraw) {
    mouse_visible(0); fill(0,0,80,25,NORMAL); fill(0,0,80,1,SELECTED);
-   text(3,0,"Welcome to Pi-DOS",SELECTED,73);
+   text(3,0,"Welcome to Pi-DOS " PI_DOS_VERSION,SELECTED,73);
    text(5,2,"Choose your regional settings and monitor, or keep these defaults.",PANEL,70);
    box(3,4,74,13);
    for(i=0;i<n;++i) {
@@ -838,7 +900,7 @@ static int first_boot(const char *path) {
 }
 static void usage(void)
 {
-    puts("Pi-DOS Setup - hardware, network, mixer and system settings\n"
+    puts("Pi-DOS " PI_DOS_VERSION " Setup - hardware, network, mixer and system settings\n"
          "PIDOSCFG                         Open keyboard/mouse setup\n"
          "PIDOSCFG /LIST                   List profiles\n"
          "PIDOSCFG /PROFILE id             Save a profile without opening setup\n"

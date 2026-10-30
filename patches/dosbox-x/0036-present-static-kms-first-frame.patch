@@ -1,0 +1,49 @@
+Pi-DOS: Re-present the first surface frame after KMS mode setup.
+
+SDL 2.32's KMSDRM backend defers EGL surface recreation until SwapWindow.
+Rendering precedes that swap, so the first frame can land on the surface
+being discarded. The render cache then suppresses unchanged frames, leaving
+static boot programs invisible until input or a clock changes their text.
+
+Present the completed window surface once more after the first changed frame.
+This covers CRT and fixed LCD output without delays, guest mode resets or
+continuous repainting, and does not depend on diagnostics being enabled.
+
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -1797,6 +1797,7 @@
+ static bool SDL2_resize_enable = false;
+ static bool pi_dos_video_audit_pending = false;
+ static bool pi_dos_video_diagnostics = false;
++static bool pi_dos_kms_present_pending = false;
+ 
+ SDL_Window* GFX_GetSDLWindow(void) {
+     return sdl.window;
+@@ -1805,6 +1806,10 @@
+ SDL_Window* GFX_SetSDLWindowMode(uint16_t width, uint16_t height, SCREEN_TYPES screenType)
+ {
+     static SCREEN_TYPES lastType = SCREEN_SURFACE;
++    const char *present_driver = SDL_GetCurrentVideoDriver();
++    pi_dos_kms_present_pending = screenType == SCREEN_SURFACE && GFX_IsFullscreen() &&
++        present_driver && SDL_strcasecmp(present_driver, "KMSDRM") == 0;
++
+     /* A managed LCD session keeps one advertised host mode, independently of
+      * guest raster/refresh changes. CRT and unmanaged sessions use the path below. */
+     const char *lcd = getenv("PI_DOS_LCD_MODE");
+@@ -3461,6 +3466,16 @@
+         case SCREEN_SURFACE:
+             OUTPUT_SURFACE_EndUpdate(changedLines);
+ #if defined(C_SDL2)
++            if (pi_dos_kms_present_pending && sdl.window && sdl.surface &&
++                changedLines && changedLines[0] != sdl.draw.height) {
++                /* KMSDRM may recreate EGL surfaces during the first swap,
++                 * discarding the frame just drawn. Upload and present the
++                 * complete cached surface again on the replacement surface. */
++                if (SDL_UpdateWindowSurface(sdl.window) != 0)
++                    E_Exit("Pi-DOS KMS first frame: %s", SDL_GetError());
++                pi_dos_kms_present_pending = false;
++            }
++
+             if (pi_dos_video_audit_pending && sdl.window && sdl.surface && changedLines) {
+                 SDL_DisplayMode mode = {};
+                 SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(sdl.window), &mode);

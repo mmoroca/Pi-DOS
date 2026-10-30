@@ -76,7 +76,9 @@ def main():
                 'Setup or PID 1 still contains removed CPU profile: ' + profile.decode())
     require(b'Restore defaults (F3)' in packed_setup,
             'PIDOSCFG lacks the Restore defaults button')
-    require(b'Welcome to Pi-DOS' in packed_setup and b'Save and reboot (F2)' in packed_setup
+    welcome_title = ('Welcome to Pi-DOS ' + (ROOT / 'VERSION').read_text().strip()).encode('ascii')
+    require(welcome_title + b'\0' in packed_setup and welcome_title + b' - keyboard and clock\0' in packed_setup
+            and b'Save and reboot (F2)' in packed_setup
             and b'Keyboard typing test' in packed_setup and b'/FIRSTBOOT' in packed_setup,
             'PIDOSCFG lacks first-boot welcome and keyboard/clock review')
     require(b'Z:\\BIN\\PIDOSCFG.EXE /FIRSTBOOT\n' in packed_init and b'first_boot' in packed_init
@@ -152,10 +154,16 @@ def main():
             'Reverted runtime-launcher patch is still present in the image')
     require(b'PI_DOS_DIAGNOSTICS' in (target / 'pi-dos/pi-dos').read_bytes(),
             'Runtime lacks unified video diagnostics; clean and rebuild pi-dos-runtime')
+    require(b'/dosdata/SYSTEM/VIDEO.LOG' in (target / 'pi-dos/pi-dos').read_bytes() and
+            b'/dosdata/c/SYSTEM/VIDEO.LOG' not in (target / 'pi-dos/pi-dos').read_bytes(),
+            'Runtime video log must use SYSTEM at the PI-DOS volume root')
     with (images / 'rootfs.cpio').open('rb') as stream:
         packed_runtime = subprocess.check_output(
             ['cpio', '-i', '--to-stdout', '--quiet', 'pi-dos/pi-dos'], stdin=stream)
     require(packed_runtime == (target / 'pi-dos/pi-dos').read_bytes(), 'Stale runtime in initramfs')
+    for obsolete in (b'/dosdata/c/', b'/dosdata/d/'):
+        require(obsolete not in packed_runtime,
+                'Runtime still references an obsolete data directory: ' + obsolete.decode())
     for value in (b'PI_DOS_CONTROLLER_LAYOUT', b'PI_DOS_CONTROLLER_DIRECTION',
                   b'PI_DOS_CONTROLLER_SWAP_BUTTONS', b'PI_DOS_SHORTCUT_POWEROFF',
                   b'PI_DOS_SHORTCUT_PAUSE'):

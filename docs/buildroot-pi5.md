@@ -375,6 +375,17 @@ Existing configurations without this setting, read-only mounts and recovery
 boots skip setup. Save failures leave the stage pending. The System page and
 `PIDOSCFG /FIRSTBOOT` remain available later; a manually launched welcome needs
 an explicit `REBOOT` after saving.
+The welcome preserves the boot's existing 80x25 text mode and active page rather
+than resetting BIOS mode 3. Its buffered screens are presented through BIOS text
+services rather than direct guest video-memory stores, including dialogs and
+the post-reboot clock review. These changes improve normal setup navigation too.
+The initial welcome was still invisible at boot until Tab/arrows changed its
+contents, while manual launch and the updating clock review worked. The runtime
+now presents the first completed fullscreen KMS surface twice: SDL's deferred
+EGL surface recreation during the first swap can otherwise discard a static
+screen's only frame. This applies to CRT and LCD without adding a startup delay;
+physical confirmation of the KMS correction is pending.
+Video diagnostics write to `/dosdata/SYSTEM/VIDEO.LOG`, at the PI-DOS volume root.
 
 `/init` checks that it is root PID 1 before doing anything. It mounts devtmpfs,
 procfs, sysfs, devpts and temporary memory-backed directories. It then waits up

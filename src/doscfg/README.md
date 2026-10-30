@@ -10,6 +10,14 @@ widget layer. Mouse input uses the DOS INT 33h driver when present. Keyboard
 navigation works without that driver. The program restores the previous 80x25 text
 screen and cursor on exit. See [the DOS manual](README.DOS) for controls and
 command-line use. The image installs that manual as `C:\DOCS\PIDOSCFG.TXT`.
+When already in 80x25 text mode, setup preserves the active mode, page and font
+on entry and exit. Screens are composed in a separate buffer and presented
+through BIOS text services, so display updates do not depend on direct video-RAM
+stores invalidating the emulator's rendered text. The bottom-right character
+uses the non-scrolling write service to keep the 80x25 layout intact.
+Other display modes still switch to the setup's 80x25 text mode when required.
+Setup and welcome titles include the project version from the root `VERSION`
+file, embedded when rebuilding the executable.
 
 Eight pages configure CPU, Memory, Video, Sound, Mixer, Input, Network and System settings. F5/F6
 change pages; Tab/Shift+Tab move focus; Enter edits; F2 saves all pages; Esc

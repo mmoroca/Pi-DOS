@@ -1,7 +1,8 @@
 {
   "target": "16-bit DOS MZ, 8086 instruction set, small memory model, no FPU/extender",
   "source_sha256": {
-    "src/doscfg/main.c": "ee9f2c0b465d02b97a7ac2cb44e8d3933ba71376d7604895263a6a4193e102de",
+    "VERSION": "5717e7c840171019a4eeab5b79a7f894a4986eaff93d04ec5b12c9a189f594bf",
+    "src/doscfg/main.c": "83966b8e73703dbd919fced9b37bee8d299b247a619e424e53f31b98c683b1bc",
     "src/doscfg/config.c": "3f62dff0e1aeb84e4bc14e74f7305e5203603d6ca7dd6f6551b0fdd7d3090dfb",
     "src/doscfg/config.h": "4ac28296469d918f8c3c94a1a2599e664db12e6140095db4156f684d7cf0e428",
     "src/doscfg/forms.c": "a824308cc41337f34a91dec7fb6233540065e49422510fa0ae0fe4847646555c",
@@ -18,9 +19,9 @@
     "src/common/video_profiles.h": "a2f348d8f61945545962895d2161c290f3a151c17b15397e0181c60e666cd9f6",
     "src/common/midi_profiles.c": "a97c9f8eaf100d8418cc08510438994f5a6025c76b45607718962896aa2035ac",
     "src/common/midi_profiles.h": "d9179e62cba095faf607da03cc8ff468cf4c094c97f0a2e43ccf3d6a735124a1",
-    "tools/dos/build.sh": "d9b42eaf48bf52d83e1795d5ce31b41c8cbd1fcbbc4dac7154004724058afe39",
+    "tools/dos/build.sh": "9096f63602b81250a9c99f34ce25d4ee6bb7a4c9309dc571f33380c59077b579",
     "tools/dos/toolchain.json": "13cbef97b8c3607083dbe8cddc9e971705292942ae2f76e8c9cdf197a3b3bd50"
   },
   "compiler_driver_sha256": "9bf1c208df56c8c154e08a4c42b05183b39e1f3c21e2c3f3b4fa9a66b81aa071",
-  "executable_sha256": "5435bc0493eae18f0988cf774607cb8675dba55f3ef522c16cda39f017d469fb"
+  "executable_sha256": "06a4b042a32bfa4d8dc919ad09eaf0eb14659460d8976ca21db910ad6138e12c"
 }

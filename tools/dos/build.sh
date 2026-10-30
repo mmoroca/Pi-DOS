@@ -14,8 +14,9 @@ export PATH="$watcom_dir/binl64:$PATH"
 export INCLUDE="$watcom_dir/h"
 out="$root/output/doscfg"
 mkdir -p "$out"
+printf '#define PI_DOS_VERSION "%s"\n' "$(cat "$root/VERSION")" > "$out/pi_dos_version.h"
 cd "$out"
-"$compiler" -q -bt=dos -l=dos -0 -ms -os -s -wx -i="$root/src/common" -fe=PIDOSCFG.EXE \
+"$compiler" -q -bt=dos -l=dos -0 -ms -os -s -wx -i="$root/src/common" -i="$out" -fe=PIDOSCFG.EXE \
     "$root/src/doscfg/main.c" "$root/src/doscfg/config.c" "$root/src/doscfg/forms.c" \
     "$root/src/doscfg/live.c" "$root/src/doscfg/midi.c" "$root/src/common/cpu_profiles.c" \
     "$root/src/common/video_profiles.c" "$root/src/common/midi_profiles.c"
@@ -26,7 +27,7 @@ import json
 from pathlib import Path
 import sys
 root = Path(sys.argv[1])
-paths = ['src/doscfg/main.c', 'src/doscfg/config.c', 'src/doscfg/config.h',
+paths = ['VERSION', 'src/doscfg/main.c', 'src/doscfg/config.c', 'src/doscfg/config.h',
          'src/doscfg/forms.c', 'src/doscfg/forms.h',
          'src/doscfg/live.c', 'src/doscfg/live.h',
          'src/doscfg/midi.c', 'src/doscfg/midi.h',

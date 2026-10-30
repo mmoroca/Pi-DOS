@@ -1,3 +1,9 @@
+# TODO
+- [ ] Prepare a detailed tecnical markdown document including all the features of Pi-DOS putting special attention to the full list of things covered in NOTES.md and even more important the things we developed as part of all commits.
+Please do note that I need a full and detailed explanation becasue this document will be used as the entry point for generationg a Pi-DOS user manual later.
+Please also include a description about what pi-DOS is, the basic building blocks and the goal and approaches followed. Mainly my intention is making a system that feels like a real baremetal dos era using real hardware and other convenient things.
+- [ ] Prepare repo for the first pull/sync to the github server
+
 ## Pi-DOS — Complete Feature List
 
 ### DOS Environment

@@ -84,6 +84,8 @@ it to capture boot/runtime/network/video logs in C:\SYSTEM after reboot.
 These settings take effect after REBOOT.
 
 First boot:
+  Setup keeps the active 80x25 text mode and page, avoiding a CRT reset.
+  Screens use BIOS text output for reliable redraws.
   Fresh installations ask for keyboard, country, timezone and CRT/LCD.
   LCD also offers a fixed resolution. F2 saves and reboots cleanly.
   Esc skips, discards pending edits, and keeps the saved defaults.

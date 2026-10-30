@@ -77,7 +77,8 @@ int main(int argc, char **argv)
 }
 ''')
         subprocess.run(['gcc', '-std=c11', '-Wall', '-Wextra', '-Werror',
-                        '-I' + str(ROOT / 'src/init'), str(work / 'worker.c'),
+                        '-I' + str(ROOT / 'src/init'), '-I' + str(ROOT / 'src/common'),
+                        str(work / 'worker.c'),
                         str(ROOT / 'src/init/config.c'),
                         '-o', str(work / 'worker')], check=True)
 
