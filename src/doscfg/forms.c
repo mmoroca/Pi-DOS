@@ -71,6 +71,7 @@ int form_fields(int page, Field *fields)
     ADD(-1,FIELD_NET_IPX,"Native IPX settings...",0,0,"Driver directory and Ethernet frame type; see C:\\DOCS\\NETWORK.TXT.");
   }
  } else if(page==PAGE_SYSTEM) {
+  ADD(K_AUDIO_OUTPUT,FIELD_CHOICE,"Audio output","hdmi=HDMI (default)|jack=3.5 mm jack (Pi 3/4)|usb=External USB DAC",0,"Physical sound output. Connect USB DAC before boot; reboot to apply.");
   ADD(K_MONITOR,FIELD_CHOICE,"Monitor type","crt=CRT (default)|lcd=LCD",0,"LCD uses a fixed mode. CRT follows DOS resolutions and refresh rates.");
   if(!strcmp(cfg_get(K_MONITOR),"lcd")) {
    ADD(K_LCD_MODE,FIELD_CHOICE,"LCD resolution","640x480|800x600|832x624|1024x768=1024x768 (default)|1280x720|1920x1080",0,"Fixed output resolution from the supplied EDID; reboot to apply.");

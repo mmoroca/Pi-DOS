@@ -1230,12 +1230,18 @@ convert ext4 into FAT32. No physical card is flashed by the build tools.
 Allow first boot extra time to finish expansion before the DOS prompt.
 
 Init generates runtime startup commands under `/run`, selects a connected HDMI
-DRM card (up to five seconds for discovery) and fixes audio to primary HDMI.
-SDL uses `plughw:CARD=vc4hdmi,DEV=0` on single-HDMI boards, or
+DRM card (up to five seconds for discovery) and selects the physical audio output
+saved in PIDOSCFG's System page (`[pidos] audio_output=hdmi|jack|usb`). HDMI is
+the default. SDL uses `plughw:CARD=vc4hdmi,DEV=0` on single-HDMI boards, or
 `plughw:CARD=vc4hdmi0,DEV=0` on dual-HDMI boards, independent of ALSA card
-enumeration or EDID audio detection. The stable ID is discovered from sysfs,
-with up to five seconds for driver registration. Audio does not fall back to
-HDMI1 or another sound card. On dual-HDMI boards, use HDMI0 (HDMI-A-1, the
+enumeration or EDID audio detection. The Pi 3/4 jack uses the
+`bcm2835-audio` driver's Headphones card, built into the kernel with `dtparam=audio=on`
+in those boards' firmware sections. USB selects a playback-capable USB audio
+card by alphabetical ALSA ID, then lowest playback device number; connect the
+DAC before boot. Discovery waits up to five seconds for driver registration.
+Unavailable outputs stay silent for that boot without falling back to a
+different output. Changes apply after Save and REBOOT. Jack/USB listening
+checks on physical hardware remain pending. On dual-HDMI boards, use HDMI0 (HDMI-A-1, the
 micro-HDMI connector nearest USB-C power) for the HDMI-to-VGA/audio adapter.
 It requests native KMS/DRM, GLES and ALSA, attempts a
 read-only remount of the volatile system root, then launches the DOS runtime as
@@ -1243,7 +1249,7 @@ a supervised child. A failed read-only remount is logged; the system image on
 the SD card is not used as a writable Linux root filesystem.
 
 The generated DOS environment uses the ARM64 dynrec core, US keyboard layout,
-SB16 audio defaults and fixed HDMI output selected by SDL. Its default PATH is:
+SB16 audio defaults and the saved physical output selected by SDL. Its default PATH is:
 
 ```dos
 PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS

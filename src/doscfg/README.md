@@ -52,6 +52,19 @@ lcd_linear=false
 
 ## Memory, video, sound and system
 
+System's **Audio output** selects **HDMI (default)**, **3.5 mm jack (Pi 3/4)**,
+or **External USB DAC**. Save and reboot to apply. The setting is stored as
+`[pidos] audio_output=hdmi|jack|usb` in `C:\SYSTEM\PIDOS.CFG` and controls all
+emulated sound, including internal MIDI and CD audio. HDMI uses the primary
+port (HDMI0 on Pi 4/5). The image enables the Pi 3/4 analogue driver and firmware
+audio node; the jack option requires a board with that socket.
+
+Connect a USB audio-class DAC before boot. Discovery waits up to five seconds
+and selects a playback-capable USB card by ALSA ID, then its lowest playback
+device number. With multiple USB audio outputs, the first ID alphabetically
+wins. Missing outputs stay silent for that boot without switching to another
+output. Physical jack/USB playback validation remains pending.
+
 RAM choices are 1, 2, 4, 8, 16, 32, 64 and 128 MiB, with 16 MiB the default.
 The Memory page lists every size directly, like CPU profiles, with keyboard
 and mouse selection. Help explains compatibility problems above 16 MiB. Selecting RAM clears the
@@ -85,7 +98,7 @@ Sound also offers independent MIDI output: None (default), Roland SC-55,
 Roland GM, Roland MT-32, Roland CM-32L and External USB MIDI. The two GM
 profiles use the supplied SF2 banks through FluidSynth; MT-32 and CM-32L use
 Munt with separate control/PCM ROM pairs. Internal synthesis joins DOSBox's
-mixer and the existing HDMI audio output. It can accompany Sound Blaster
+mixer and the selected physical audio output. It can accompany Sound Blaster
 digital effects. Select the matching music device in each game's setup.
 
 MIDI settings opens MPU-401 interface (Intelligent by default or UART),
@@ -311,6 +324,7 @@ and no additional network downloads. To rebuild it on Linux x86-64:
 python3 tools/dos/bootstrap.py
 make dos-config
 python3 tools/dos/test-config.py
+python3 tools/image/test-audio.py
 python3 tools/image/test-startup.py
 python3 tools/image/test-midi.py
 make image

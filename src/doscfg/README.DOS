@@ -20,6 +20,12 @@ CRT follows DOS resolutions and refresh rates without software effects.
 Existing files without a monitor setting keep their previous display setup.
 Select a monitor type, Save and REBOOT to apply the managed profile.
 
+System / Audio output: HDMI (default), 3.5 mm jack (Pi 3/4), or External
+USB DAC. Save and REBOOT to apply. HDMI uses the primary HDMI port.
+Connect a USB audio-class DAC before boot. With multiple USB outputs,
+the first ALSA card ID alphabetically is used, then its lowest playback
+device number. An unavailable output stays silent for that boot.
+
 RAM: 1, 2, 4, 8, 16 (default), 32, 64 or 128 MiB. Above 16 MiB can break
 older programs; some need less. The selected CPU must address that RAM.
 
@@ -44,7 +50,7 @@ by default; PC Speaker is the first control and is checked when enabled.
 MIDI output is independent: None (default), Roland SC-55, Roland GM,
 Roland MT-32, Roland CM-32L or External USB MIDI. SC-55 and Roland GM use
 the supplied GM banks; MT-32/CM-32L use Munt with control and PCM ROMs.
-Internal MIDI plays through the same HDMI output as the sound card.
+Internal MIDI plays through the same selected output as the sound card.
 Choose the corresponding music device in each game's setup.
 
 MIDI settings: MPU-401 Intelligent (default) or UART, port 330h (default)

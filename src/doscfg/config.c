@@ -81,7 +81,8 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("ethernet, slirp","udp_port_forwards","",PAGE_NETWORK),
  S("pidos","net_ipx_path","C:\\NETWORK\\IPX",PAGE_NETWORK),
  S("pidos","net_ipx_frame","Ethernet_802.2",PAGE_NETWORK),
- S("pidos","net_windows","C:\\WINDOWS",PAGE_NETWORK)
+ S("pidos","net_windows","C:\\WINDOWS",PAGE_NETWORK),
+ S("pidos","audio_output","hdmi",PAGE_SYSTEM)
 };
 const char *card_names[CARD_COUNT] = {"None", "Tandy sound", "AdLib",
  "Creative Game Blaster / CMS", "Sound Blaster 2.0", "Sound Blaster Pro 2",
@@ -126,6 +127,7 @@ int cfg_set(int key, const char *value) {
  if(valid) for(i=0;value[i];++i) if((unsigned char)value[i]<32 || (unsigned char)value[i]>126) valid=0;
  if(!valid) { strcpy(cfg_error,"Invalid or overlong configuration value."); return 0; }
  switch(key) {
+ case K_AUDIO_OUTPUT: valid=one_of(value,"hdmi|jack|usb"); break;
  case K_IPX: case K_NE2000: valid=one_of(value,"true|false"); break;
  case K_IPX_MODE: valid=one_of(value,"manual|server|client"); break;
  case K_IPX_SERVER: valid=pidos_net_host(value); break;

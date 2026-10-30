@@ -56,6 +56,7 @@ CONFIG_DRM_VC4=y
 CONFIG_DRM_V3D=y
 CONFIG_DRM_LOAD_EDID_FIRMWARE=y
 CONFIG_SND=y
+CONFIG_SND_PROC_FS=y
 CONFIG_SND_SOC=y
 CONFIG_SND_SOC_HDMI_CODEC=y
 CONFIG_SND_USB_AUDIO=y
@@ -93,7 +94,13 @@ CONFIG_DEBUG_INFO_NONE=y
 # Exclude unrelated top-level groups rather than embedding camera/TV drivers
 # and general-purpose filesystems in the appliance kernel.
 # CONFIG_MEDIA_SUPPORT is not set
-# CONFIG_STAGING is not set
+# The Pi 3/4 analogue jack driver lives under staging in the pinned kernel.
+CONFIG_STAGING=y
+CONFIG_BCM_VIDEOCORE=y
+CONFIG_BCM2835_VCHIQ=y
+CONFIG_SND_BCM2835=y
+# CONFIG_VCHIQ_CDEV is not set
+# CONFIG_FB_TFT is not set
 # CONFIG_IIO is not set
 # CONFIG_BTRFS_FS is not set
 # CONFIG_BCACHEFS_FS is not set

@@ -121,6 +121,8 @@ def main():
             'PID 1 lacks the default DOS temporary directory')
     require(b'/dosdata/SYSTEM/PIDOS.CFG' in packed_init,
             'PID 1 does not load the editable DOSBox configuration')
+    require(b'audio_output' in packed_init and b'bcm2835-audio' in packed_init,
+            'PID 1 lacks the physical audio output selector; rebuild pi-dos-init')
     require(b'/dosdata/SYSTEM/DOSBOX.CFG' not in packed_init,
             'PID 1 still supports the obsolete DOSBOX.CFG path')
     for value in (b'PI_DOS_DIAGNOSTICS', b'/dev/kmsg',
@@ -227,10 +229,11 @@ def main():
                     'MMC_BCM2835_MMC', 'MMC_SDHCI_IPROC', 'MMC_SDHCI_BRCMSTB', 'PCIE_BRCMSTB',
                     'MFD_RP1', 'PINCTRL_RP1', 'DRM_VC4', 'DRM_V3D', 'DRM_LOAD_EDID_FIRMWARE', 'SND_SOC',
                     'SND_USB_AUDIO', 'SND_RAWMIDI', 'SND_SEQUENCER', 'SND_SEQ_MIDI',
+                    'SND_PROC_FS', 'BCM_VIDEOCORE', 'BCM2835_VCHIQ', 'SND_BCM2835',
                     'INET', 'PACKET', 'NETDEVICES', 'BCMGENET', 'MACB',
                     'USB_LAN78XX', 'USB_NET_SMSC95XX', 'RTC_HCTOSYS', 'RTC_DRV_RPI'):
         require(f'CONFIG_{setting}=y\n' in kernel, f'Required kernel option not built in: {setting}')
-    for setting in ('IPV6', 'WLAN', 'WIRELESS', 'BT', 'MODULES', 'MEDIA_SUPPORT', 'STAGING', 'BTRFS_FS', 'BCACHEFS_FS'):
+    for setting in ('IPV6', 'WLAN', 'WIRELESS', 'BT', 'MODULES', 'MEDIA_SUPPORT', 'FB_TFT', 'BTRFS_FS', 'BCACHEFS_FS'):
         require(f'CONFIG_{setting}=y\n' not in kernel, f'Unexpected kernel option: {setting}')
     for name, source in (('etc/dhcpcd.conf', 'configs/dhcpcd.conf'),
                          ('etc/chrony.conf', 'configs/chrony.conf')):
@@ -348,6 +351,8 @@ def main():
             in packed_config, 'Fresh image must default to the Pentium 133 MHz CPU profile')
     require(b'[pidos]\r\n' in packed_config and b'timezone=Europe/Madrid\r\n' in packed_config,
             'Missing custom timezone defaults')
+    require(b'audio_output=hdmi\r\n' in packed_config,
+            'Missing default physical HDMI audio output')
     require(b'mixer_master=100:100\r\n' in packed_config and
             b'sbtype=sb16\r\n' in packed_config and b'memsize=16\r\n' in packed_config,
             'Missing default mixer, SB16 or RAM settings')

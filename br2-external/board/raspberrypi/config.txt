@@ -9,11 +9,13 @@ enable_uart=1
 [pi2]
 dtoverlay=vc4-kms-v3d
 [pi3]
+dtparam=audio=on
 dtoverlay=vc4-kms-v3d
 [pi02]
 dtoverlay=vc4-kms-v3d
 dtoverlay=dwc2,dr_mode=host
 [pi4]
+dtparam=audio=on
 dtoverlay=vc4-kms-v3d-pi4
 [cm4]
 otg_mode=1

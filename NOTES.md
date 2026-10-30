@@ -1,8 +1,4 @@
 - [ ] tool to measure disk/disc w/r speed
-- [ ] Add system option for audio output:
-    - hdmi - default
-    - jack (pi3/4)
-    - external usb dac
 - [ ] first boot should ask for some defaults like time/zone,. country etc
 - [ ] image viewer?
 

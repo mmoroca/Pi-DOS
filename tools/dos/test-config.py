@@ -178,13 +178,13 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
                        ('K_LCD_ASPECT',b'original'),('K_LCD_LINEAR',b'true')):
         assert set_value(key,value)
     fields = ctypes.create_string_buffer(16 * 128)
-    assert editor.form_fields(7, fields) == 14  # LCD controls, region, diagnostics and shortcuts
+    assert editor.form_fields(7, fields) == 15  # LCD, audio, region, diagnostics and shortcuts
     assert editor.cfg_save_changes(encoded)
     assert editor.cfg_load(encoded) and get('K_MONITOR') == b'lcd'
     assert get('K_LCD_MODE') == b'1280x720' and get('K_LCD_ASPECT') == b'original'
     assert get('K_LCD_LINEAR') == b'true'
     assert set_value('K_MONITOR',b'crt')
-    assert editor.form_fields(7, fields) == 11
+    assert editor.form_fields(7, fields) == 12
     assert get('K_LCD_MODE') == b'1280x720'  # switching keeps LCD preferences
     assert get('K_LCD_LINEAR') == b'true'
     for key, value in (('K_MONITOR',b'auto'),('K_LCD_MODE',b'9999x9999'),
@@ -194,6 +194,18 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert get('K_MONITOR') == b'crt' and get('K_LCD_MODE') == b'1024x768'
     assert get('K_LCD_ASPECT') == b'4:3' and get('K_LCD_LINEAR') == b'false'
     assert editor.cfg_save_changes(encoded)
+
+    # Physical audio output is independent of the emulated sound card.
+    assert get('K_AUDIO_OUTPUT') == b'hdmi'
+    sound_card = get('K_SB_TYPE')
+    for output in (b'jack', b'usb', b'hdmi'):
+        assert set_value('K_AUDIO_OUTPUT', output)
+        assert editor.cfg_save_changes(encoded) and editor.cfg_load(encoded)
+        assert get('K_AUDIO_OUTPUT') == output and get('K_SB_TYPE') == sound_card
+    assert not set_value('K_AUDIO_OUTPUT', b'default')
+    assert set_value('K_AUDIO_OUTPUT', b'usb')
+    editor.cfg_reset_page(7)
+    assert get('K_AUDIO_OUTPUT') == b'hdmi'
 
     fresh = temporary / 'FRESH.CFG'
     assert editor.cfg_load(str(fresh).encode())

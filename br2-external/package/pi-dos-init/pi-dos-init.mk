@@ -12,7 +12,7 @@ define PI_DOS_INIT_BUILD_CMDS
 		$(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/cpu_profiles.c \
 		$(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/video_profiles.c \
 		$(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/midi_profiles.c \
-		$(@D)/init.c $(@D)/startup.c $(@D)/storage.c $(@D)/diagnostics.c $(@D)/network.c $(@D)/dos_network.c $(@D)/timezone.c $(@D)/config.c $(@D)/video.c $(@D)/mixer.c $(@D)/midi.c $(@D)/power_button.c -o $(@D)/pi-dos-init $(TARGET_LDFLAGS) \
+		$(@D)/init.c $(@D)/startup.c $(@D)/storage.c $(@D)/diagnostics.c $(@D)/network.c $(@D)/dos_network.c $(@D)/timezone.c $(@D)/config.c $(@D)/audio.c $(@D)/video.c $(@D)/mixer.c $(@D)/midi.c $(@D)/power_button.c -o $(@D)/pi-dos-init $(TARGET_LDFLAGS) \
 		-lfdisk -lparted-fs-resize -lparted -lasound
 	$(TARGET_CC) $(TARGET_CFLAGS) -std=c11 -Wall -Wextra -Werror \
 		$(@D)/network-dns.c -o $(@D)/network-dns $(TARGET_LDFLAGS)

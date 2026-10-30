@@ -29,6 +29,7 @@
 #include "dos_network.h"
 #include "timezone.h"
 #include "config.h"
+#include "audio.h"
 #include "video.h"
 #include "mixer.h"
 #include "midi.h"
@@ -297,37 +298,6 @@ static bool make_config(enum storage storage, const char *user_config)
     return valid;
 }
 
-static void select_audio(void)
-{
-    /* Match only the primary HDMI output by stable ALSA ID. BCM2837 boards use
-     * vc4hdmi; BCM2711/2712 use vc4hdmi0. Never select HDMI1 or a USB sound card. */
-    for (int attempt = 0; attempt < 50; ++attempt) {
-        glob_t paths = {0};
-        bool single_hdmi = false, dual_hdmi = false;
-        if (!glob("/sys/class/sound/card*/id", 0, NULL, &paths)) {
-            for (size_t i = 0; i < paths.gl_pathc; ++i) {
-                char id[64];
-                if (!read_line(paths.gl_pathv[i], id, sizeof(id))) continue;
-                if (!strcmp(id, "vc4hdmi0")) dual_hdmi = true;
-                if (!strcmp(id, "vc4hdmi")) single_hdmi = true;
-            }
-        }
-        globfree(&paths);
-        if (dual_hdmi || single_hdmi) {
-            const char *id = dual_hdmi ? "vc4hdmi0" : "vc4hdmi";
-            char device[64];
-            snprintf(device, sizeof(device), "plughw:CARD=%s,DEV=0", id);
-            setenv("AUDIODEV", device, 1);
-            dprintf(2, "Pi-DOS: audio output fixed to primary HDMI (%s)\n", id);
-            return;
-        }
-        delay_ms(100);
-    }
-    /* A missing primary HDMI device must not redirect audio to another card. */
-    setenv("AUDIODEV", "plughw:CARD=vc4hdmi0,DEV=0", 1);
-    dprintf(2, "Pi-DOS: primary HDMI audio device unavailable\n");
-}
-
 static void select_video(void)
 {
     /* Pi 5 exposes a render GPU card as well as its display card. */
@@ -453,7 +423,7 @@ int main(void)
     setenv("SDL_RENDER_VSYNC", "1", 1);
     pi_dos_input_prepare(user_config);
     select_video();
-    select_audio();
+    pi_dos_audio_prepare(user_config);
     /* Give USB enumeration the existing display/audio readiness waits before
      * resolving MIDI and freezing its status into the boot table. */
     if ((user_config && (!pi_dos_runtime_config(user_config, "/run/pidos-user.conf") ||
