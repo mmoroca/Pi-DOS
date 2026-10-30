@@ -1,0 +1,23 @@
+{
+  "version": "Pi-DOS Benchmark Pack 1.0",
+  "archives": [
+    {
+      "id": "phil",
+      "archive": "dosbench_v1.6.zip",
+      "url": "https://www.philscomputerlab.com/uploads/3/7/2/3/37231621/dosbench_v1.6.zip",
+      "sha256": "4d99356011d420c9f37f3f2f727e2c820fa3aa3878b86fdcc65db09699f547a6"
+    },
+    {
+      "id": "doom",
+      "archive": "doom19s.zip",
+      "url": "https://www.gamers.org/pub/idgames/idstuff/doom/doom19s.zip",
+      "sha256": "cacf0142b31ca1af00796b4a0339e07992ac5f21bc3f81e7532fe1b5e1b486e6"
+    },
+    {
+      "id": "quake",
+      "archive": "quake106.zip",
+      "url": "https://www.gamers.org/pub/idgames/idstuff/quake/quake106.zip",
+      "sha256": "ec6c9d34b1ae0252ac0066045b6611a7919c2a0d78a3a66d9387a8f597553239"
+    }
+  ]
+}

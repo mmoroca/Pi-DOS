@@ -126,6 +126,13 @@ The original Z: utility layout is retained, with the supplied ARJ at `Z:\BIN\ARJ
 Applications live under `C:\PROGRAMS`. Doszip Commander is included in
 `C:\PROGRAMS\DOSZIP`; type `DZ` to open its two-panel file manager.
 The standard user folders are `C:\GAMES`, `C:\DOCS` and `C:\TEMP`.
+Type `BENCH` for the benchmark menu in `C:\SYSTEM\BENCH`: 3DBench 1.0c,
+Chris's 3D Benchmark and PC Player at VGA/SVGA resolutions, Doom shareware
+at minimum/maximum detail with FPS calculation, and Quake shareware at
+320x200, 360x480 and 640x480. The menu uses the current CPU/video settings;
+record those settings when comparing scores. The pack retains original game
+documentation/installers and source provenance. Physical Pi acceptance remains
+pending. See the [benchmark pack documentation](br2-external/board/raspberrypi/dos/bench/README.TXT).
 Writable boots set both `TEMP` and `TMP` to `C:\TEMP`.
 SDL2 KMS/DRM teardown keeps the host mouse pointer hidden during reboot and poweroff;
 visual confirmation on hardware is pending.
@@ -149,6 +156,9 @@ On a native Linux development host, install Python 3.12+, a C/C++ compiler,
 GNU Make, GNU Patch, Autoconf, Automake, pkg-config, CMake and Ninja, plus development
 headers/libraries for ALSA, libdrm, GBM, EGL and OpenGL ES. Additional dependencies
 reported by the pinned DOSBox-X configuration may be needed.
+Image packaging also needs `bsdtar` (libarchive tools) to read the original
+Quake shareware installer without executing it. Benchmark downloads are
+SHA-256 pinned in `configs/benchmark-assets.json` and cached under `dl/`.
 
 ```sh
 make fetch

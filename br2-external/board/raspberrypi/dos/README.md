@@ -61,3 +61,26 @@ from the upstream project's DOS directory:
 The image installs these files in writable `C:\PROGRAMS\DOSZIP` and supplies
 `C:\SYSTEM\DZ.BAT` on the default PATH. The launcher passes the configuration
 directory explicitly so preferences/history remain with the application.
+
+## Benchmark pack
+
+`bench/` contains the original Pi-DOS `BENCH.BAT` launcher, `MENU.BAT` menu
+and DOS manual. `tools/dos/benchmark-assets.py` fetches checksum-pinned archives
+from `configs/benchmark-assets.json`; `post-image.sh` installs the selected
+benchmarks in writable `C:\SYSTEM\BENCH`, with `C:\SYSTEM\BENCH.BAT` already
+on the default PATH. No emulator settings are changed by the menu.
+
+The selection is 3DBench 1.0c, Chris's benchmark (VGA/SVGA), PC Player
+(VGA/SVGA), Doom (minimum/maximum detail and FPS conversion), and Quake
+(320x200, 360x480, 640x480). Full original Doom/Quake shareware payloads and
+installers preserve documentation omitted by the upstream compilation.
+Game executables/data must match that compilation byte for byte at packaging.
+Archive extraction uses `bsdtar`, never the DOS self-extractors. DOS files use
+8.3 paths, and the image verifier checks the complete staged file inventory
+against the actual SD image. The build supports the existing offline cache.
+Quake launch arguments retain lowercase spelling: its PAK demo names and
+startup switches are case-sensitive. Image verification checks the selected
+demo names against the PAK directory and requires the sound-disabling flags.
+
+See [source provenance](../../../../LICENSES/README.md) for component notices
+and the still-open public-release license review.

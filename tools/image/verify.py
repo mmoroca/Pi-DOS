@@ -402,6 +402,48 @@ def main():
     require(packed_launcher ==
             b'@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %1 %2 %3 %4 %5 %6 %7 %8 %9\r\n',
             'Doszip launcher missing/stale in PI-DOS')
+    bench = images / 'pi-dos-data/SYSTEM/BENCH'
+    bench_manifest = json.loads((bench / 'FILES.JSN').read_text())
+    for required in ('MENU.BAT', 'README.TXT', 'SOURCE.TXT', 'CHOICE.EXE',
+                     '3DBENCH/3DBENCH2.EXE', 'CHRIS/BENCH.EXE', 'CHRIS/SVGABNCH.EXE',
+                     'PCPBENCH/PCPBENCH.EXE', 'DOOM/DOOM.EXE', 'DOOM/DOOM1.WAD',
+                     'DOOM/DOOMFPS1.EXE', 'DOOM/ORIG.ZIP',
+                     'QUAKE/QUAKE.EXE', 'QUAKE/ID1/PAK0.PAK',
+                     'QUAKE/SLICNSE.TXT', 'QUAKE/ORIG.ZIP'):
+        require(required in bench_manifest['files'], 'Benchmark pack missing ' + required)
+    for name, expected in bench_manifest['files'].items():
+        require(digest(bench / name) == expected, 'Benchmark staging changed: ' + name)
+        packed = subprocess.check_output([
+            str(mcopy), '-i', data_volume, '::SYSTEM/BENCH/' + name, '-'])
+        require(hashlib.sha256(packed).hexdigest() == expected,
+                'Benchmark file missing/stale in PI-DOS: ' + name)
+    for source, installed in [('BENCH.BAT', 'SYSTEM/BENCH.BAT'),
+                              ('MENU.BAT', 'SYSTEM/BENCH/MENU.BAT'),
+                              ('README.TXT', 'SYSTEM/BENCH/README.TXT')]:
+        expected = (ROOT / 'br2-external/board/raspberrypi/dos/bench' / source).read_text()
+        packed = subprocess.check_output([str(mcopy), '-i', data_volume, '::' + installed, '-'])
+        require(packed == expected.replace('\n', '\r\n').encode('ascii'),
+                'Benchmark launcher/manual missing/stale in PI-DOS: ' + installed)
+    require(subprocess.check_output([
+        str(mcopy), '-i', data_volume, '::SYSTEM/BENCH/FILES.JSN', '-']) ==
+        (bench / 'FILES.JSN').read_bytes(), 'Benchmark inventory missing/stale in PI-DOS')
+    # Quake's PAK lookup and command-line switches are case-sensitive even in DOS.
+    # Check the launch arguments against the actual archive, not DOS filenames.
+    quake_pak = (bench / 'QUAKE/ID1/PAK0.PAK').read_bytes()
+    magic, directory, length = struct.unpack_from('<4sII', quake_pak)
+    require(magic == b'PACK' and length % 64 == 0 and directory + length <= len(quake_pak),
+            'Invalid Quake benchmark PAK directory')
+    quake_files = {quake_pak[offset:offset + 56].split(b'\0', 1)[0].decode('ascii')
+                   for offset in range(directory, directory + length, 64)}
+    quake_commands = [line.split() for line in (bench / 'MENU.BAT').read_text().splitlines()
+                      if line.upper().startswith('QUAKE.EXE ')]
+    require(len(quake_commands) == 3, 'Benchmark menu must offer three Quake modes')
+    for command in quake_commands:
+        require('+timedemo' in command and '-nosound' in command and '-nocdaudio' in command,
+                'Quake benchmark switches must retain their original lowercase spelling')
+        demo = command[command.index('+timedemo') + 1]
+        require(demo + '.dem' in quake_files,
+                'Quake timedemo name does not match case-sensitive PAK entry: ' + demo)
     root_entries = subprocess.check_output([
         str(mdir), '-b', '-i', data_volume, '::/'], text=True).upper().splitlines()
     require(not any(name.rstrip('/').endswith('/D') for name in root_entries),
@@ -476,6 +518,8 @@ def main():
                 'arj_sha256': digest(arj),
                 'user_config_default_sha256': digest(target / 'pi-dos/PIDOS.CFG'),
                 'doszip_sha256': {p.name: digest(p) for p in sorted(doszip.iterdir())},
+                'benchmark_pack': bench_manifest,
+                'benchmark_assets': json.loads((ROOT / 'configs/benchmark-assets.json').read_text()),
                 'crt_edid_sha256': digest(ROOT / 'dac-crt.bin'),
                 'patch_sha256': {str(p.relative_to(ROOT)): digest(p)
                                  for p in sorted((ROOT / 'patches').rglob('*.patch'))},

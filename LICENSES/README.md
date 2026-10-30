@@ -51,3 +51,22 @@ The networking image adds Buildroot's hash-pinned SDL2_net (Zlib), libslirp
 included beside the binaries as `COPYING.TXT` and `SOURCE.ZIP`; `PACKAGE.TXT`
 retains package provenance. Windows for Workgroups, Microsoft TCP/IP-32 and
 Novell ODI/IPX drivers are user-supplied and are not included in the image.
+
+The local development image installs a selected benchmark pack under
+`C:\SYSTEM\BENCH`. Its upstream compilation is Phil's DOS Benchmark Pack v1.6;
+archive URLs and SHA-256 hashes are pinned in `configs/benchmark-assets.json`.
+Superscape 3DBench 1.0c, Chris Dial's benchmark and PC Player executables/data
+remain unmodified, with available embedded notices retained. The upstream
+compilation README is preserved as `PHIL.TXT`. It does not establish a blanket
+redistribution license for those components; their public-distribution review
+remains part of the existing release gate.
+
+Doom 1.9 and Quake 1.06 are original shareware releases, not GPL game data.
+The complete original installers are retained per game as `ORIG.ZIP`, alongside
+all original installed documentation, including Quake's `SLICNSE.TXT` and
+`LICINFO.TXT`. Their executables and game data match Phil's pack byte for byte.
+Phil's benchmark configurations are added separately. Thomas Perl's DOOMFPS
+helpers retain their supplied source files and author notices; public-release
+permission for the helpers also remains to be established. The generated
+`SOURCE.TXT` records provenance, and `FILES.JSN` inventories the installed files.
+Preparing this local image does not close the project's distribution gate.

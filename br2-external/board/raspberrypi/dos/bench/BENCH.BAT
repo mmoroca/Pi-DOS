@@ -1,0 +1,9 @@
+@ECHO OFF
+IF NOT EXIST C:\SYSTEM\BENCH\MENU.BAT GOTO missing
+PUSHD C:\SYSTEM\BENCH
+CALL MENU.BAT
+POPD
+GOTO end
+:missing
+ECHO Benchmark pack not found in C:\SYSTEM\BENCH.
+:end
