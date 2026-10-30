@@ -82,5 +82,25 @@ Quake launch arguments retain lowercase spelling: its PAK demo names and
 startup switches are case-sensitive. Image verification checks the selected
 demo names against the PAK directory and requires the sound-disabling flags.
 
+## Demoscene pack
+
+`demos/` supplies the `DEMOS.BAT` launcher and the base DOS guide.
+`tools/dos/demo-assets.py` fetches the original scene.org releases pinned in
+`configs/demo-assets.json`, generates a numbered text menu, and stages them in
+`C:\DEMOS`. `C:\SYSTEM\DEMOS.BAT` is on the existing PATH. Select 1-9, H for
+the guide, or Q to exit. Inside runs its own sound setup before playback.
+
+The selection is Second Reality, Unreal, Panic, Crystal Dream, Crystal Dream II,
+Stars: Wonders of the World, Caero, Inside and the Fishtro intro. Second Reality
+installs both disks; Stars uses the archive's corrected 2014 DOS executable;
+Caero uses its final release. All extracted payloads remain unmodified, and each
+production retains complete original downloads under `ORIG\DISK1.ZIP` (and
+`DISK2.ZIP` for Second Reality). `SOURCE.TXT` records provenance and `FILES.JSN`
+inventories the pack for image verification. Physical Pi playback is pending.
+
+`make demos` creates a ready-to-copy `output/pi-dos-demos.zip` for existing
+cards. No new DOS helper executable or changes to emulator settings are needed;
+the menu uses the existing `Z:\DOS\CHOICE.COM`. Cached releases work offline.
+
 See [source provenance](../../../../LICENSES/README.md) for component notices
 and the still-open public-release license review.

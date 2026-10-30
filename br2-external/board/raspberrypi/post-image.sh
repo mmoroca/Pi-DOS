@@ -70,6 +70,7 @@ mkdir -p "$data/PROGRAMS/DOSZIP"
 cp -a "$board/dos/doszip/." "$data/PROGRAMS/DOSZIP/"
 printf '@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %%1 %%2 %%3 %%4 %%5 %%6 %%7 %%8 %%9\r\n' > "$data/SYSTEM/DZ.BAT"
 python3 "$BR2_EXTERNAL_PI_DOS_PATH/../tools/dos/benchmark-assets.py" --install "$data/SYSTEM/BENCH"
+python3 "$BR2_EXTERNAL_PI_DOS_PATH/../tools/dos/demo-assets.py" --install "$data"
 printf '%s\r\n' \
     'Pi-DOS persistent drive C:' '' \
     'Volume labels: C: SYSTEM, Z: PI-DOS.' \
@@ -79,10 +80,12 @@ printf '%s\r\n' \
     'PROGRAMS        Installed applications, one folder per application' \
     'PROGRAMS\TOOLS  Self-contained utilities, including EDIT.COM' \
     'GAMES           Games, one folder per game' \
+    'DEMOS           Curated demoscene productions and text menu' \
     'DOCS            Your documents and manuals' \
     'TEMP            Temporary files (TEMP and TMP on writable boots)' '' \
     'Type EDIT to open the editor, or DZ for Doszip Commander.' \
     'Type BENCH for graphics and game benchmarks in C:\SYSTEM\BENCH.' \
+    'Type DEMOS for demoscene productions in C:\DEMOS (guide: H in menu).' \
     '' 'Startup customization:' \
     'Edit C:\AUTOEXEC.BAT to set environment variables, extend PATH,' \
     'or start programs automatically. Pi-DOS calls it after standard setup.' \

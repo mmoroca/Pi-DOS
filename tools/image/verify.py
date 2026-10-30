@@ -327,7 +327,7 @@ def main():
         str(mdir), '-b', '-i', data_volume, '::*'], text=True).upper().splitlines()
     require(not any(name.rstrip('/').endswith('/C') for name in root_files),
             'PI-DOS still contains the obsolete C: wrapper directory')
-    for directory in ('SYSTEM', 'PROGRAMS', 'PROGRAMS/TOOLS', 'GAMES', 'DOCS', 'TEMP'):
+    for directory in ('SYSTEM', 'PROGRAMS', 'PROGRAMS/TOOLS', 'GAMES', 'DEMOS', 'DOCS', 'TEMP'):
         require(subprocess.check_output([str(mdir), '-i', data_volume, f'::{directory}']),
                 f'PI-DOS missing standard directory C:/{directory}')
     system_files = subprocess.check_output([
@@ -402,6 +402,34 @@ def main():
     require(packed_launcher ==
             b'@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %1 %2 %3 %4 %5 %6 %7 %8 %9\r\n',
             'Doszip launcher missing/stale in PI-DOS')
+    demos = images / 'pi-dos-data/DEMOS'
+    demo_manifest = json.loads((demos / 'FILES.JSN').read_text())
+    demo_spec = json.loads((ROOT / 'configs/demo-assets.json').read_text())
+    require(demo_manifest['version'] == demo_spec['version'], 'Stale demoscene pack version')
+    for required in ('MENU.BAT', 'README.TXT', 'SOURCE.TXT', 'SECOND/REALITY.FC'):
+        require(required in demo_manifest['files'], 'Demoscene pack missing ' + required)
+    for demo in demo_spec['demos']:
+        for command in demo['commands']:
+            require(demo['id'] + '/' + command in demo_manifest['files'],
+                    'Demoscene pack missing launch program: ' + demo['id'] + '/' + command)
+        for disk_number, archive in enumerate(demo['archives'], 1):
+            name = demo['id'] + f'/ORIG/DISK{disk_number}.ZIP'
+            require(demo_manifest['files'].get(name) == archive['sha256'],
+                    'Demoscene original archive missing/changed: ' + name)
+    for name, expected in demo_manifest['files'].items():
+        require(digest(demos / name) == expected, 'Demo staging changed: ' + name)
+        packed = subprocess.check_output([
+            str(mcopy), '-i', data_volume, '::DEMOS/' + name, '-'])
+        require(hashlib.sha256(packed).hexdigest() == expected,
+                'Demo missing/stale in PI-DOS: ' + name)
+    require(subprocess.check_output([
+        str(mcopy), '-i', data_volume, '::DEMOS/FILES.JSN', '-']) ==
+        (demos / 'FILES.JSN').read_bytes(), 'Demoscene inventory missing/stale in PI-DOS')
+    demo_launcher = (ROOT / 'br2-external/board/raspberrypi/dos/demos/DEMOS.BAT').read_text()
+    require(subprocess.check_output([
+        str(mcopy), '-i', data_volume, '::SYSTEM/DEMOS.BAT', '-']) ==
+        demo_launcher.replace('\n', '\r\n').encode('ascii'),
+        'Demoscene launcher missing/stale in PI-DOS')
     bench = images / 'pi-dos-data/SYSTEM/BENCH'
     bench_manifest = json.loads((bench / 'FILES.JSN').read_text())
     for required in ('MENU.BAT', 'README.TXT', 'SOURCE.TXT', 'CHOICE.EXE',
@@ -519,6 +547,8 @@ def main():
                 'user_config_default_sha256': digest(target / 'pi-dos/PIDOS.CFG'),
                 'doszip_sha256': {p.name: digest(p) for p in sorted(doszip.iterdir())},
                 'benchmark_pack': bench_manifest,
+                'demoscene_pack': demo_manifest,
+                'demoscene_assets': demo_spec,
                 'benchmark_assets': json.loads((ROOT / 'configs/benchmark-assets.json').read_text()),
                 'crt_edid_sha256': digest(ROOT / 'dac-crt.bin'),
                 'patch_sha256': {str(p.relative_to(ROOT)): digest(p)

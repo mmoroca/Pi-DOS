@@ -70,3 +70,13 @@ helpers retain their supplied source files and author notices; public-release
 permission for the helpers also remains to be established. The generated
 `SOURCE.TXT` records provenance, and `FILES.JSN` inventories the installed files.
 Preparing this local image does not close the project's distribution gate.
+
+The demoscene pack under `C:\DEMOS` uses the original scene.org releases pinned
+in `configs/demo-assets.json`. The executables/data are unchanged; every archive
+and its included notices are retained per production under `ORIG\DISK1.ZIP`
+(plus `DISK2.ZIP` for Second Reality). The extracted multi-disk installation
+keeps the first shared filename; both originals remain in the ZIPs. Pi-DOS adds
+only its menu, guide, inventory and source record. Copyright remains with Future
+Crew, Triton, NoooN, Plant/EMF, CNCD and the respective contributors. Online
+availability does not establish permission to distribute every production in a
+public SD image. Review each original notice under the existing release gate.

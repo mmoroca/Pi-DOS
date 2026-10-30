@@ -1,0 +1,138 @@
+{
+  "version": "Pi-DOS Demoscene Pack 1.0",
+  "demos": [
+    {
+      "id": "SECOND",
+      "title": "Second Reality",
+      "group": "Future Crew",
+      "year": "1993",
+      "description": "Start here: a showcase of classic VGA effects and tracker music.",
+      "commands": ["SECOND.EXE"],
+      "notes": "Choose Sound Blaster; SB playback needs 1 MB EMS. Both disks are installed.",
+      "archives": [
+        {
+          "archive": "demo-2ndreal1.zip",
+          "url": "https://archive.scene.org/pub/demos/groups/future_crew/demos/2ndreal1.zip",
+          "sha256": "43090c468bb76619f302d201fec7052d29e5e605b10cadcf00d0d376ce636bdc"
+        },
+        {
+          "archive": "demo-2ndreal2.zip",
+          "url": "https://archive.scene.org/pub/demos/groups/future_crew/demos/2ndreal2.zip",
+          "sha256": "8900d6941e793776954b32270cd2939b291b333053e74bf7b067f1698c11d8b0"
+        }
+      ]
+    },
+    {
+      "id": "UNREAL",
+      "title": "Unreal",
+      "group": "Future Crew",
+      "year": "1992",
+      "description": "The earlier Future Crew megademo; a good companion to Second Reality.",
+      "commands": ["UNREAL.EXE"],
+      "notes": "Version 1.1 (1993 bugfix release). Choose Sound Blaster in its setup.",
+      "archives": [{
+        "archive": "demo-unreal11.zip",
+        "url": "https://archive.scene.org/pub/demos/groups/future_crew/demos/unreal11.zip",
+        "sha256": "bf45ff6384560c94e2a5bbaeae14f047ca77fda3bbc8e59645d6dc4a4de5021b"
+      }]
+    },
+    {
+      "id": "PANIC",
+      "title": "Panic",
+      "group": "Future Crew",
+      "year": "1992/93",
+      "description": "A compact, energetic bridge between Unreal and Second Reality.",
+      "commands": ["PANIC.EXE"],
+      "notes": "The Party 1992 production, debugged release in 1993. SB needs 1 MB EMS.",
+      "archives": [{
+        "archive": "demo-panic.zip",
+        "url": "https://archive.scene.org/pub/demos/groups/future_crew/demos/panic.zip",
+        "sha256": "94dd979e57d94029e481725516f26cdb8d71044b2cb193e3403e15fae6f674aa"
+      }]
+    },
+    {
+      "id": "CRYSTAL",
+      "title": "Crystal Dream",
+      "group": "Triton",
+      "year": "1992",
+      "description": "An early 16-colour production with a distinctive visual style.",
+      "commands": ["CRYSTAL.EXE"],
+      "notes": "Choose Sound Blaster. Original requirements start at a 12 MHz 286.",
+      "archives": [{
+        "archive": "demo-cd_trn.zip",
+        "url": "https://archive.scene.org/pub/demos/groups/triton/cd_trn.zip",
+        "sha256": "54f4f2f804ee37c0fc947b09c633f0362d89d905d9d8674bc39c07167aa9792a"
+      }]
+    },
+    {
+      "id": "CD2",
+      "title": "Crystal Dream II",
+      "group": "Triton",
+      "year": "1993",
+      "description": "Triton's larger follow-up, pairing polished effects with a strong soundtrack.",
+      "commands": ["CD2.EXE"],
+      "notes": "Choose Sound Blaster in the original startup screen.",
+      "archives": [{
+        "archive": "demo-cd2-trn.zip",
+        "url": "https://archive.scene.org/pub/demos/groups/triton/cd2-trn.zip",
+        "sha256": "ae52ab5632094301651dbc4c99a131c11ceb4fdc2fa9fecc941ccc0116fbd205"
+      }]
+    },
+    {
+      "id": "STARS",
+      "title": "Stars: Wonders of the World",
+      "group": "NoooN",
+      "year": "1995",
+      "description": "A move toward the textured 3D look of the mid-1990s.",
+      "commands": ["STARSV2A.EXE"],
+      "notes": "2014 corrected-object DOS executable; originals retained. Supports SB/SB16.",
+      "archives": [{
+        "archive": "demo-nooon_starsv2.zip",
+        "url": "https://archive.scene.org/pub/demos/groups/nooon/nooon_starsv2.zip",
+        "sha256": "ee0de7e36147e8c9f9a46c43d1d1168f0ae9399d5c0467f7a7eff7031a3a7101"
+      }]
+    },
+    {
+      "id": "CAERO",
+      "title": "Caero",
+      "group": "Plant + EMF",
+      "year": "1995",
+      "description": "A later DOS showcase with a different pace and visual direction.",
+      "commands": ["CAERO.EXE"],
+      "notes": "Final release with Sound Blaster, GUS and no-sound support.",
+      "archives": [{
+        "archive": "demo-caero_f.zip",
+        "url": "https://archive.scene.org/pub/parties/1995/theparty95/demo/caero_f.zip",
+        "sha256": "ea164a938f66ff6f0b0f86e4c009574f6cb6437223ee3d12d606dbd6ee9ddb5b"
+      }]
+    },
+    {
+      "id": "INSIDE",
+      "title": "Inside",
+      "group": "CNCD",
+      "year": "1996",
+      "description": "A music-led production that broadens the pack beyond the early VGA era.",
+      "commands": ["SETUP.EXE", "INSIDE.EXE"],
+      "notes": "Setup runs first: choose Sound Blaster and save. Requires 5.5 MB free memory.",
+      "archives": [{
+        "archive": "demo-inside.zip",
+        "url": "https://archive.scene.org/pub/mirrors/hornet/demos/1996/i/inside.zip",
+        "sha256": "c8b26be4287be06b1b35000370f57f99f506eb1b1ff4ea818c967d0946a16f69"
+      }]
+    },
+    {
+      "id": "FISHTRO",
+      "title": "Fishtro",
+      "group": "Future Crew",
+      "year": "1992",
+      "description": "Bonus: a short, playful intro for a change of pace between full demos.",
+      "commands": ["FISHTRO.EXE"],
+      "notes": "Sound Blaster intro; original executable and archive are preserved.",
+      "archives": [{
+        "archive": "demo-fishtro.zip",
+        "url": "https://archive.scene.org/pub/demos/groups/future_crew/intros/fishtro.zip",
+        "sha256": "89e47ad09b7a9d86e1ad011441c8efd8e29b9ffbc028dd3dcd8036cb9c3b5fb3"
+      }]
+    }
+  ]
+}

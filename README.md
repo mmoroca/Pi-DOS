@@ -69,7 +69,7 @@ DOS volume labels default to `SYSTEM` for C: and `PI-DOS` for Z:.
 C: uses the data partition's available space. D: is reserved for an automatic
 USB optical drive; CD/DVD/Blu-ray units can read regular CDs, including digital
 CD audio and mixed-mode game discs. C: exposes the PI-DOS volume root directly;
-`SYSTEM`, `PROGRAMS`, `GAMES`, `DOCS` and `TEMP` are at that root.
+`SYSTEM`, `PROGRAMS`, `GAMES`, `DEMOS`, `DOCS` and `TEMP` are at that root.
 Host checks pass; physical optical-drive validation is pending. See
 [USB CD-ROM support](docs/buildroot-pi5.md#usb-optical-drive-d).
 USB floppy drives automatically use `A:`, including when connected after boot.
@@ -125,7 +125,17 @@ Original filenames on disk and long-filename access are preserved.
 The original Z: utility layout is retained, with the supplied ARJ at `Z:\BIN\ARJ.EXE`.
 Applications live under `C:\PROGRAMS`. Doszip Commander is included in
 `C:\PROGRAMS\DOSZIP`; type `DZ` to open its two-panel file manager.
-The standard user folders are `C:\GAMES`, `C:\DOCS` and `C:\TEMP`.
+The standard user folders are `C:\GAMES`, `C:\DEMOS`, `C:\DOCS` and `C:\TEMP`.
+Type `DEMOS` for a simple numbered demoscene menu in `C:\DEMOS`: Second Reality,
+Unreal, Panic, Crystal Dream I/II, Stars: Wonders of the World, Caero, Inside,
+and the short Fishtro intro. Press `H` for sound/setup notes and `Q` to exit.
+Original releases and documentation are retained; the menu uses the current
+emulator settings. Physical Pi playback and synchronization remain unverified.
+Run `make demos` to create `output/pi-dos-demos.zip` for an existing card;
+copy its `DEMOS` folder and `SYSTEM\DEMOS.BAT` to the PI-DOS partition root,
+merging with the existing `SYSTEM` directory. Future image builds include the
+pack automatically. Sources and hashes are in `configs/demo-assets.json`;
+see the [pack guide](br2-external/board/raspberrypi/dos/demos/README.TXT).
 Type `BENCH` for the benchmark menu in `C:\SYSTEM\BENCH`: 3DBench 1.0c,
 Chris's 3D Benchmark and PC Player at VGA/SVGA resolutions, Doom shareware
 at minimum/maximum detail with FPS calculation, and Quake shareware at

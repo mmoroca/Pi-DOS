@@ -389,7 +389,7 @@ That prompt does not include a filesystem-repair utility.
 `PISYSTEM.COM` registers C: from the PI-DOS volume root using the writable or
 read-only storage state supplied by PID 1. Configuration, logs, MIDI assets and
 shutdown requests all use `SYSTEM/` at that root. Fresh images contain
-`AUTOEXEC.BAT`, `README.TXT`, `SYSTEM/`, `PROGRAMS/`, `GAMES/`, `DOCS/` and `TEMP/`
+`AUTOEXEC.BAT`, `README.TXT`, `SYSTEM/`, `PROGRAMS/`, `GAMES/`, `DEMOS/`, `DOCS/` and `TEMP/`
 directly on PI-DOS; there is no `c/` wrapper directory.
 
 C: cannot be unmounted or replaced, including when persistent storage is
@@ -1153,6 +1153,7 @@ create missing directories on existing installations, preserving their contents.
 | `C:\SYSTEM` | Pi-DOS configuration, lifecycle commands and launchers |
 | `C:\PROGRAMS` | Applications, with one subdirectory per application |
 | `C:\PROGRAMS\TOOLS` | Self-contained utilities, including `EDIT.COM` |
+| `C:\DEMOS` | Curated DOS demoscene pack; type `DEMOS` for the numbered menu |
 | `C:\GAMES` | Games, with one subdirectory per game |
 | `C:\DOCS` | User documents and manuals |
 | `C:\TEMP` | Temporary files |

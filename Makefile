@@ -5,6 +5,7 @@ help:
 	@echo 'make image - build the Raspberry Pi ARM64 SD image (JOBS=4 by default)'
 	@echo 'make image-diagnostic - build an image with boot/runtime/network/video logs on C:'
 	@echo 'make dos-config - rebuild PIDOSCFG.EXE (requires Open Watcom)'
+	@echo 'make demos - fetch and package the curated DOS demoscene pack with text menu'
 	@echo 'make fetch   - fetch and verify pinned Phase 0 sources'
 	@echo 'make sdl2    - build private native SDL2 with required backends'
 	@echo 'make phase0  - build native SDL2 and DOSBox-X (JOBS=4 by default)'
@@ -39,7 +40,10 @@ smoke-keyboard:
 smoke-audio:
 	python3 tools/phase0/audio.py
 
-.PHONY: image-config image image-diagnostic dos-config
+.PHONY: image-config image image-diagnostic dos-config demos
+demos:
+	python3 tools/dos/demo-assets.py --fetch --pack output/pi-dos-demos.zip
+
 dos-config:
 	bash tools/dos/build.sh
 
