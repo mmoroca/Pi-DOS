@@ -1706,9 +1706,9 @@ it does not assert that all related upstream code has been removed.
 ## 18. Complete development history
 
 Every commit reachable from the reviewed original main branch is listed below.
-The hashes identify the original local history. A publication copy that removes
-the local deployment configuration from all commits necessarily has different
-commit IDs; subjects/order and the preparation report preserve traceability.
+The hashes identify the original local history. The active repository uses
+cleaned history with the local deployment configuration removed from every
+commit, so its commit IDs differ; subjects/order preserve traceability.
 Earlier defaults, paths and claims are historical rather than current settings.
 
 | Original commit | Date | Change | Technical/user-visible significance |
@@ -1775,4 +1775,4 @@ Historical and validation references are retained for their specific evidence:
 - [DOSBox-X patch inventory](../patches/dosbox-x/README.md)
 - [DOS payload provenance](../br2-external/board/raspberrypi/dos/README.md)
 - [Component notices and unresolved release review](../LICENSES/README.md)
-- [First GitHub sync preparation](github-sync.md)
+- [Repository synchronization and cleaned history](github-sync.md)

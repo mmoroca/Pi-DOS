@@ -1,141 +1,89 @@
-# Preparing the first GitHub sync
+# GitHub synchronization
 
-Reviewed 30 October 2026. Destination: `https://github.com/rtomasa/Pi-DOS.git`.
-The connected GitHub API reports a **public repository**, default branch `main`,
-size zero, and an account with push permission. This is a read-only metadata
-observation, not a completed Git transport/authentication test or a future
-promise that the remote remains empty.
+Updated 31 October 2026. The single working repository is:
 
-## Prepared source copy
-
-Run from the original project root:
-
-```sh
-python3 tools/repo/prepare-github.py
+```text
+/home/rtomas/Projects/Pi-DOS
 ```
 
-This creates a standalone Git working repository at **`output/github-sync`**.
-It exports the current branch's development history while excluding
-`.vscode/pro-deployer.json` from **every commit**, then adds a preparation commit
-containing the reviewed working-tree source/documentation. All 41 original
-baseline development commits are retained in order, with their authors/messages
-and normal history relationships; removing the deployment file changes commit
-IDs. Original and resulting IDs are mapped in ignored
-`output/github-sync-report.json`, alongside counts and verification results.
+Open this folder in VS Code and run all normal build and Git commands here.
+There is no separate publication checkout under `output/`. Build artifacts,
+downloads, generated guide PDF and local settings remain in their existing
+locations and are ignored as configured in `.gitignore`.
 
-The source repository's HEAD, index, refs and local deployment configuration
-are not modified. The generated copy is not an object-sharing clone: its Git
-objects are imported without the excluded file. It has origin configured and
-a clean committed working tree, but no upstream is claimed before an actual
-push. No network operation, commit to the original repository, force push or
-public upload is performed by the preparer.
+## Repository history
 
-The snapshot includes tracked working-tree files and an explicit small list of
-new preparation files. It does not indiscriminately include untracked content.
-Tracked deletions are reflected; symlinks/merge conflicts need review. Other
-branches and tags are not exported. The existing `dl/`, build output, images,
-user-supplied ROMs/SoundFonts and local account state stay outside publication.
+The active Git metadata comes from the cleaned history that was prepared for
+GitHub. It preserves all 41 original development commits, with the local
+`.vscode/pro-deployer.json` deployment file excluded from every commit, followed
+by the documentation/preparation commit and subsequent work. Removing that file
+changes the development commit IDs; the subjects and order remain intact.
+The original hashes in the technical reference identify the pre-cleanup history.
 
-Existing output directories are never overwritten. To regenerate after edits,
-choose a fresh ignored output path:
+The earlier temporary `output/github-sync` and `output/github-sync-v2` checkouts
+and their reports have been retired. The export helper was also removed: new
+work is committed directly in the main project folder. Before consolidation,
+a private recovery archive of the original Git metadata, temporary repositories
+and reports was saved outside the project under `/tmp/pi-dos-consolidation-*`.
+Temporary storage may be cleared; retain that archive elsewhere privately if
+long-term recovery is needed. It includes the old credential-containing history
+and must not be published.
 
-```sh
-python3 tools/repo/prepare-github.py --output output/github-sync-v2
-```
+Your local `.vscode/pro-deployer.json` stays on disk, is ignored and is absent
+from the active history. The credential-free
+[deployment example](../.vscode/pro-deployer.example.json) remains tracked.
+It describes a development Linux host; the Pi-DOS appliance has no SSH server.
 
-The helper checks every reachable historical blob for a focused set of likely
-credential patterns, rejects blobs of 50 MiB or more, checks the excluded path,
-requires a clean resulting tree and runs Git object-integrity verification.
-This focused check does not replace reviewing source and distribution rights.
-No Git LFS migration is required by the inspected baseline's object sizes.
+## Normal workflow
 
-## Why the original working repository must not be pushed as-is
-
-The original history contains a local editor SFTP configuration with a login
-password. Adding it to `.gitignore`, deleting it in a later commit or using an
-ordinary clone would leave the earlier blob reachable. The preparation tool
-removes that path from the entire **separate publication history**, preserving
-the local settings and original repository for development/reference.
-
-A credential-free example is tracked at
-[.vscode/pro-deployer.example.json](../.vscode/pro-deployer.example.json).
-For a development Linux machine, copy it locally to `pro-deployer.json` and
-configure authentication outside version control. This SFTP workflow targets
-a development host; the Pi-DOS appliance itself has no SSH server.
-
-The original repository still tracks its local file because this preparation
-intentionally leaves its index/history intact. **Use the generated repository
-for the first sync.** For subsequent development, continue from that clean copy
-or a fresh GitHub clone after publication; do not merge the original credential-
-containing history back into it. Preserve the original locally as needed.
-If the credential was reused or previously shared, change it on that device.
-
-## Remaining publication decisions
-
-The repository's existing [license/provenance review](../LICENSES/README.md)
-remains open. No license was selected on the author's behalf:
-
-- Select a license for original Pi-DOS code; Buildroot currently marks the init
-  package license as unknown. Retain upstream licenses and notices separately.
-- Review the **tracked** ARJ shareware and personalized EDIT binaries before
-  publishing them publicly, as well as the applicable notices/source for the
-  other vendored components. Technical Git readiness is not permission to
-  redistribute those binaries.
-- Complete the broader component/firmware/game/demo/SoundFont/ROM review before
-  uploading images, packs or release artifacts. ROM/SF2 assets are not in Git;
-  generated images can contain those and other separately restricted payloads.
-
-The prepared copy is ready for source review and first-sync mechanics; public
-publication still depends on resolving the applicable rights decisions above.
-If further edits are needed, make them in the original working source and
-prepare a fresh copy, or commit them directly in the publication copy after
-review. Do not upload `output/`, `dl/` or a bundle of the original Git history.
-
-## First sync procedure after review
-
-From the **prepared copy** (not the original repository):
+From the project root:
 
 ```sh
-cd output/github-sync
-git status --short
-git log --oneline --reverse
-git remote -v
-git ls-remote --heads --tags origin
+cd /home/rtomas/Projects/Pi-DOS
+git status
+git diff
 ```
 
-Confirm that there is no remote history requiring reconciliation. The local
-`origin/main: gone` status in the original repository only means its tracking
-reference is missing; it is not a reason to run an initial `git pull`.
-GitHub connector permission and shell Git authentication are separate. Configure
-your normal HTTPS credential helper or SSH authentication if Git requests it;
-never put a token in a URL or tracked configuration.
-
-For a still-empty destination, after the content/license review:
+Review and stage the specific source/documentation paths you changed, then
+commit and push normally:
 
 ```sh
-git push --dry-run origin main
-git push -u origin main
+git add path/to/changed-file
+git diff --cached
+git commit -m "Describe the change"
+git push
 ```
 
-These are operator instructions, not actions already performed. Do not use
-`--force`, `--mirror` or `--all`. If GitHub now contains an unrelated README,
-license or other initial commit, fetch and inspect that history before choosing
-how to integrate it; do not overwrite it or blindly allow unrelated histories.
-A successful `push -u` establishes normal pull/push tracking. If you use a new
-clone afterward, restore any required ignored local assets separately.
+`main` tracks `origin/main` at `https://github.com/rtomasa/Pi-DOS.git`.
+Consolidation preserves that remote configuration and tracking state; it does
+not push, pull, force-push or change GitHub settings. A non-fast-forward rejection
+requires inspection and reconciliation rather than an automatic force push.
+Use `git pull --ff-only` when the working tree is clean and you want to receive
+remote updates without creating an implicit merge commit.
 
-## Changes made for this preparation
+## User guide
 
-- Added the complete [technical/manual reference](technical-reference.md),
-  including every NOTES.md feature and all original development commits.
-- Linked the reference and this sync guide from README and NOTES.
-- Added line-ending/binary attributes for cross-platform source handling,
-  preserving DOS batch CRLF, exact patch bytes (including mixed-line-ending
-  context), and binary executable/archive/EDID payloads.
-- Expanded ignore rules for local editor credentials, account/agent state and
-  transient editor files; preserved existing download/build exclusions.
-- Added a credential-free deployment example and a repeatable, local-only
-  history export/preparation helper.
+The editable guide project is tracked under `docs/pi-dos-user-guide`, including
+the Markdown manuscript, Typst source, Python builder, dependencies, fonts and
+notices. Its generated PDF is ignored. Follow
+[the guide's build instructions](pi-dos-user-guide/README.md) to regenerate it.
+New guide edits can be staged and committed directly from this repository.
 
-No runtime feature changed, hardware was flashed, expensive image build was
-started, GitHub repository setting was changed or public push was performed.
+## Publication and release decisions
+
+The existing [license/provenance review](../LICENSES/README.md) remains separate
+from Git synchronization. No license has been selected on the author's behalf:
+
+- Select a license for original Pi-DOS code; the init package currently records
+  its license as unknown. Retain component licenses/notices separately.
+- Review the tracked ARJ shareware and personalized EDIT binaries and the
+  applicable conditions for the other vendored components before public
+  redistribution.
+- Complete the broader component, firmware, game, demo, SoundFont and ROM review
+  before distributing images or packs. ROM/SF2 assets are excluded from Git;
+  generated images may contain separately restricted payloads.
+
+The repository's ignore rules keep local account/agent/editor state, downloads
+and build outputs out of routine source commits. They do not grant distribution
+rights or remove a file that is already tracked. Inspect staged content before
+committing new assets.

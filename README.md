@@ -7,7 +7,7 @@ the DOSBox-X-derived DOS environment is the only intended user interface.
 Start with the [complete technical reference and manual foundation](docs/technical-reference.md)
 for the architecture, current features, configuration, hardware integration,
 all 177 NOTES.md feature entries and all 41 development commits through `ff0c194`.
-For repository publication, see the [first GitHub sync procedure](docs/github-sync.md).
+For normal GitHub synchronization, see the [repository sync procedure](docs/github-sync.md).
 
 The architecture is Buildroot, an embedded initramfs, a small C PID 1 supervisor,
 native SDL2 KMS/DRM video, ALSA audio, USB input and persistent DOS storage. The
