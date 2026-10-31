@@ -2,3 +2,15 @@
 /output/
 __pycache__/
 *.pyc
+
+# Local editor deployment settings may contain device credentials.
+/.vscode/*
+!/.vscode/pro-deployer.example.json
+
+# Local agent/account state is not project source.
+/.agents/
+/.codex/
+/.aws/
+.DS_Store
+*.swp
+docs/pi-dos-user-guide/pi-dos-user-guide.pdf

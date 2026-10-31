@@ -1,0 +1,13 @@
+* text=auto
+*.md text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+# Patch context can intentionally contain CRLF from upstream DOS sources.
+*.patch -text
+*.json text eol=lf
+*.BAT text eol=crlf
+*.bin binary
+*.EXE binary
+*.COM binary
+*.DOS binary
+*.ZIP binary

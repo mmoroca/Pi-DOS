@@ -1,0 +1,21 @@
+{
+  "enableStatusBarItem": true,
+  "enableQuickPick": true,
+  "uploadOnSave": false,
+  "autoDelete": false,
+  "checkGitignore": true,
+  "activeTargets": ["raspberry"],
+  "concurrency": 5,
+  "ignore": [".git/**/*", ".vscode/**/*", "dl/**/*", "output/**/*"],
+  "targets": [
+    {
+      "name": "raspberry",
+      "type": "sftp",
+      "host": "raspberrypi.local",
+      "port": 22,
+      "user": "root",
+      "dir": "/opt/pi-dos",
+      "transferDataType": "binary"
+    }
+  ]
+}
