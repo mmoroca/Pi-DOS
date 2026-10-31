@@ -2,6 +2,12 @@
 
 Base: `4f19017c5f565dc40d01fede0f1382892e7243d7` (`dosbox-x-v2026.08.31`).
 
+`0037-sync-screenshot-storage.patch` flushes completed PNG screenshots and
+syncs both the file and capture directory on the appliance before reporting
+success. It refreshes C:'s DOS directory cache so subsequent listings see new
+captures, logs write/close/sync failures, and closes files on PNG initialization
+failure. Standalone runs keep normal filesystem buffering.
+
 `0035-remove-unused-dos-utilities.patch` removes LS, TITLE, CAPMOUSE, INTRO,
 SHUTDOWN.COM, BUFFERS.COM, FDISK, CFGTOOL, DSXMENU, EDLIN, COMP, FILES,
 FCBS, LASTDRIV and FLAGSAVE from the bundled Z: drive. Standalone binary

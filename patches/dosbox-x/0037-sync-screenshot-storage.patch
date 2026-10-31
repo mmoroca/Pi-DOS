@@ -1,0 +1,79 @@
+Pi-DOS: Synchronize completed PNG screenshots and refresh the DOS listing.
+
+Flush stdio, fsync the PNG and its capture directory before reporting success
+on the appliance. Invalidate C:'s directory cache after the host-side write
+so the next DOS directory scan sees it. Check write/close/sync failures, and
+close the stream if PNG initialization fails. Standalone captures retain
+normal buffered filesystem behavior.
+
+--- a/src/hardware/hardware.cpp
++++ b/src/hardware/hardware.cpp
+@@ -38,6 +38,11 @@
+ #include "render.h"
+ #include "cross.h"
+ #include "pidos_drive_policy.h"
++#if defined(LINUX) && C_SSHOT
++#include "dos_inc.h"
++#include <fcntl.h>
++#include <unistd.h>
++#endif
+ #include "wave_mmreg.h"
+ 
+ #if (C_SSHOT) || (C_AVCODEC)
+@@ -648,6 +653,32 @@
+ }
+ 
+ #if (C_SSHOT)
++static bool CloseScreenshotFile(FILE *fp) {
++    bool ok = !ferror(fp);
++    if (fflush(fp)) ok = false;
++#if defined(LINUX)
++    const bool managed = PiDosApplianceDrives();
++    /* fclose alone leaves the PNG in the kernel's writeback cache. */
++    if (managed && fsync(fileno(fp))) ok = false;
++#endif
++    if (fclose(fp)) ok = false;
++#if defined(LINUX)
++    if (managed) {
++        /* Persist the new filename as well as its contents. */
++        const int directory = open(capturedir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
++        if (directory < 0) ok = false;
++        else {
++            if (fsync(directory)) ok = false;
++            if (close(directory)) ok = false;
++        }
++        /* Host-created files bypass the DOS local-drive directory cache. */
++        if (Drives[2]) Drives[2]->EmptyCache();
++    }
++#endif
++    if (!ok) LOG_MSG("Pi-DOS: screenshot write/sync failed: %s", pathscr.c_str());
++    return ok;
++}
++
+ static void CAPTURE_AddAviChunk(const char * tag, uint32_t size, void * data, uint32_t flags, unsigned int streamindex) {
+     (void)tag;//UNUSED
+ 	if (capture.video.writer != NULL) {
+@@ -839,10 +870,11 @@
+ 		if (!fp) goto skip_shot;
+ 		/* First try to allocate the png structures */
+ 		png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL,NULL, NULL);
+-		if (!png_ptr) goto skip_shot;
++		if (!png_ptr) { fclose(fp); goto skip_shot; }
+ 		info_ptr = png_create_info_struct(png_ptr);
+ 		if (!info_ptr) {
+ 			png_destroy_write_struct(&png_ptr,(png_infopp)NULL);
++			fclose(fp);
+ 			goto skip_shot;
+ 		}
+ 	
+@@ -993,8 +1025,8 @@
+ 		/*Destroy PNG structs*/
+ 		png_destroy_write_struct(&png_ptr, &info_ptr);
+ 		/*close file*/
+-		fclose(fp);
+-		if (show_recorded_filename && pathscr.size()) systemmessagebox("Recording completed",("Saved screenshot to the file:\n\n"+pathscr).c_str(),"ok", "info", 1);
++		const bool saved = CloseScreenshotFile(fp);
++		if (saved && show_recorded_filename && pathscr.size()) systemmessagebox("Recording completed",("Saved screenshot to the file:\n\n"+pathscr).c_str(),"ok", "info", 1);
+ 
+ 	}
+ 	pathscr = "";

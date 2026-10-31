@@ -240,6 +240,9 @@ shortcuts remain available. No mapper file is loaded or saved for these options.
 
 Screenshots capture the DOS image before host LCD scaling and borders. Names
 use the running program and a sequence number, for example `doom_000.png`.
+Each completed PNG is flushed and synchronized to storage along with its
+directory entry; C:'s directory cache is refreshed for the next DOS listing.
+Write or synchronization failures are logged without a save-success message.
 The capture folder is created on writable boots; read-only or missing C:
 storage prevents capture without writing elsewhere. Linux's SysRq scancode
 for the Print Screen key is accepted too. Holding a shortcut does not repeat it.
