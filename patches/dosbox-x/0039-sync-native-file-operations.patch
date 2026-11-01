@@ -1,0 +1,393 @@
+Synchronize native FAT file operations and both sides of directory moves.
+
+Native C: files commit checked data, archive attributes and timestamps on DOS
+flush/close. DOS API wrappers preserve storage errors. Namespace changes sync their parent directories, and rename
+invalidates both source and destination caches. USB wrappers retain their
+existing stricter per-write commits. Standalone directory mounts retain normal buffering.
+
+--- a/include/dos_system.h
++++ b/include/dos_system.h
+@@ -198,7 +198,11 @@
+ 	void Flush(void) override;
+ 	uint32_t GetSeekPos(void) override;
+ 	FILE * fhandle;
++    bool native_dos_attributes = false;
++    bool FlushSucceeded() const override { return !native_sync_failed; }
+ private:
++    bool SyncNative();
++    bool native_written = false, native_sync_failed = false;
+ 	bool read_only_medium = false;
+ 	enum { NONE,READ,WRITE } last_action;
+ };
+--- a/src/dos/drive_local.cpp
++++ b/src/dos/drive_local.cpp
+@@ -62,8 +62,20 @@
+     DOS_SetError(code == ENOENT ? DOSERR_FILE_NOT_FOUND :
+                  code == ENOTDIR ? DOSERR_PATH_NOT_FOUND :
+                  code == EROFS ? DOSERR_WRITE_PROTECTED :
+-                 code == EIO ? 29 : DOSERR_ACCESS_DENIED);
++                 code == ENOSPC ? 112 : code == EIO ? 29 : DOSERR_ACCESS_DENIED);
+     return false;
++}
++
++static bool PiDosSyncParent(const char *path) {
++    std::string parent(path);
++    const auto slash = parent.find_last_of('/');
++    parent = slash == std::string::npos ? "." : parent.substr(0, slash ? slash : 1);
++    const int fd = open(parent.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
++    if (fd < 0) return PiDosAttributeError();
++    const int result = fsync(fd), error = errno;
++    const int closed = close(fd);
++    if (result) errno = error;
++    return (!result && !closed) || PiDosAttributeError();
+ }
+ #endif
+ 
+@@ -1482,9 +1494,14 @@
+ 	}
+ 
+ #if defined(LINUX)
+-    if (native_dos_attributes && !pidos_attributes::set(fileno(hand),
+-            uint16_t((attributes & 0x27) | DOS_ATTR_ARCHIVE))) {
+-        const int error = errno; fclose(hand); errno = error;
++    if (native_dos_attributes &&
++        (!pidos_attributes::set(fileno(hand), uint16_t((attributes & 0x27) | DOS_ATTR_ARCHIVE)) ||
++         !PiDosSyncParent(host_name))) {
++        const int error = errno;
++        fclose(hand);
++        // Creation/truncation already happened even if its commit failed.
++        dirCache.CacheOut(newname);
++        errno = error;
+         return PiDosAttributeError();
+     }
+ #endif
+@@ -1502,6 +1519,7 @@
+ 	*file=new LocalFile(name,hand);
+ 	(*file)->flags=OPEN_READWRITE;
+ #if defined(LINUX)
++    static_cast<LocalFile *>(*file)->native_dos_attributes = native_dos_attributes;
+     if (native_dos_attributes) (*file)->attr = uint16_t((attributes & 0x27) | DOS_ATTR_ARCHIVE);
+ #endif
+ 
+@@ -1717,6 +1735,7 @@
+ #endif
+ 	*file=new LocalFile(name,hand);
+ #if defined(LINUX)
++    static_cast<LocalFile *>(*file)->native_dos_attributes = native_dos_attributes;
+     if (native_dos_attributes) (*file)->attr = native_attributes;
+ #endif
+ 	(*file)->flags=flags;  //for the inheritance flag and maybe check for others.
+@@ -1798,6 +1817,7 @@
+     }
+ 
+ #if defined(LINUX)
++    const std::string sync_path(host_name);
+     if (native_dos_attributes) {
+         uint16_t attributes = 0;
+         if (!pidos_attributes::get(host_name, attributes)) return PiDosAttributeError();
+@@ -1839,6 +1859,9 @@
+ 			remove_special_file_from_disk(name, "ATR");
+ #endif
+ 			dirCache.DeleteEntry(newname);
++#if defined(LINUX)
++            if (native_dos_attributes) return PiDosSyncParent(sync_path.c_str());
++#endif
+ 			return true;
+ 		}
+ 		return false;
+@@ -1847,6 +1870,9 @@
+ 		remove_special_file_from_disk(name, "ATR");
+ #endif
+ 		dirCache.DeleteEntry(newname);
++#if defined(LINUX)
++        if (native_dos_attributes) return PiDosSyncParent(sync_path.c_str());
++#endif
+ 		return true;
+ 	}
+ }
+@@ -2316,12 +2342,18 @@
+         return false;
+     }
+ 
++#if defined(LINUX)
++    const std::string sync_path(host_name);
++#endif
+ #if defined (WIN32)						/* MS Visual C++ */
+ 	int temp=_wmkdir(host_name);
+ #else
+ 	int temp=mkdir(host_name,0775);
+ #endif
+ 	if (temp==0) dirCache.CacheOut(newdir,true);
++#if defined(LINUX)
++    if (temp == 0 && native_dos_attributes) return PiDosSyncParent(sync_path.c_str());
++#endif
+ 	return (temp==0);// || ((temp!=0) && (errno==EEXIST));
+ }
+ 
+@@ -2348,12 +2380,18 @@
+         return false;
+     }
+ 
++#if defined(LINUX)
++    const std::string sync_path(host_name);
++#endif
+ #if defined (WIN32)						/* MS Visual C++ */
+ 	int temp=_wrmdir(host_name);
+ #else
+ 	int temp=rmdir(host_name);
+ #endif
+ 	if (temp==0) dirCache.DeleteEntry(newdir,true);
++#if defined(LINUX)
++    if (temp == 0 && native_dos_attributes) return PiDosSyncParent(sync_path.c_str());
++#endif
+ 	return (temp==0);
+ }
+ 
+@@ -2434,12 +2472,23 @@
+ 	int temp=rename(o_temp_name,n_temp_name);
+ #endif
+ 
+-	if (temp==0) dirCache.CacheOut(newnew);
++    bool synced = true;
++    if (temp == 0) {
++        dirCache.CacheOut(newold);
++        dirCache.CacheOut(newnew);
++#if defined(LINUX)
++        if (native_dos_attributes) {
++            const bool source_synced = PiDosSyncParent(o_temp_name);
++            const bool target_synced = PiDosSyncParent(n_temp_name);
++            synced = source_synced && target_synced;
++        }
++#endif
++    }
+ 
+     free(o_temp_name);
+     free(n_temp_name);
+ 
+-	return (temp==0);
++	return temp == 0 && synced;
+ 
+ }
+ 
+@@ -2927,6 +2976,15 @@
+         if (!newtime) UpdateLocalDateTime();
+     }
+ 	last_action=READ;
++#if defined(LINUX)
++    if (native_dos_attributes) {
++        const uint16_t requested = *size;
++        *size = 0;
++        if (fseeko(fhandle, 0, SEEK_CUR)) { DOS_SetError(30); return false; }
++        *size = uint16_t(fread(data, 1, requested, fhandle));
++        if (ferror(fhandle)) { DOS_SetError(30); return false; }
++    } else
++#endif
+ 	*size=file_access_tries>0?(uint16_t)read(fileno(fhandle),data,*size):(uint16_t)fread(data,1,*size,fhandle);
+ 	/* Fake harddrive motion. Inspector Gadget with soundblaster compatible */
+ 	/* Same for Igor */
+@@ -2945,6 +3003,28 @@
+ 		DOS_SetError(DOSERR_ACCESS_DENIED);
+ 		return false;
+ 	}
++#if defined(LINUX)
++    if (native_dos_attributes) {
++        if (native_sync_failed) { *size = 0; errno = EIO; return PiDosAttributeError(); }
++        const uint16_t requested = *size;
++        *size = 0;
++        bool ok = fseeko(fhandle, 0, SEEK_CUR) == 0;
++        last_action = WRITE;
++        if (ok && !requested) {
++            const auto position = ftello(fhandle);
++            ok = position >= 0 && ftruncate(fileno(fhandle), position) == 0;
++        } else if (ok) {
++            *size = uint16_t(fwrite(data, 1, requested, fhandle));
++            ok = *size == requested && !ferror(fhandle);
++        }
++        native_written = true;
++        if (!ok) {
++            native_sync_failed = true;
++            return PiDosAttributeError();
++        }
++        return true;
++    }
++#endif
+ #if defined(WIN32)
+     if (file_access_tries>0) {
+         HANDLE hFile = (HANDLE)_get_osfhandle(_fileno(fhandle));
+@@ -3148,11 +3228,17 @@
+ }
+ 
+ bool LocalFile::Close() {
++    bool ok = true;
+     if (!newtime && fhandle && last_action == WRITE) UpdateLocalDateTime();
+     if (newtime && fhandle) {
+         // force STDIO to flush buffers on this file handle, or else fclose() will write buffered data
+         // and cause mtime to reset back to current time.
+-        fflush(fhandle);
++        if (fflush(fhandle) && native_dos_attributes) {
++#if defined(LINUX)
++            native_sync_failed = true;
++            ok = PiDosAttributeError();
++#endif
++        }
+ 
+         // backport from DOS_PackDate() and DOS_PackTime()
+         struct tm tim = { 0 };
+@@ -3201,18 +3287,28 @@
+         if (futimens(fileno(fhandle), ftsp)) {
+             extern int errno; 
+             LOG_MSG("Set time failed (%s)", strerror(errno));
+-        }
+-#endif
+-    }
++#if defined(LINUX)
++            if (native_dos_attributes) { native_sync_failed = true; ok = PiDosAttributeError(); }
++#endif
++        }
++#endif
++    }
++
++    if (!SyncNative()) ok = false;
+ 
+     // only close if one reference left
+     if (refCtr==1) {
+-        if(fhandle) fclose(fhandle); 
++        if (fhandle && fclose(fhandle) && native_dos_attributes) {
++#if defined(LINUX)
++            native_sync_failed = true;
++            ok = PiDosAttributeError();
++#endif
++        }
+         fhandle = nullptr;
+         open = false;
+     }
+ 
+-    return true;
++    return ok;
+ }
+ 
+ uint16_t LocalFile::GetInformation(void) {
+@@ -3290,6 +3386,27 @@
+ }
+ 
+ 
++// DOS flush and final close commit data and metadata on native FAT volumes.
++bool LocalFile::SyncNative() {
++#if defined(LINUX)
++    if (!native_dos_attributes) return true;
++    if (native_sync_failed) { errno = EIO; return PiDosAttributeError(); }
++    if (!fhandle) return true;
++    bool ok = fflush(fhandle) == 0;
++    if (ferror(fhandle)) { errno = EIO; ok = false; }
++    if (ok && native_written) {
++        uint16_t attributes = 0;
++        ok = pidos_attributes::get(fileno(fhandle), attributes);
++        if (ok && !(attributes & DOS_ATTR_ARCHIVE))
++            ok = pidos_attributes::set(fileno(fhandle), uint16_t(attributes | DOS_ATTR_ARCHIVE));
++        if (ok) attr = uint16_t(attributes | DOS_ATTR_ARCHIVE);
++    }
++    if (ok && (native_written || newtime)) ok = fsync(fileno(fhandle)) == 0;
++    if (!ok) { native_sync_failed = true; return PiDosAttributeError(); }
++#endif
++    return true;
++}
++
+ void LocalFile::Flush(void) {
+ #if defined(WIN32)
+     if (file_access_tries>0) return;
+@@ -3305,6 +3422,7 @@
+ 		last_action=NONE;
+         if (!newtime) UpdateLocalDateTime();
+ 	}
++    SyncNative();
+ }
+ 
+ #if !defined(OSFREE)
+--- a/src/dos/dos_files.cpp
++++ b/src/dos/dos_files.cpp
+@@ -568,6 +568,11 @@
+ 	return false;
+ }
+ 
++static bool PiDosStorageError() {
++    return dos.errorcode == DOSERR_WRITE_PROTECTED || dos.errorcode == DOSERR_DRIVE_NOT_READY ||
++           dos.errorcode == 29 || dos.errorcode == 30 || dos.errorcode == 112;
++}
++
+ bool DOS_MakeDir(char const * const dir) {
+ 	uint8_t drive;char fulldir[DOS_PATHLENGTH];
+ 	size_t len = strlen(dir);
+@@ -582,7 +587,9 @@
+ 	if (Network_IsNetworkResource(dir)) return Network_MakeDir(dir);
+ # endif
+ #endif
++	dos.errorcode = 0;
+ 	if(Drives[drive]->MakeDir(fulldir)) return true;
++    if (PiDosStorageError()) return false;
+ 
+ 	/* Determine reason for failing */
+ 	if(Drives[drive]->TestDir(fulldir)) 
+@@ -618,7 +625,9 @@
+ 		return false;
+ 	}
+ 
++	dos.errorcode = 0;
+ 	if(Drives[drive]->RemoveDir(fulldir)) return true;
++    if (PiDosStorageError()) return false;
+ 
+ 	/* Failed. We know it exists and it's not the current dir */
+ 	/* Assume non empty */
+@@ -744,6 +753,7 @@
+ 		return false;
+ 	}
+ 
++    dos.errorcode = 0;
+ #if defined (WIN32)
+ 	if (clip) {
+ 		uint16_t sourceHandle, targetHandle, toread = 0x8000;
+@@ -760,6 +770,7 @@
+ #endif
+ 
+ 	if (Drives[drivenew]->Rename(fullold,fullnew)) return true;
++    if (PiDosStorageError()) return false;
+ 	/* Rename failed despite checks => no access */
+ 	DOS_SetError(DOSERR_ACCESS_DENIED);
+ 	return false;
+@@ -1126,6 +1137,7 @@
+             (enable_share_exe && (!PiDosShareError(dos_sharing.check_open(share_key, flags, dos.version.major >= 7 || (sharing_attr & DOS_ATTR_READ_ONLY))) ||
+             !PiDosShareError(dos_sharing.access(share_key, dos.psp(), 0, uint64_t(1) << 32))))) return false;
+     }
++	dos.errorcode = 0;
+ 	bool foundit=Drives[drive]->FileCreate(&Files[handle],fullname,attributes);
+ 	if (foundit) { 
+ 		if (Files[handle]) {
+@@ -1145,7 +1157,7 @@
+ 		if (Files[handle]) Drives[drive]->EmptyCache();
+ 		return true;
+ 	} else {
+-		if(dos.errorcode==DOSERR_ACCESS_DENIED||dos.errorcode==DOSERR_WRITE_PROTECTED||dos.errorcode==32||dos.errorcode==33) return false;
++		if(PiDosStorageError()||dos.errorcode==DOSERR_ACCESS_DENIED||dos.errorcode==32||dos.errorcode==33) return false;
+ 		if(!PathExists(name)) DOS_SetError(DOSERR_PATH_NOT_FOUND); 
+ 		else DOS_SetError(DOSERR_FILE_NOT_FOUND);
+ 		return false;
+@@ -1234,7 +1246,7 @@
+ 		dos.errorcode=0;
+ 		exists=Drives[drive]->FileOpen(&Files[handle],fullname,flags) || Drives[drive]->FileOpen(&Files[handle],upcase(fullname),flags);
+ 		if (exists) Files[handle]->SetDrive(drive);
+-		else if (dos.errorcode==DOSERR_ACCESS_CODE_INVALID) return false;
++		else if (PiDosStorageError() || dos.errorcode==DOSERR_ACCESS_CODE_INVALID) return false;
+ 		dos.errorcode=olderror;
+ 	}
+     if (exists && DOS_UsesInternalSharing()) {
+@@ -1342,7 +1354,10 @@
+         pidos_sharing::Key key;
+         if (!PiDosShareKey(drive, fullname, key) || !PiDosShareError(dos_sharing.destructive(key))) return false;
+     }
+-	if(Drives[drive]->FileUnlink(fullname)){
++    dos.errorcode = 0;
++    const bool removed_file = Drives[drive]->FileUnlink(fullname);
++    if (!removed_file && PiDosStorageError()) return false;
++	if(removed_file){
+ 		return true;
+ 	} else if(uselfn&&!force_sfn&&(strchr(fullname, '*')||strchr(fullname, '?'))) { // Wildcard delete as used by MS-DOS 7+ "DEL *.*" in LFN mode
+ 		char dir[DOS_PATHLENGTH], temp[DOS_PATHLENGTH], fname[DOS_PATHLENGTH], spath[DOS_PATHLENGTH], pattern[DOS_PATHLENGTH];

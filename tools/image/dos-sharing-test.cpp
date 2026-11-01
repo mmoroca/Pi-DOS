@@ -21,7 +21,7 @@ using Bits=long;using RealPt=uint32_t;
 #define DOS_NAMELENGTH_ASCII 13
 #define LFN_NAMELENGTH 255
 #define LFN_FILEFIND_MAX 255
-#define LFN_FILEFIND_INTERNAL 256
+#define LFN_FILEFIND_INTERNAL 255
 #define DOS_SEEK_SET 0
 #define DOS_SEEK_CUR 1
 #define DOS_SEEK_END 2
@@ -32,7 +32,7 @@ static void fake_log(const char*,...){}
 static void E_Exit(const char*){assert(false);}
 enum {OPEN_READ=0,OPEN_WRITE=1,OPEN_READWRITE=2,OPEN_READ_NO_MOD=4};
 enum {DOS_ATTR_READ_ONLY=1,DOS_ATTR_HIDDEN=2,DOS_ATTR_SYSTEM=4,DOS_ATTR_VOLUME=8,DOS_ATTR_DIRECTORY=16,DOS_ATTR_ARCHIVE=32};
-enum {DOSERR_FUNCTION_NUMBER_INVALID=1,DOSERR_FILE_NOT_FOUND=2,DOSERR_PATH_NOT_FOUND=3,DOSERR_TOO_MANY_OPEN_FILES=4,DOSERR_ACCESS_DENIED=5,DOSERR_INVALID_HANDLE=6,DOSERR_NOT_SAME_DEVICE=17,DOSERR_ACCESS_CODE_INVALID=12,DOSERR_WRITE_PROTECTED=19,DOSERR_DRIVE_NOT_READY=21,DOSERR_FILE_ALREADY_EXISTS=80};
+enum {DOSERR_FUNCTION_NUMBER_INVALID=1,DOSERR_FILE_NOT_FOUND=2,DOSERR_PATH_NOT_FOUND=3,DOSERR_TOO_MANY_OPEN_FILES=4,DOSERR_ACCESS_DENIED=5,DOSERR_INVALID_HANDLE=6,DOSERR_REMOVE_CURRENT_DIRECTORY=16,DOSERR_NOT_SAME_DEVICE=17,DOSERR_ACCESS_CODE_INVALID=12,DOSERR_WRITE_PROTECTED=19,DOSERR_DRIVE_NOT_READY=21,DOSERR_FILE_ALREADY_EXISTS=80};
 namespace DeviceInfoFlags {constexpr unsigned ExternalDevice=0x8000;}
 static bool enable_share_exe=true,log_fileio=false,dos_kernel_disabled=false,uselfn=false,force_sfn=false;
 static int dos_clipboard_device_access=0,lfn_filefind_handle=258;
@@ -45,12 +45,14 @@ static uint8_t memory[128]={};
 static void MEM_BlockRead(unsigned p,void *out,size_t n){memcpy(out,memory+p,n);}
 static void MEM_BlockWrite(unsigned p,const void *in,size_t n){memcpy(memory+p,in,n);}
 static struct {char name[13]="SAVED";unsigned size=123;}fd;
+static uint8_t sdriv[260]={},sattr[260]={};
+static char sname[260][LFN_NAMELENGTH+1]={};
 static char *strrchr_dbcs(char *p,char c){return strrchr(p,c);}
 static char *upcase(char *p){for(char *s=p;*s;++s)*s=char(toupper((unsigned char)*s));return p;}
 static char *DBCS_upcase(char *p){return upcase(p);}
 static std::string canonical(const char *p){std::string s(p);s.erase(std::remove(s.begin(),s.end(),'"'),s.end());if(s.size()<2||s[1]!=':')s="C:\\"+s;return s;}
 static std::string alias(std::string s){auto a=s.find("LONG FILE.TXT");if(a!=std::string::npos)s.replace(a,13,"LONGFI~1.TXT");return s;}
-static bool DOS_GetSFNPath(const char *p,char *out,bool){std::string s=canonical(p);std::transform(s.begin(),s.end(),s.begin(),[](unsigned char c){return char(toupper(c));});strcpy(out,alias(s).c_str());memset(memory+1,0xee,43);strcpy(fd.name,"CHANGED");return true;}
+static bool DOS_GetSFNPath(const char *p,char *out,bool){std::string s=canonical(p);std::transform(s.begin(),s.end(),s.begin(),[](unsigned char c){return char(toupper(c));});strcpy(out,alias(s).c_str());memset(memory+1,0xee,43);strcpy(fd.name,"CHANGED");sdriv[LFN_FILEFIND_INTERNAL]=25;sattr[LFN_FILEFIND_INTERNAL]=0xff;strcpy(sname[LFN_FILEFIND_INTERNAL],out);return true;}
 static bool DOS_Canonicalize(const char *p,char *out){strcpy(out,canonical(p).c_str());return true;}
 struct DiskFile{uint32_t length=256;uint16_t attr=32;std::map<uint32_t,uint8_t> data;};
 class DOS_File {
@@ -87,6 +89,8 @@ struct DOS_PSP {
 static uint8_t RealHandle(uint16_t n){auto &v=jfts[dos.current];return n<v.size()?v[n]:255;}
 struct Drive {
     uint64_t media=pidos_sharing::next_media_id();bool available=true;
+    char failed_operation=0;uint16_t failure_code=0;
+    bool fault(char operation){if(failed_operation!=operation)return false;DOS_SetError(failure_code);return true;}
     std::map<std::string,std::shared_ptr<DiskFile>> files;
     void EmptyCache(){}
     uint64_t SharingMediaId(){if(!available){DOS_SetError(21);return 0;}return media;}
@@ -94,16 +98,21 @@ struct Drive {
     const char *GetInfo(){return "local directory fixture";}
     bool GetFileAttr(const char *p,uint16_t *a){auto it=files.find(key(p));if(it==files.end()){DOS_SetError(2);return false;}*a=it->second->attr;return true;}
     bool FileExists(const char *p){return files.count(key(p));}
-    bool FileOpen(DOS_File **f,const char *p,uint32_t flags){auto it=files.find(key(p));if(it==files.end()){DOS_SetError(2);return false;}*f=new DOS_File(key(p),it->second);(*f)->flags=flags;return true;}
-    bool FileCreate(DOS_File **f,const char *p,uint16_t){auto &d=files[key(p)];if(!d)d=std::make_shared<DiskFile>();d->length=0;*f=new DOS_File(key(p),d);(*f)->flags=2;return true;}
-    bool FileUnlink(const char *p){return files.erase(key(p))!=0;}
-    bool Rename(const char *old,const char *next){auto it=files.find(key(old));if(it==files.end())return false;files[key(next)]=it->second;files.erase(it);return true;}
+    bool FileOpen(DOS_File **f,const char *p,uint32_t flags){if(fault('O'))return false;auto it=files.find(key(p));if(it==files.end()){DOS_SetError(2);return false;}*f=new DOS_File(key(p),it->second);(*f)->flags=flags;return true;}
+    bool FileCreate(DOS_File **f,const char *p,uint16_t){if(fault('C'))return false;auto &d=files[key(p)];if(!d)d=std::make_shared<DiskFile>();d->length=0;*f=new DOS_File(key(p),d);(*f)->flags=2;return true;}
+    bool FileUnlink(const char *p){if(fault('U'))return false;return files.erase(key(p))!=0;}
+    bool Rename(const char *old,const char *next){if(fault('R'))return false;auto it=files.find(key(old));if(it==files.end())return false;files[key(next)]=it->second;files.erase(it);return true;}
+    bool TestDir(const char *p){auto it=files.find(key(p));return it!=files.end()&&(it->second->attr&16);}
+    bool MakeDir(const char *p){if(fault('M'))return false;files[key(p)]=std::make_shared<DiskFile>();files[key(p)]->attr=16;return true;}
+    bool RemoveDir(const char *p){return !fault('D')&&files.erase(key(p));}
 };
 static Drive *Drives[DOS_DRIVES]={};
 static uint8_t DOS_FindDevice(const char *p){return !strcasecmp(p,"NUL")?0:DOS_DEVICES;}
 static bool DOS_MakeName(const char *p,char *out,uint8_t *drive){std::string s=canonical(p);*drive=uint8_t(toupper(s[0])-'A');if(*drive>=26||!Drives[*drive]){DOS_SetError(15);return false;}strcpy(out,s.c_str()+3);return true;}
 static bool DOS_GetFileAttr(const char *p,uint16_t *a){uint8_t d;char n[256];return DOS_MakeName(p,n,&d)&&Drives[d]->GetFileAttr(n,a);}
 static bool PathExists(const char*){return true;}
+static bool check_last_split_char(const char *p,size_t n,char c){return n&&p[n-1]==c;}
+static bool DOS_GetCurrentDir(unsigned,char *out,bool){*out=0;return true;}
 struct DOS_DTA{explicit DOS_DTA(unsigned){}void GetResult(char*,char*,uint32_t&,uint32_t&,uint16_t&,uint16_t&,uint8_t&){assert(false);}};
 static bool DOS_FindFirst(const char*,uint16_t){return false;}static bool DOS_FindNext(){return false;}
 static pidos_sharing::Table dos_sharing;
@@ -121,6 +130,37 @@ static void terminate(uint16_t owner){select_psp(owner);for(unsigned h=0;h<64;++
 static void inherit(uint16_t parent,uint16_t child){select_psp(child);for(unsigned h=0;h<64;++h){auto s=jfts[parent][h];if(s<64&&Files[s]&&!(Files[s]->flags&DOS_NOT_INHERIT)){jfts[child][h]=s;Files[s]->AddRef();}}}
 int main(int argc,char **argv){
     assert(argc==2);Drive c,a;c.files["FILE.DAT"]=std::make_shared<DiskFile>();c.files["LONGFI~1.TXT"]=std::make_shared<DiskFile>();c.files["SUB"]=std::make_shared<DiskFile>();c.files["SUB"]->attr=16;c.files["SUB\\DATA"]=std::make_shared<DiskFile>();a.files=c.files;Drives[0]=&a;Drives[2]=Drives[4]=&c;select_psp(0x1000);
+    // Every sharing lookup inside a wildcard command must preserve its search.
+    uselfn=true;lfn_filefind_handle=LFN_FILEFIND_INTERNAL;
+    sdriv[LFN_FILEFIND_INTERNAL]=2;sattr[LFN_FILEFIND_INTERNAL]=0x37;
+    strcpy(sname[LFN_FILEFIND_INTERNAL],"*.*");
+    for (unsigned i=0;i<4;++i) {
+        const std::string name="C:\\BULK"+std::to_string(i)+".TMP";
+        uint16_t handle;
+        assert(DOS_CreateFile(name.c_str(),0,&handle));
+        assert(DOS_CloseFile(handle));
+        assert(DOS_OpenFile(name.c_str(),0,&handle));
+        assert(DOS_CloseFile(handle));
+        const std::string renamed=name+"X";
+        assert(DOS_Rename(name.c_str(),renamed.c_str()));
+        assert(DOS_UnlinkFile(renamed.c_str()));
+        assert(sdriv[LFN_FILEFIND_INTERNAL]==2 && sattr[LFN_FILEFIND_INTERNAL]==0x37);
+        assert(!strcmp(sname[LFN_FILEFIND_INTERNAL],"*.*"));
+    }
+    uselfn=false;lfn_filefind_handle=258;
+    // DOS wrappers must preserve backend storage failures instead of rewriting
+    // a failed commit as "file not found" or "access denied".
+    for (uint16_t storage_error : {19,21,29,30,112}) {
+        c.failure_code=storage_error;uint16_t handle;
+        c.failed_operation='C';assert(!DOS_CreateFile("C:\\FAILED.TMP",0,&handle)&&dos.errorcode==storage_error);
+        c.failed_operation='O';assert(!DOS_OpenFile("C:\\FILE.DAT",0,&handle)&&dos.errorcode==storage_error);
+        c.failed_operation='U';assert(!DOS_UnlinkFile("C:\\FILE.DAT")&&dos.errorcode==storage_error);
+        c.failed_operation='R';assert(!DOS_Rename("C:\\FILE.DAT","C:\\FAILED.TMP")&&dos.errorcode==storage_error);
+        c.failed_operation='M';assert(!DOS_MakeDir("C:\\FAILED")&&dos.errorcode==storage_error);
+        c.failed_operation='D';assert(!DOS_RemoveDir("C:\\SUB")&&dos.errorcode==storage_error);
+    }
+    c.failed_operation=0;dos.errorcode=29;
+    assert(!DOS_UnlinkFile("C:\\MISSING.TMP")&&dos.errorcode==DOSERR_FILE_NOT_FOUND);
     // Every pair of explicit share modes/accesses, in both PSPs.
     for(unsigned old_mode=1;old_mode<=4;++old_mode)for(unsigned old_access=0;old_access<3;++old_access)
     for(unsigned mode=1;mode<=4;++mode)for(unsigned access=0;access<3;++access){
@@ -209,5 +249,5 @@ int main(int argc,char **argv){
     assert(!DOS_ReadFile(other,buffer,&n)&&dos.errorcode==33&&n==0);
     p=32;assert(DOS_SeekFile(other,&p,0));n=1;assert(DOS_ReadFile(other,buffer,&n));
     DOS_CloseFile(other);terminate(0x3000);
-    puts("PASS: real DOS API: sharing/locks, unknown cached positions, eleven boot-program loads, aliases, DTA preservation, dup/inherit/exit and media replacement");
+    puts("PASS: real DOS API: wildcard state, storage errors, sharing/locks, unknown positions, boot-program loads, aliases, DTA preservation, dup/inherit/exit and media replacement");
 }

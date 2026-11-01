@@ -13,11 +13,11 @@ parts = []
 for signature in ['bool DOS_UsesInternalSharing(', 'void DOS_ReleaseSharingLocks(']:
     start = source.index(signature)
     parts.append(source[start:source.index('\n}', start) + 2])
-for signature in ['static bool PiDosShareError(', 'static bool PiDosShareKey(', 'static bool PiDosShareCurrent(',
+for signature in ['static bool PiDosStorageError(', 'static bool PiDosShareError(', 'static bool PiDosShareKey(', 'static bool PiDosShareCurrent(',
                   'static bool PiDosShareAccess(', 'bool DOS_ReadFile(', 'bool DOS_WriteFile(',
                   'bool DOS_SeekFile(', 'bool DOS_LockFile(', 'bool DOS_CloseFile(',
                   'bool DOS_CreateFile(', 'bool DOS_OpenFile(', 'bool DOS_OpenFileExtended(',
-                  'bool DOS_UnlinkFile(', 'bool DOS_Rename(', 'bool DOS_DuplicateEntry(',
+                  'bool DOS_UnlinkFile(', 'bool DOS_Rename(', 'bool DOS_MakeDir(', 'bool DOS_RemoveDir(', 'bool DOS_DuplicateEntry(',
                   'bool DOS_ForceDuplicateEntry(']:
     start = source.index(signature)
     parts.append(source[start:source.index('\n}', start) + 2])

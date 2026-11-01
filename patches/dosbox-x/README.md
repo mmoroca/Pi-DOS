@@ -2,6 +2,23 @@
 
 Base: `4f19017c5f565dc40d01fede0f1382892e7243d7` (`dosbox-x-v2026.08.31`).
 
+`0038-preserve-sharing-search-pattern.patch` preserves the internal LFN search
+pattern, attributes and drive during sharing path lookups, alongside the saved
+DOS DTA and result. Without this, `DEL .` and `DEL *.*` stop after one file
+because the sharing check replaces the wildcard with that file's name. Open,
+create and rename use the same protected lookup.
+
+`0039-sync-native-file-operations.patch` commits native FAT file contents,
+archive attributes and timestamps on DOS flush/close, checks read/write errors,
+and syncs parent directories after create/delete/mkdir/rmdir/rename. Rename
+refreshes both source and destination caches. DOS API wrappers preserve storage
+errors instead of masking failed commits as missing files or access errors.
+USB files retain their existing
+per-write commits; ordinary standalone mounts retain normal buffering.
+`python3 tools/image/test-dos-sharing.py` and
+`python3 tools/image/test-dos-attributes.py` exercise the patched DOS methods,
+including multi-file DEL, moves, truncation and injected storage failures.
+
 `0037-sync-screenshot-storage.patch` flushes completed PNG screenshots and
 syncs both the file and capture directory on the appliance before reporting
 success. It refreshes C:'s DOS directory cache so subsequent listings see new

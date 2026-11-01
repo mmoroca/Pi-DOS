@@ -1,0 +1,29 @@
+Preserve wildcard search state during internal sharing path lookups.
+
+Saving the DOS DTA and last result is insufficient in LFN mode: internal
+find-first also replaces the search pattern and attributes kept in host arrays.
+DEL consequently finds only its first wildcard match. Preserve that state for
+all sharing lookups used by delete, rename, create and open.
+
+--- a/src/dos/dos_classes.cpp
++++ b/src/dos/dos_classes.cpp
+@@ -444,11 +444,19 @@
+ // Sharing lookups must not disturb the caller's find-first/find-next result.
+ bool DOS_SharingSFNPath(const char *path, char *result) {
+     const auto saved_result = fd;
++    // INTERNAL searches also keep their LFN pattern outside the DOS DTA.
++    const auto saved_drive = sdriv[LFN_FILEFIND_INTERNAL];
++    const auto saved_attr = sattr[LFN_FILEFIND_INTERNAL];
++    char saved_pattern[sizeof(sname[LFN_FILEFIND_INTERNAL])];
++    memcpy(saved_pattern, sname[LFN_FILEFIND_INTERNAL], sizeof(saved_pattern));
+     uint8_t saved_dta[43];
+     MEM_BlockRead(Real2Phys(dos.tables.tempdta), saved_dta, sizeof(saved_dta));
+     const bool ok = DOS_GetSFNPath(path, result, false);
+     MEM_BlockWrite(Real2Phys(dos.tables.tempdta), saved_dta, sizeof(saved_dta));
+     fd = saved_result;
++    sdriv[LFN_FILEFIND_INTERNAL] = saved_drive;
++    sattr[LFN_FILEFIND_INTERNAL] = saved_attr;
++    memcpy(sname[LFN_FILEFIND_INTERNAL], saved_pattern, sizeof(saved_pattern));
+     return ok;
+ }
+ 

@@ -22,6 +22,7 @@ namespace fs = std::filesystem;
 static std::map<ino_t,uint32_t> attributes;
 static bool fail_get=false,fail_set=false,fail_sync=false;
 static unsigned sync_count=0;
+static std::vector<ino_t> sync_inodes;
 static ino_t non_fat_parent=0;
 static unsigned parent_attribute_requests=0;
 static int mock_ioctl(int fd,unsigned long request,uint32_t *value) {
@@ -37,7 +38,7 @@ static int mock_ioctl(int fd,unsigned long request,uint32_t *value) {
     if(fail_set){errno=EROFS;return -1;}
     stored=*value;return 0;
 }
-static int mock_fsync(int fd) {++sync_count;if(fail_sync){errno=EIO;return -1;}return ::fsync(fd);}
+static int mock_fsync(int fd) {++sync_count;struct stat st={};assert(!fstat(fd,&st));sync_inodes.push_back(st.st_ino);if(fail_sync){errno=EIO;return -1;}return ::fsync(fd);}
 #define ioctl mock_ioctl
 #define fsync mock_fsync
 #include "dos_attributes_linux.h"
@@ -48,6 +49,8 @@ static int mock_fsync(int fd) {++sync_count;if(fail_sync){errno=EIO;return -1;}r
 #define DOS_NAMELENGTH_ASCII 13
 #define LFN_NAMELENGTH 255
 #define LFN_FILEFIND_MAX 255
+#define LFN_FILEFIND_INTERNAL 255
+#define LFN_FILEFIND_NONE 258
 #define DOS_DRIVES 26
 #define DOS_FILES 64
 #define CROSS_FILESPLIT '/'
@@ -63,6 +66,7 @@ using RealPt=unsigned;
 #define _HT(value) value
 #define ht_stat stat
 #define ht_unlink unlink
+#define ht_strdup strdup
 static const char *CodePageGuestToHost(const char *s){return s;}
 enum {DOS_ATTR_READ_ONLY=1,DOS_ATTR_HIDDEN=2,DOS_ATTR_SYSTEM=4,DOS_ATTR_VOLUME=8,DOS_ATTR_DIRECTORY=16,DOS_ATTR_ARCHIVE=32};
 enum {DOSERR_FILE_NOT_FOUND=2,DOSERR_PATH_NOT_FOUND=3,DOSERR_ACCESS_DENIED=5,DOSERR_ACCESS_CODE_INVALID=12,DOSERR_NO_MORE_FILES=18,DOSERR_WRITE_PROTECTED=19};
@@ -72,6 +76,8 @@ static void DOS_SetError(int n){error=n;}
 static bool nocachedir=false,enable_share_exe=false,uselfn=false,inshell=false,ctrlbrk=false;
 static bool DOS_UsesInternalSharing(){return true;}
 static const bool IS_PC98_ARCH=false;
+static uint8_t IO_Read(unsigned){return 0;}
+static void IO_Write(unsigned,uint8_t){}
 static bool dos_kernel_disabled=false;
 static int file_access_tries=0,lfn_filefind_handle=258;
 static uint16_t ldid[256]={};static std::string ldir[256];
@@ -89,6 +95,7 @@ struct DtaState {std::string pattern="*.*",name,lname;uint8_t search=0,attr=0;ui
 static std::map<unsigned,DtaState> dtas;
 struct DOS_DTA {
     unsigned address;explicit DOS_DTA(unsigned p):address(p){}
+    DOS_DTA &operator=(unsigned p){address=p;return *this;}
     DtaState &state(){return dtas[address];}
     uint16_t GetDirID(){return state().id;}void SetDirID(uint16_t n){state().id=n;}
     void GetSearchParams(uint8_t &a,char *p,bool){a=state().search;strcpy(p,state().pattern.c_str());}
@@ -103,15 +110,21 @@ struct DOS_File {
 };
 struct LocalFile: DOS_File {
     FILE *fhandle;
+    bool native_dos_attributes=false,native_written=false,native_sync_failed=false;
+    bool newtime=false,open=true;int refCtr=1;uint16_t time=0,date=0;
+    enum {NONE,READ,WRITE} last_action=NONE;
     LocalFile(const char*,FILE *p):fhandle(p){}
     ~LocalFile()override{if(fhandle)fclose(fhandle);}
-    bool Close()override{if(!fhandle)return true;FILE *p=fhandle;fhandle=nullptr;return !fclose(p);}
+    bool Read(uint8_t*,uint16_t*);bool Write(const uint8_t*,uint16_t*);bool Close()override;void Flush()override;
+    bool SyncNative();bool FlushSucceeded()const{return !native_sync_failed;}
+    bool UpdateLocalDateTime(){newtime=true;date=uint16_t((46<<9)|(10<<5)|31);time=uint16_t(12<<11);return true;}
 };
 static DOS_File *Files[DOS_FILES]={};
 class localDrive;static localDrive *Drives[DOS_DRIVES]={};
 struct Cache {
     struct Search{std::vector<std::string> names;size_t next=0;};
     std::vector<Search> searches;std::string expanded;
+    std::vector<std::string> invalidated;
     void ExpandName(char *p){strcpy(p,GetExpandName(p));}
     char *GetExpandName(const char *p){
         fs::path found="/";
@@ -133,6 +146,7 @@ struct Cache {
     }
     bool FindNext(uint16_t id,char *&n,char *&l){auto &s=searches.at(id);if(s.next==s.names.size())return false;n=l=const_cast<char*>(s.names[s.next++].c_str());return true;}
     void AddEntry(const char*,bool){}void DeleteEntry(const char*,bool=false){}void EmptyCache(){}
+    void CacheOut(const char *path,bool=false){invalidated.emplace_back(path);}
     const char *GetLabel(){return "";}
 };
 class localDrive {
@@ -144,6 +158,7 @@ public:
     bool FileCreate(DOS_File**,const char*,uint16_t);bool FileOpen(DOS_File**,const char*,uint32_t);bool FileUnlink(const char*);
     bool SetFileAttr(const char*,uint16_t);bool GetFileAttr(const char*,uint16_t*);
     bool FindFirst(const char*,DOS_DTA&,bool=false);bool FindNext(DOS_DTA&);
+    bool MakeDir(const char*);bool RemoveDir(const char*);bool Rename(const char*,const char*);
     void EmptyCache(){}bool isRemote(){return false;}bool isRemovable(){return false;}void SetLabel(const char*,bool,bool){}
     const char *GetLabel(){return "";}
     void remove_special_file_from_disk(const char*,const char*){}
@@ -158,6 +173,12 @@ static char *strrchr_dbcs(char *p,char c){return strrchr(p,c);}
 static localDrive &getdrive(const std::string &p){return *Drives[toupper(p[0])-'A'];}
 static bool DOS_GetFileAttr(const char *p,uint16_t *v){std::string s=canonical(p);return getdrive(s).GetFileAttr(s.c_str()+3,v);}
 static bool DOS_SetFileAttr(const char *p,uint16_t v){std::string s=canonical(p);return getdrive(s).SetFileAttr(s.c_str()+3,v);}
+static bool DOS_UnlinkFile(const char *p){std::string s=canonical(p);return getdrive(s).FileUnlink(s.c_str()+3);}
+#define STDIN 0
+#define STDOUT 1
+static char char_yes='y',char_no='n';
+static bool DOS_ReadFile(unsigned,uint8_t *data,uint16_t*){static unsigned n=0;*data=(n++%2)?'\r':'y';return true;}
+static bool DOS_WriteFile(unsigned,const uint8_t*,uint16_t*){return true;}
 static bool DOS_FindFirst(const char *p,uint16_t mask,bool=false){
     std::string s=canonical(p);auto pos=s.find_last_of('\\');DOS_DTA d(dos.dta());
     d.state().pattern=s.substr(pos+1);d.state().search=uint8_t(mask);
@@ -170,7 +191,7 @@ static const char *MSG_Get(const char *s){return s;}
 class DOS_Shell {
 public:
     std::string output;
-    void CMD_ATTRIB(char*);
+    void CMD_ATTRIB(char*);void CMD_DELETE(char*);
     void WriteOut(const char *fmt,...){char buf[2048];va_list ap;va_start(ap,fmt);vsnprintf(buf,sizeof(buf),fmt,ap);va_end(ap);output+=buf;}
     void WriteOut_NoParsing(const char *p,bool){output+=p;}
 };
@@ -186,9 +207,12 @@ static bool ScanCMDBool(char *p,const char *option){
 static char *ScanCMDRemain(char *p){return strchr(p,'/');}
 static char *StripArg(char *&p){static char token[CROSS_LEN];p=trim(p);size_t n=strcspn(p," ");memcpy(token,p,n);token[n]=0;p+=n;p=trim(p);return token;}
 static char *ExpandDot(char *p,char*,size_t,bool){return p;}
+#define fsync mock_fsync
 #include "methods.h"
+#undef fsync
 static void attrib(DOS_Shell &shell,const char *command){char args[CROSS_LEN];strcpy(args,command);shell.output.clear();shell.CMD_ATTRIB(args);}
 static void create(localDrive &drive,const char *name,uint16_t a=0){DOS_File *f=nullptr;assert(drive.FileCreate(&f,name,a));assert(f);delete f;}
+static bool synced(const std::string &path){struct stat st={};assert(!stat(path.c_str(),&st));return std::find(sync_inodes.begin(),sync_inodes.end(),st.st_ino)!=sync_inodes.end();}
 int main(int argc,char **argv){
     assert(argc==2);std::string folder=std::string(argv[1])+"/volume";fs::create_directory(folder);fs::create_directory(folder+"/SUB");
     localDrive drive(folder);Drives[2]=Drives[4]=&drive;
@@ -257,5 +281,60 @@ int main(int argc,char **argv){
     assert(!drive.SetFileAttr("",0));
     assert(sync_count>0);attrib(shell,"-R -H -S E:\\*.TXT");assert(drive.FileUnlink("ONE.TXT"));assert(drive.FileUnlink("FLAGS.TXT"));
     for(const auto &entry:fs::directory_iterator(folder))assert(entry.path().filename()=="SUB");
-    puts("PASS: native volume root/subdirectory listings, R/H/S/A, create/open/delete protection, persistence, flush errors and ATTRIB combinations/recursion/errorlevel");
+    // Exercise the actual DEL loop with multiple files, dot, wildcards, SFN/LFN,
+    // root/subdirectory listings and protected files that must survive.
+    assert(drive.MakeDir("BULK"));
+    const std::string bulk=folder+"/BULK";
+    for(bool lfn : {false,true}) for(const char *pattern : {"*.*","."}) {
+        uselfn=lfn;
+        for(unsigned i=0;i<4;++i)create(drive,("BULK\\FILE"+std::to_string(i)+".TMP").c_str());
+        create(drive,"BULK\\KEEP.DAT",DOS_ATTR_READ_ONLY);
+        shell.output.clear();char command[CROSS_LEN];snprintf(command,sizeof(command),"/Q E:\\BULK\\%s",pattern);
+        const auto saved_dta=dos.dta();shell.CMD_DELETE(command);assert(dos.dta()==saved_dta);
+        assert(fs::exists(bulk+"/KEEP.DAT"));
+        for(const auto &entry:fs::directory_iterator(bulk))assert(entry.path().filename()=="KEEP.DAT");
+        assert(drive.SetFileAttr("BULK\\KEEP.DAT",0));assert(drive.FileUnlink("BULK\\KEEP.DAT"));
+    }
+    uselfn=false;
+    // Namespace changes must sync their parents. Moves invalidate both caches.
+    sync_inodes.clear();assert(drive.MakeDir("DEST"));assert(synced(folder));
+    create(drive,"BULK\\SOURCE.TXT");drive.dirCache.invalidated.clear();sync_inodes.clear();
+    assert(drive.Rename("BULK\\SOURCE.TXT","DEST\\MOVED.TXT"));
+    assert(!fs::exists(bulk+"/SOURCE.TXT")&&fs::exists(folder+"/DEST/MOVED.TXT"));
+    assert(synced(bulk)&&synced(folder+"/DEST"));
+    assert(drive.dirCache.invalidated.size()==2);
+    assert(drive.dirCache.invalidated[0]==bulk+"/SOURCE.TXT");
+    assert(drive.dirCache.invalidated[1]==folder+"/DEST/MOVED.TXT");
+    sync_inodes.clear();assert(drive.FileUnlink("DEST\\MOVED.TXT"));assert(synced(folder+"/DEST"));
+    sync_inodes.clear();assert(drive.RemoveDir("DEST"));assert(synced(folder));
+    // Write, read through a second handle, commit, truncate, and close/reopen.
+    sync_inodes.clear();create(drive,"DATA.BIN");assert(synced(folder)&&synced(folder+"/DATA.BIN"));
+    assert(drive.SetFileAttr("DATA.BIN",0));
+    assert(drive.FileOpen(&file,"DATA.BIN",OPEN_READWRITE));auto *local=static_cast<LocalFile*>(file);
+    uint16_t count=6;assert(local->Write(reinterpret_cast<const uint8_t*>("ABCDEF"),&count)&&count==6);
+    assert(drive.FileOpen(&peer,"DATA.BIN",OPEN_READ));
+    char contents[8]={};count=6;assert(static_cast<LocalFile*>(peer)->Read(reinterpret_cast<uint8_t*>(contents),&count)&&count==6&&!strcmp(contents,"ABCDEF"));
+    assert(peer->Close());delete peer;
+    sync_inodes.clear();local->Flush();assert(local->FlushSucceeded()&&synced(folder+"/DATA.BIN"));
+    assert(drive.GetFileAttr("DATA.BIN",&a)&&(a&DOS_ATTR_ARCHIVE));
+    assert(!fseek(local->fhandle,2,SEEK_SET));count=0;assert(local->Write(nullptr,&count));
+    local->refCtr=2;assert(local->Close()&&local->fhandle);local->refCtr=1;
+    sync_inodes.clear();assert(local->Close());assert(synced(folder+"/DATA.BIN"));delete file;
+    assert(fs::file_size(folder+"/DATA.BIN")==2);
+    // Sync failures fail DOS flush/close, while final close still releases the file.
+    assert(drive.FileOpen(&file,"DATA.BIN",OPEN_READWRITE));local=static_cast<LocalFile*>(file);
+    count=1;assert(local->Write(reinterpret_cast<const uint8_t*>("Z"),&count));
+    fail_sync=true;local->Flush();assert(!local->FlushSucceeded()&&error==29);
+    assert(!local->Close()&&!local->fhandle);fail_sync=false;delete file;
+    fail_sync=true;assert(!drive.MakeDir("SYNCFAIL")&&error==29);fail_sync=false;
+    assert(fs::is_directory(folder+"/SYNCFAIL"));assert(drive.RemoveDir("SYNCFAIL"));
+    // An unbuffered write error is returned immediately with a valid byte count.
+    LocalFile full("FULL",fopen("/dev/full","wb"));assert(full.fhandle);
+    full.native_dos_attributes=true;full.flags=OPEN_WRITE;setvbuf(full.fhandle,nullptr,_IONBF,0);
+    count=4;assert(!full.Write(reinterpret_cast<const uint8_t*>("FAIL"),&count)&&count==0&&error==112);
+    assert(!full.Close()&&!full.fhandle);
+    LocalFile badread("BADREAD",fopen((folder+"/DATA.BIN").c_str(),"wb"));assert(badread.fhandle);
+    badread.native_dos_attributes=true;badread.flags=OPEN_READ;count=1;
+    assert(!badread.Read(reinterpret_cast<uint8_t*>(contents),&count)&&count==0&&error==30);
+    puts("PASS: DEL dot/wildcards in SFN/LFN, native listings/attributes/protection, cross-directory moves, writes/truncation, parent/data sync and DOS error reporting");
 }

@@ -729,6 +729,12 @@ even when C: storage is unavailable. Additional arbitrary host-directory mounts,
 ordinary directory overlays and SUBST mappings are disabled. Native development
 runs retain normal mounting behavior unless appliance mode is explicitly set.
 
+Native FAT files on C: commit data, DOS timestamps and the archive bit on DOS
+flush or close. File creation, deletion, directory changes and moves sync their
+parent directories; moves also refresh both directory caches. Internal sharing
+lookups preserve wildcard searches, so `DEL .` and `DEL *.*` continue through
+all matching files. Read, write and commit failures propagate to DOS callers.
+
 `MOUNT` lists drives and can release removable mappings. `IMGMOUNT` remains
 available for disk/CD images on a free letter. Automatic USB discovery skips
 occupied letters, so a deliberate image or ZIP mapping is not overwritten.
