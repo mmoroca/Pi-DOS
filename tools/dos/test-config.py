@@ -99,7 +99,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert b'cputype=pentium\r\n' in path.read_bytes()
     assert b'cycles=fixed 64180\r\n' in path.read_bytes()
     assert editor.cfg_save(encoded, -1) == 0
-    assert editor.cfg_save(encoded, 10) == 0
+    assert editor.cfg_save(encoded, 9) == 0
     assert editor.cfg_save(str(path.with_suffix('.BAK')).encode(), 0) == 0
 
     # Exercise production settings APIs; only explicitly edited fields persist.
@@ -113,13 +113,13 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     def set_value(name, value): return editor.cfg_set(keys[name], value)
     # New Pentium presets persist their CPU model, core and upstream cycle budget.
     for profile, model, cycles in ((6, b'pentium', b'fixed 40072'),
-                                   (8, b'pentium', b'fixed 64180'),
-                                   (9, b'pentium_mmx', b'fixed 95548')):
+                                   (8, b'pentium', b'fixed 64180')):
         assert editor.cfg_save(encoded, profile) and editor.cfg_profile() == profile
         assert (get('K_CPU_TYPE'), get('K_CPU_CORE'), get('K_CPU_CYCLES')) == (
             model, b'dynamic_rec', cycles)
     editor.cpu_profile_find.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p]
     assert editor.cpu_profile_find(b'pentium', b'dynamic_rec', b'fixed 71240') == -1
+    assert editor.cpu_profile_find(b'pentium_mmx', b'dynamic_rec', b'fixed 95548') == -1
     assert editor.cpu_profile_find(b'pentium_mmx', b'dynamic_rec', b'fixed 114657') == -1
     # Existing configs skip first boot; completion survives normal page resets.
     assert get('K_FIRST_BOOT') == b'done'
@@ -140,7 +140,7 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert (get('K_CPU_TYPE'), get('K_CPU_CORE'), get('K_CPU_CYCLES')) == (
         b'pentium', b'dynamic_rec', b'fixed 64180')
     # Board recommendations change Restore defaults, never an existing CPU.
-    for board_default, expected in (('486-66', 4), ('pentium-75', 6),
+    for board_default, expected in (('386-33', 2), ('486-66', 4),
                                     ('pentium-120', 8), ('invalid', 8)):
         os.environ['PIDOS_CPU_DEFAULT'] = board_default
         assert editor.cfg_load(encoded) and editor.cfg_profile() == default_profile

@@ -413,7 +413,7 @@ cursor when applicable.
 
 | Area | Fresh-image / corresponding Restore-defaults behavior |
 | --- | --- |
-| CPU | Board defaults: Pi 3 486DX2/66 (`fixed 23880`), Pi 4 Pentium 75 (`fixed 40072`), Pi 5 Pentium 120 (`fixed 64180`); all `dynamic_rec` |
+| CPU | Board defaults: Pi 2/3 386DX/33 (`fixed 6075`), Pi 4 486DX2/66 (`fixed 23880`), Pi 5 Pentium 120 (`fixed 64180`); all `dynamic_rec` |
 | RAM | 16 MiB |
 | Video | S3 Trio64; software Voodoo enabled, max memory enabled, Glide passthrough disabled |
 | Monitor | CRT; retained LCD preferences start at 1024x768, 4:3, linear filtering off |
@@ -477,14 +477,13 @@ subject to the selected model and engine limits.
 | --- | --- | --- | --- | --- |
 | `auto` | Automatic | `auto` | `dynamic_rec` | `auto` |
 | `286-12` | 286 12 MHz | `286` | `normal` | `fixed 1510` |
-| `386-33` | 386DX 33 MHz | `386` | `dynamic_rec` | `fixed 6075` |
+| `386-33` | 386DX 33 MHz (Pi 2/3 default) | `386` | `dynamic_rec` | `fixed 6075` |
 | `486-33` | 486DX 33 MHz | `486` | `dynamic_rec` | `fixed 12010` |
-| `486-66` | 486DX2 66 MHz (Pi 3 default) | `486` | `dynamic_rec` | `fixed 23880` |
+| `486-66` | 486DX2 66 MHz (Pi 4 default) | `486` | `dynamic_rec` | `fixed 23880` |
 | `486-100` | 486DX4 100 MHz | `486` | `dynamic_rec` | `fixed 33445` |
-| `pentium-75` | Pentium 75 MHz (Pi 4 default) | `pentium` | `dynamic_rec` | `fixed 40072` |
+| `pentium-75` | Pentium 75 MHz | `pentium` | `dynamic_rec` | `fixed 40072` |
 | `pentium-100` | Pentium 100 MHz | `pentium` | `dynamic_rec` | `fixed 53430` |
 | `pentium-120` | Pentium 120 MHz (Pi 5 default) | `pentium` | `dynamic_rec` | `fixed 64180` |
-| `mmx-166` | Pentium MMX 166 MHz | `pentium_mmx` | `dynamic_rec` | `fixed 95548` |
 
 Profiles select CPU model, execution core and cycle policy together. MHz labels
 are approximate equivalents; a Pi must have enough sustained performance for

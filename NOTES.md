@@ -1,5 +1,87 @@
 # TODO
 
+[pi02]
+# Default:
+# arm_freq=1000
+# Stable overclock:
+# arm_freq=1100
+
+[pi3]
+# Default:
+# arm_freq=1200
+# Stable overclock:
+# arm_freq=1300
+
+[pi3+]
+# Default:
+# arm_freq=1400
+# Stable overclock:
+# arm_freq=1500
+
+[pi4]
+# Default:
+# arm_freq=1500 (Old model)
+# arm_freq=1800 (New model)
+# v3d_freq=500
+# Stable overclock:
+arm_freq=1900
+v3d_freq=560
+
+[pi400]
+# Default:
+# arm_freq=1800
+# v3d_freq=500
+# Stable overclock:
+arm_freq=2100
+v3d_freq=560
+
+[cm4]
+# Enable host mode on the 2711 built-in XHCI USB controller.
+# This line should be removed if the legacy DWC2 controller is required
+# (e.g. for USB device mode) or if USB support is not required.
+otg_mode=1
+
+[pi5]
+# Default:
+# arm_freq=2400
+# v3d_freq=960
+# Stable overclock:
+arm_freq=2600
+v3d_freq=1060
+include config.profile
+
+[all]
+disable_splash=1
+core_freq_fixed=1
+force_eeprom_read=0
+os_check=0
+
+| CPU preset | Approximate cycles | Pi-DOS CPU tab |
+|---|---:|---|
+| 8088 XT 4.77 MHz | 240 | |
+| 286 8 MHz | 750 | |
+| 286 12 MHz | 1,510 | Available |
+| 286 25 MHz | 3,300 | |
+| 386DX 25 MHz | 4,595 | |
+| 386DX 33 MHz | 6,075 | Available |
+| 486DX 33 MHz | 12,010 | Available |
+| 486DX2 66 MHz | 23,880 | **Pi 3 default** |
+| 486DX4 100 MHz | 33,445 | Available |
+| 486DX5 133 MHz | 47,810 | |
+| Pentium 60 MHz | 32,090 | |
+| Pentium 66 MHz | 35,620 | |
+| Pentium 75 MHz | 40,072 | **Pi 4 default** |
+| Pentium 90 MHz | 48,087 | |
+| Pentium 100 MHz | 53,430 | Available |
+| Pentium 120 MHz | 64,180 | **Pi 5 default** |
+| Pentium 133 MHz | 71,240 | |
+| Pentium MMX 166 MHz | 95,548 | Available |
+| Pentium MMX 200 MHz | 114,657 | |
+| AMD K6 200 MHz | 130,000 | |
+| AMD K6-2 300 MHz | 193,000 | |
+| AMD Athlon 600 MHz | 306,000 | |
+| Pentium III 866 MHz EB | 407,000 | |
+
 ## Pi-DOS — Complete Feature List
 
 ### DOS Environment

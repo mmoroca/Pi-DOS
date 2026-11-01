@@ -627,11 +627,11 @@
 
 #heading(level: 2)[#text("Selecting a CPU profile")]#label("h-selecting-a-cpu-profile")
 
-#p[#text("Before the first DOS session, a fresh image detects the Raspberry Pi and selects a CPU preset: ")#strong[#text("486DX2 66 MHz on Pi 3")]#text(", ")#strong[#text("Pentium 75 MHz on Pi 4")]#text(", or ")#strong[#text("Pentium 120 MHz on Pi 5")]#text(". This also applies if you skip the welcome setup. Pi 2, Zero 2 and Compute Module 3 use the Pi 3 preset; Pi 400 and Compute Module 4/4S use Pi 4; Pi 500 and Compute Module 5 use Pi 5. Unknown models keep the packaged Pentium 120 fallback.")]
+#p[#text("Before the first DOS session, a fresh image detects the Raspberry Pi and selects a CPU preset: ")#strong[#text("386DX 33 MHz on Pi 2/3 families")]#text(", ")#strong[#text("486DX2 66 MHz on Pi 4 families")]#text(", or ")#strong[#text("Pentium 120 MHz on Pi 5 families")]#text(". This also applies if you skip the welcome setup. Zero 2 and Compute Module 3 use the Pi 2/3 preset; Pi 400 and Compute Module 4/4S use Pi 4; Pi 500 and Compute Module 5 use Pi 5. Unknown models keep the packaged Pentium 120 fallback.")]
 
 #p[#text("The CPU page marks all three board defaults and adds ")#strong[#text("[recommended]")]#text(" to the detected board's preset. ")#strong[#text("Restore defaults")]#text(" selects that preset; Save and reboot apply it. Updates and moving an existing card to another board preserve the saved CPU settings.")]
 
-#p[#text("These are starting points, and the conservative Pi 3 preset still needs Pi-DOS hardware performance confirmation. Lower the profile if a program has audio dropouts or slow response. The MHz labels indicate approximate performance classes. They do not guarantee the speed, timing or benchmark score of a particular original PC.")]
+#p[#text("These defaults reflect reported Pi-DOS hardware testing and remain starting points for each DOS workload. Lower the profile if a program has audio dropouts or slow response. The MHz labels indicate approximate performance classes. They do not guarantee the speed, timing or benchmark score of a particular original PC.")]
 
 #reference-table((0.85fr, 1.15fr), (
 [#text("Profile ID")],
@@ -641,21 +641,19 @@
 [#inline-code("286-12")],
 [#text("286 12 MHz")],
 [#inline-code("386-33")],
-[#text("386DX 33 MHz")],
+[#text("386DX 33 MHz, Pi 2/3 default")],
 [#inline-code("486-33")],
 [#text("486DX 33 MHz")],
 [#inline-code("486-66")],
-[#text("486DX2 66 MHz, Pi 3 default")],
+[#text("486DX2 66 MHz, Pi 4 default")],
 [#inline-code("486-100")],
 [#text("486DX4 100 MHz")],
 [#inline-code("pentium-75")],
-[#text("Pentium 75 MHz, Pi 4 default")],
+[#text("Pentium 75 MHz")],
 [#inline-code("pentium-100")],
 [#text("Pentium 100 MHz")],
 [#inline-code("pentium-120")],
 [#text("Pentium 120 MHz, Pi 5 default")],
-[#inline-code("mmx-166")],
-[#text("Pentium MMX 166 MHz")],
 ), compact: false)
 
 #procedure[#text("To try a slower PC profile")]
@@ -1530,7 +1528,7 @@
 [#text("Area")],
 [#text("Current default")],
 [#text("CPU")],
-[#text("Pi 3: 486DX2/66; Pi 4: Pentium 75; Pi 5: Pentium 120. See ")#link(label("h-selecting-a-cpu-profile"))[#text("Selecting a CPU profile")]#text(" (p. ")#ref(label("h-selecting-a-cpu-profile"), form: "page", supplement: none)#text(")")#text(".")],
+[#text("Pi 2/3: 386DX/33; Pi 4: 486DX2/66; Pi 5: Pentium 120. See ")#link(label("h-selecting-a-cpu-profile"))[#text("Selecting a CPU profile")]#text(" (p. ")#ref(label("h-selecting-a-cpu-profile"), form: "page", supplement: none)#text(")")#text(".")],
 [#text("DOS RAM")],
 [#text("16 MiB")],
 [#text("Video")],

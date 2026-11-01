@@ -45,13 +45,15 @@ int main(int argc, char **argv) {
     template = (b'# keep this comment\r\n[pidos]\r\nfirst_boot=pending\r\n'
                 b'cpu_default=pending\r\n' + defaults.read_bytes().replace(b'\n', b'\r\n'))
     for board, cpu_type, cycles in (
-            ('Raspberry Pi 3 Model B Rev 1.2', b'486', b'23880'),
-            ('Raspberry Pi 3 Model B Plus Rev 1.3', b'486', b'23880'),
-            ('Raspberry Pi Zero 2 W Rev 1.0', b'486', b'23880'),
-            ('Raspberry Pi Compute Module 3 Plus Rev 1.0', b'486', b'23880'),
-            ('Raspberry Pi 4 Model B Rev 1.4', b'pentium', b'40072'),
-            ('Raspberry Pi 400 Rev 1.0', b'pentium', b'40072'),
-            ('Raspberry Pi Compute Module 4S Rev 1.0', b'pentium', b'40072'),
+            ('Raspberry Pi 2 Model B Rev 1.2', b'386', b'6075'),
+            ('Raspberry Pi 3 Model B Rev 1.2', b'386', b'6075'),
+            ('Raspberry Pi 3 Model B Plus Rev 1.3', b'386', b'6075'),
+            ('Raspberry Pi Zero 2 W Rev 1.0', b'386', b'6075'),
+            ('Raspberry Pi Compute Module 3 Plus Rev 1.0', b'386', b'6075'),
+            ('Raspberry Pi 4 Model B Rev 1.4', b'486', b'23880'),
+            ('Raspberry Pi 400 Rev 1.0', b'486', b'23880'),
+            ('Raspberry Pi Compute Module 4 Rev 1.0', b'486', b'23880'),
+            ('Raspberry Pi Compute Module 4S Rev 1.0', b'486', b'23880'),
             ('Raspberry Pi 5 Model B Rev 1.0', b'pentium', b'64180'),
             ('Raspberry Pi 500 Rev 1.0', b'pentium', b'64180'),
             ('Raspberry Pi Compute Module 5 Rev 1.0', b'pentium', b'64180'),
@@ -145,7 +147,8 @@ int main(int argc, char **argv) {
     check(b'[cpu]\ncputype=486\ncycles=33445\n', b'486DX4 100 MHz', b'33445')
     check(b'[cpu]\ncputype=386\ncycles=fixed 9000\n', b'386 ', b'fixed 9000')
     result = check(b'[cpu]\ncputype=pentium_mmx\ncycles=fixed 95548\n',
-                   b'Pentium MMX 166 MHz', b'fixed 95548')
+                   b'Pentium MMX', b'fixed 95548')  # Legacy custom CPUs remain usable.
+    assert b'Pentium MMX 166 MHz' not in result
     for settings, label in (
         (b'[sblaster]\nsbtype=none\noplmode=none\n', b'None'),
         (b'[sblaster]\nsbtype=none\noplmode=opl2\n', b'AdLib'),

@@ -21,9 +21,7 @@ const CpuProfile cpu_profiles[PROFILE_COUNT] = {
     {"pentium-100", "Pentium 100 MHz", "pentium", "dynamic_rec", "fixed 53430",
      "A representative Pentium configuration for later DOS software."},
     {"pentium-120", "Pentium 120 MHz", "pentium", "dynamic_rec", "fixed 64180",
-     "A faster Pentium configuration for later DOS software."},
-    {"mmx-166", "Pentium MMX 166 MHz", "pentium_mmx", "dynamic_rec", "fixed 95548",
-     "A fast late-DOS-era configuration with MMX instructions."}
+     "A faster Pentium configuration for later DOS software."}
 };
 
 static int same(const char *a, const char *b)
@@ -74,10 +72,10 @@ int cpu_profile_for_board(const char *model)
     if (model && (!strncmp(model, "Raspberry Pi 3 ", 15) ||
                   !strncmp(model, "Raspberry Pi Compute Module 3", 29) ||
                   !strncmp(model, "Raspberry Pi Zero 2", 19) ||
-                  !strncmp(model, "Raspberry Pi 2 ", 15))) id = "486-66";
+                  !strncmp(model, "Raspberry Pi 2 ", 15))) id = "386-33";
     else if (model && (!strncmp(model, "Raspberry Pi 4 ", 15) ||
                        !strncmp(model, "Raspberry Pi 400 ", 17) ||
-                       !strncmp(model, "Raspberry Pi Compute Module 4", 29))) id = "pentium-75";
+                       !strncmp(model, "Raspberry Pi Compute Module 4", 29))) id = "486-66";
     for (i = 0; i < PROFILE_COUNT; ++i)
         if (!strcmp(cpu_profiles[i].id, id)) return i;
     return cpu_profile_default();
@@ -86,8 +84,8 @@ int cpu_profile_for_board(const char *model)
 const char *cpu_profile_recommendation(int profile)
 {
     if (profile < 0 || profile >= PROFILE_COUNT) return "";
-    if (!strcmp(cpu_profiles[profile].id, "486-66")) return " (Pi 3 default)";
-    if (!strcmp(cpu_profiles[profile].id, "pentium-75")) return " (Pi 4 default)";
+    if (!strcmp(cpu_profiles[profile].id, "386-33")) return " (Pi 2/3 default)";
+    if (!strcmp(cpu_profiles[profile].id, "486-66")) return " (Pi 4 default)";
     if (!strcmp(cpu_profiles[profile].id, "pentium-120")) return " (Pi 5 default)";
     return "";
 }

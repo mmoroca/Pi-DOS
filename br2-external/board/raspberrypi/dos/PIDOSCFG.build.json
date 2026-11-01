@@ -11,8 +11,8 @@
     "src/doscfg/live.h": "9955defaa71863402ee7d212effac4b46ffe8169aa076daf8906bc6cf3f62e38",
     "src/doscfg/midi.c": "88ed06d67c4905534e28e05382c75b102eb77aa240cab8dc18dd8dc31ec76e78",
     "src/doscfg/midi.h": "f3516d0183bbb875ed45514ce2a49665a0f3e3a22380fe6d45302260ca3cfb57",
-    "src/common/cpu_profiles.c": "246219fddbccf0c072ad6b3239ffe8a5ab113a0ae3bc455d1e468ae5bccbf837",
-    "src/common/cpu_profiles.h": "74f94e6d28f87d18864d49262168a5043937d87210247b1f37d88c8c538800a2",
+    "src/common/cpu_profiles.c": "07902b8f596749db62a971ac46c948e3f4e1fa01ecd150bbb7a70a3f435cb0d9",
+    "src/common/cpu_profiles.h": "37a8dd1b852ef2e1f0191bb973b31a30d0a6951aa34f10d40c50f16f99589cbe",
     "src/common/input_options.h": "3f8d86a5da7db66c1778c1cf2f22f15acbb0c4d390bcacd83f8ab5dfb3046b0d",
     "src/common/network_options.h": "3ca51340f0e5032c9ccbaef64a8a099d5bb8a6c9f49e92e4d7bdf15d93ccdf59",
     "src/common/video_profiles.c": "d15d82e57163593b6c6d6a6bdf01e261c7c8aad442c593545ce761a146643726",
@@ -23,5 +23,5 @@
     "tools/dos/toolchain.json": "13cbef97b8c3607083dbe8cddc9e971705292942ae2f76e8c9cdf197a3b3bd50"
   },
   "compiler_driver_sha256": "9bf1c208df56c8c154e08a4c42b05183b39e1f3c21e2c3f3b4fa9a66b81aa071",
-  "executable_sha256": "8b9732aec6b5cb42e8d3a0dcf2b9b31cb00e678cf6981a60e3a74904eb9442ea"
+  "executable_sha256": "998722f095113aa22010ee21dca59b0eac82953f0fab97e3a3687992077f24f1"
 }

@@ -566,24 +566,23 @@ The CPU and Memory pages describe the emulated PC, not the physical Raspberry Pi
 
 ### Selecting a CPU profile
 
-Before the first DOS session, a fresh image detects the Raspberry Pi and selects a CPU preset: **486DX2 66 MHz on Pi 3**, **Pentium 75 MHz on Pi 4**, or **Pentium 120 MHz on Pi 5**. This also applies if you skip the welcome setup. Pi 2, Zero 2 and Compute Module 3 use the Pi 3 preset; Pi 400 and Compute Module 4/4S use Pi 4; Pi 500 and Compute Module 5 use Pi 5. Unknown models keep the packaged Pentium 120 fallback.
+Before the first DOS session, a fresh image detects the Raspberry Pi and selects a CPU preset: **386DX 33 MHz on Pi 2/3 families**, **486DX2 66 MHz on Pi 4 families**, or **Pentium 120 MHz on Pi 5 families**. This also applies if you skip the welcome setup. Zero 2 and Compute Module 3 use the Pi 2/3 preset; Pi 400 and Compute Module 4/4S use Pi 4; Pi 500 and Compute Module 5 use Pi 5. Unknown models keep the packaged Pentium 120 fallback.
 
 The CPU page marks all three board defaults and adds **[recommended]** to the detected board's preset. **Restore defaults** selects that preset; Save and reboot apply it. Updates and moving an existing card to another board preserve the saved CPU settings.
 
-These are starting points, and the conservative Pi 3 preset still needs Pi-DOS hardware performance confirmation. Lower the profile if a program has audio dropouts or slow response. The MHz labels indicate approximate performance classes. They do not guarantee the speed, timing or benchmark score of a particular original PC.
+These defaults reflect reported Pi-DOS hardware testing and remain starting points for each DOS workload. Lower the profile if a program has audio dropouts or slow response. The MHz labels indicate approximate performance classes. They do not guarantee the speed, timing or benchmark score of a particular original PC.
 
 | Profile ID | Displayed class |
 | --- | --- |
 | `auto` | Automatic |
 | `286-12` | 286 12 MHz |
-| `386-33` | 386DX 33 MHz |
+| `386-33` | 386DX 33 MHz, Pi 2/3 default |
 | `486-33` | 486DX 33 MHz |
-| `486-66` | 486DX2 66 MHz, Pi 3 default |
+| `486-66` | 486DX2 66 MHz, Pi 4 default |
 | `486-100` | 486DX4 100 MHz |
-| `pentium-75` | Pentium 75 MHz, Pi 4 default |
+| `pentium-75` | Pentium 75 MHz |
 | `pentium-100` | Pentium 100 MHz |
 | `pentium-120` | Pentium 120 MHz, Pi 5 default |
-| `mmx-166` | Pentium MMX 166 MHz |
 
 #### To try a slower PC profile
 
@@ -1426,7 +1425,7 @@ The directory C:\IMAGES used in examples is a suggested user-created location, n
 
 | Area | Current default |
 | --- | --- |
-| CPU | Pi 3: 486DX2/66; Pi 4: Pentium 75; Pi 5: Pentium 120. See [Selecting a CPU profile](#selecting-a-cpu-profile). |
+| CPU | Pi 2/3: 386DX/33; Pi 4: 486DX2/66; Pi 5: Pentium 120. See [Selecting a CPU profile](#selecting-a-cpu-profile). |
 | DOS RAM | 16 MiB |
 | Video | S3 Trio64 |
 | Voodoo | Software enabled, maximum memory, Glide passthrough off |

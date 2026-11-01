@@ -68,10 +68,10 @@ def main():
     require(packed_setup.startswith(b'MZ') and packed_setup ==
             (ROOT / 'br2-external/board/raspberrypi/dos/PIDOSCFG.EXE').read_bytes(),
             'Bundled PIDOSCFG.EXE missing/stale in initramfs')
-    for profile in (b'pentium-75', b'pentium-120', b'mmx-166'):
+    for profile in (b'386-33', b'486-66', b'pentium-75', b'pentium-120'):
         require(profile in packed_setup and profile in packed_init,
                 'Setup or PID 1 lacks CPU profile: ' + profile.decode())
-    for profile in (b'pentium-133', b'mmx-200'):
+    for profile in (b'pentium-133', b'mmx-166', b'mmx-200'):
         require(profile not in packed_setup and profile not in packed_init,
                 'Setup or PID 1 still contains removed CPU profile: ' + profile.decode())
     require(b'Restore defaults (F3)' in packed_setup,
@@ -89,7 +89,7 @@ def main():
     require(b'cpu_default=pending\r\n' in (target / 'pi-dos/PIDOS.CFG').read_bytes()
             and b'SET PIDOS_CPU_DEFAULT=%s\n' in packed_init
             and all(label in packed_setup for label in
-                    (b'(Pi 3 default)', b'(Pi 4 default)', b'(Pi 5 default)')),
+                    (b'(Pi 2/3 default)', b'(Pi 4 default)', b'(Pi 5 default)')),
             'Fresh installations must resolve and display board CPU defaults')
     require(b'Diagnostic logs' in packed_setup and b'Video card' in packed_setup,
             'PIDOSCFG lacks video/system configuration controls')

@@ -88,8 +88,8 @@ Fresh installations first offer keyboard layout, DOS country, timezone and
 CRT/LCD monitor settings. Save and reboot applies them, then a short keyboard
 test and local clock review completes setup. Skip keeps the saved defaults.
 Existing installations keep their normal startup. See [first-boot setup](src/doscfg/README.md#first-boot-setup).
-Fresh images select a CPU profile before the first DOS session: 486DX2 66 MHz
-on Pi 3, Pentium 75 MHz on Pi 4, and Pentium 120 MHz on Pi 5.
+Fresh images select a CPU profile before the first DOS session: 386DX 33 MHz
+on Pi 2/3 families, 486DX2 66 MHz on Pi 4 families, and Pentium 120 MHz on Pi 5 families.
 The CPU tab marks all three board defaults and recommends the detected board's
 profile; Restore defaults selects that profile, pending Save and reboot.
 Existing CPU settings survive updates and moving the card between boards.

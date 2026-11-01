@@ -103,21 +103,20 @@ First boot:
 Profiles:
   Automatic
   286 12 MHz
-  386DX 33 MHz
+  386DX 33 MHz         Pi 2/3 default
   486DX 33 MHz
-  486DX2 66 MHz         Pi 3 default
+  486DX2 66 MHz         Pi 4 default
   486DX4 100 MHz
-  Pentium 75 MHz        Pi 4 default
+  Pentium 75 MHz
   Pentium 100 MHz
   Pentium 120 MHz       Pi 5 default
-  Pentium MMX 166 MHz
 
 Fresh images select the board's CPU before DOS starts, including when welcome
 is skipped. The CPU tab marks all three defaults and recommends this board's
 profile. Restore defaults selects that recommendation; Save and reboot apply it.
 Updates and moving the card to another board preserve saved CPU settings.
-Pi 2/Zero 2/CM3 use Pi 3; Pi 400/CM4/CM4S use Pi 4; Pi 500/CM5 use Pi 5.
-The Pi 3 default is conservative and still needs performance confirmation.
+Pi 2/3/Zero 2/CM3 use 386DX/33; Pi 4/400/CM4/CM4S use 486DX2/66;
+Pi 5/500/CM5 use Pentium 120. Defaults reflect reported Pi-DOS hardware tests.
 
 MHz labels describe approximate performance equivalents, not exact clocks.
 The Raspberry Pi must be fast enough to sustain the requested speed.
