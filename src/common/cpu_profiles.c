@@ -66,3 +66,28 @@ int cpu_profile_default(void)
         if (!strcmp(cpu_profiles[i].id, DEFAULT_CPU_PROFILE_ID)) return i;
     return 0;
 }
+
+int cpu_profile_for_board(const char *model)
+{
+    const char *id = DEFAULT_CPU_PROFILE_ID;
+    int i;
+    if (model && (!strncmp(model, "Raspberry Pi 3 ", 15) ||
+                  !strncmp(model, "Raspberry Pi Compute Module 3", 29) ||
+                  !strncmp(model, "Raspberry Pi Zero 2", 19) ||
+                  !strncmp(model, "Raspberry Pi 2 ", 15))) id = "486-66";
+    else if (model && (!strncmp(model, "Raspberry Pi 4 ", 15) ||
+                       !strncmp(model, "Raspberry Pi 400 ", 17) ||
+                       !strncmp(model, "Raspberry Pi Compute Module 4", 29))) id = "pentium-75";
+    for (i = 0; i < PROFILE_COUNT; ++i)
+        if (!strcmp(cpu_profiles[i].id, id)) return i;
+    return cpu_profile_default();
+}
+
+const char *cpu_profile_recommendation(int profile)
+{
+    if (profile < 0 || profile >= PROFILE_COUNT) return "";
+    if (!strcmp(cpu_profiles[profile].id, "486-66")) return " (Pi 3 default)";
+    if (!strcmp(cpu_profiles[profile].id, "pentium-75")) return " (Pi 4 default)";
+    if (!strcmp(cpu_profiles[profile].id, "pentium-120")) return " (Pi 5 default)";
+    return "";
+}

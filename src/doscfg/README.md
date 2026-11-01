@@ -23,8 +23,10 @@ Eight pages configure CPU, Memory, Video, Sound, Mixer, Input, Network and Syste
 change pages; Tab/Shift+Tab move focus; Enter edits; F2 saves all pages; Esc
 cancels. Selection dialogs support typing to filter, arrows and page keys.
 **Restore defaults** (F3 or Alt+R) resets the current page only, pending Save.
-The CPU default is Pentium 120 MHz (`pentium`, `dynamic_rec`, `fixed 64180`),
-marked `(default)` in the profile list.
+CPU defaults are 486DX2 66 MHz for Pi 3, Pentium 75 MHz for Pi 4, and
+Pentium 120 MHz for Pi 5. The profile list marks all three board defaults and
+adds `[recommended]` to the current board's profile. Restore defaults selects
+that recommendation, pending Save and reboot.
 Existing installations retain their configuration until explicitly changed.
 
 ## Monitor output
@@ -164,6 +166,16 @@ captures the existing boot, runtime, network and video logs after reboot.
 ## First-boot setup
 
 Fresh images set `[pidos] first_boot=pending` in `C:\SYSTEM\PIDOS.CFG`.
+They also set `cpu_default=pending`. Before DOS starts, PID 1 detects the board
+and replaces the unmodified template CPU with its recommended preset, atomically
+saving `cpu_default=done`. Skip therefore keeps the chosen board CPU. Existing
+configs without this marker and templates with customized CPUs retain their CPU.
+Pi 2, Zero 2 and Compute Module 3 use the Pi 3 recommendation; Pi 400 and Compute
+Module 4/4S use Pi 4; Pi 500 and Compute Module 5 use Pi 5. Unknown models retain
+the packaged Pentium 120 fallback. The Pi 3 recommendation is conservative and
+still needs Pi-DOS hardware performance confirmation.
+The startup shell passes the current recommendation as `PIDOS_CPU_DEFAULT`, so
+Restore defaults follows the current board even after moving an existing card.
 Before user startup commands, writable boots open a small welcome screen with
 the existing keyboard, country, timezone and CRT/LCD selectors. LCD also exposes
 its fixed resolution. **Save and reboot (F2)** saves only edited settings and
@@ -302,11 +314,11 @@ Physical Pi LAN and Windows file-sharing acceptance remain pending.
 | 286-12 | 286 12 MHz | 286 | normal | fixed 1510 |
 | 386-33 | 386DX 33 MHz | 386 | dynamic_rec | fixed 6075 |
 | 486-33 | 486DX 33 MHz | 486 | dynamic_rec | fixed 12010 |
-| 486-66 | 486DX2 66 MHz | 486 | dynamic_rec | fixed 23880 |
+| 486-66 | 486DX2 66 MHz (Pi 3 default) | 486 | dynamic_rec | fixed 23880 |
 | 486-100 | 486DX4 100 MHz | 486 | dynamic_rec | fixed 33445 |
-| pentium-75 | Pentium 75 MHz | pentium | dynamic_rec | fixed 40072 |
+| pentium-75 | Pentium 75 MHz (Pi 4 default) | pentium | dynamic_rec | fixed 40072 |
 | pentium-100 | Pentium 100 MHz | pentium | dynamic_rec | fixed 53430 |
-| pentium-120 | Pentium 120 MHz (default) | pentium | dynamic_rec | fixed 64180 |
+| pentium-120 | Pentium 120 MHz (Pi 5 default) | pentium | dynamic_rec | fixed 64180 |
 | mmx-166 | Pentium MMX 166 MHz | pentium_mmx | dynamic_rec | fixed 95548 |
 
 MHz values are approximate speed equivalents, using the pinned DOSBox-X speed

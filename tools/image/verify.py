@@ -86,6 +86,11 @@ def main():
             'PID 1 lacks first-boot setup and supervised reboot handling')
     require(b'first_boot=pending\r\n' in (target / 'pi-dos/PIDOS.CFG').read_bytes(),
             'Fresh installations must start with first-boot setup pending')
+    require(b'cpu_default=pending\r\n' in (target / 'pi-dos/PIDOS.CFG').read_bytes()
+            and b'SET PIDOS_CPU_DEFAULT=%s\n' in packed_init
+            and all(label in packed_setup for label in
+                    (b'(Pi 3 default)', b'(Pi 4 default)', b'(Pi 5 default)')),
+            'Fresh installations must resolve and display board CPU defaults')
     require(b'Diagnostic logs' in packed_setup and b'Video card' in packed_setup,
             'PIDOSCFG lacks video/system configuration controls')
     require(b'MIDI output' in packed_setup and b'MIDI settings' in packed_setup,

@@ -13,8 +13,12 @@ with tempfile.TemporaryDirectory(prefix='pi-dos-startup.') as directory:
 #include "startup.h"
 #include "mixer.h"
 #include "timezone.h"
+#include "cpu.h"
+#include "cpu_profiles.h"
 #include <string.h>
 int main(int argc, char **argv) {
+    if (argc == 5)
+        return !pi_dos_cpu_defaults(argv[2], cpu_profile_for_board(argv[3]), !strcmp(argv[4], "rw"));
     if (argc == 4) {
         pi_dos_first_boot(stdout, argv[2], !strcmp(argv[3], "rw"), strcmp(argv[3], "none") != 0);
         return 0;
@@ -29,13 +33,49 @@ int main(int argc, char **argv) {
     binary = work / 'startup'
     subprocess.run(['cc', '-std=c11', '-Wall', '-Wextra', '-Werror',
                     '-I' + str(ROOT / 'src/init'), '-I' + str(ROOT / 'src/common'),
-                    str(wrapper), str(ROOT / 'src/init/startup.c'),
+                    str(wrapper), str(ROOT / 'src/init/startup.c'), str(ROOT / 'src/init/cpu.c'),
                     str(ROOT / 'src/init/mixer.c'), str(ROOT / 'src/init/config.c'),
                     str(ROOT / 'src/init/timezone.c'), str(ROOT / 'src/common/video_profiles.c'),
                     str(ROOT / 'src/init/midi.c'), str(ROOT / 'src/common/midi_profiles.c'),
                     str(ROOT / 'src/common/cpu_profiles.c'), '-lasound', '-o', str(binary)], check=True)
     defaults = ROOT / 'configs/pi-dos.conf'
     user = work / 'PIDOS.CFG'
+
+    # Fresh templates resolve before DOS, once only; legacy/custom CPUs survive.
+    template = (b'# keep this comment\r\n[pidos]\r\nfirst_boot=pending\r\n'
+                b'cpu_default=pending\r\n' + defaults.read_bytes().replace(b'\n', b'\r\n'))
+    for board, cpu_type, cycles in (
+            ('Raspberry Pi 3 Model B Rev 1.2', b'486', b'23880'),
+            ('Raspberry Pi 3 Model B Plus Rev 1.3', b'486', b'23880'),
+            ('Raspberry Pi Zero 2 W Rev 1.0', b'486', b'23880'),
+            ('Raspberry Pi Compute Module 3 Plus Rev 1.0', b'486', b'23880'),
+            ('Raspberry Pi 4 Model B Rev 1.4', b'pentium', b'40072'),
+            ('Raspberry Pi 400 Rev 1.0', b'pentium', b'40072'),
+            ('Raspberry Pi Compute Module 4S Rev 1.0', b'pentium', b'40072'),
+            ('Raspberry Pi 5 Model B Rev 1.0', b'pentium', b'64180'),
+            ('Raspberry Pi 500 Rev 1.0', b'pentium', b'64180'),
+            ('Raspberry Pi Compute Module 5 Rev 1.0', b'pentium', b'64180'),
+            ('Unknown', b'pentium', b'64180')):
+        user.write_bytes(template)
+        subprocess.run([str(binary), '--cpu', str(user), board, 'ro'], check=True)
+        assert user.read_bytes() == template
+        subprocess.run([str(binary), '--cpu', str(user), board, 'rw'], check=True)
+        selected = user.read_bytes()
+        assert b'cpu_default=done\r\n' in selected
+        assert b'cputype=' + cpu_type + b'\r\n' in selected
+        assert b'cycles=fixed ' + cycles + b'\r\n' in selected
+        assert selected.startswith(b'# keep this comment\r\n')
+        assert b'\n' not in selected.replace(b'\r\n', b'')
+        subprocess.run([str(binary), '--cpu', str(user), 'Raspberry Pi 3 Model B Rev 1.2', 'rw'], check=True)
+        assert user.read_bytes() == selected  # Moving the card never resets CPU.
+    for original in (template.replace(b'cpu_default=pending\r\n', b''),
+                     template.replace(b'first_boot=pending', b'first_boot=done'),
+                     template.replace(b'fixed 64180', b'fixed 12345')):
+        user.write_bytes(original)
+        subprocess.run([str(binary), '--cpu', str(user), 'Raspberry Pi 3 Model B Rev 1.2', 'rw'], check=True)
+        expected = original.replace(b'cpu_default=pending', b'cpu_default=done') if b'fixed 12345' in original else original
+        assert user.read_bytes() == expected
+    user.unlink()
 
     # Fresh installs run welcome/review only with persistent writable C:.
     welcome = (b'Z:\\BIN\\PIDOSCFG.EXE /FIRSTBOOT\n'

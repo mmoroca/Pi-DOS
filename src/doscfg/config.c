@@ -84,7 +84,7 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("pidos","net_windows","C:\\WINDOWS",PAGE_NETWORK),
  S("pidos","audio_output","hdmi",PAGE_SYSTEM),
  /* Missing on existing installations: never interrupt their normal startup. */
- S("pidos","first_boot","done",-1)
+ S("pidos","first_boot","done",-1), S("pidos","cpu_default","done",-1)
 };
 const char *card_names[CARD_COUNT] = {"None", "Tandy sound", "AdLib",
  "Creative Game Blaster / CMS", "Sound Blaster 2.0", "Sound Blaster Pro 2 (default)",
@@ -129,6 +129,7 @@ int cfg_set(int key, const char *value) {
  if(valid) for(i=0;value[i];++i) if((unsigned char)value[i]<32 || (unsigned char)value[i]>126) valid=0;
  if(!valid) { strcpy(cfg_error,"Invalid or overlong configuration value."); return 0; }
  switch(key) {
+ case K_CPU_DEFAULT: valid=one_of(value,"pending|done"); break;
  case K_FIRST_BOOT: valid=one_of(value,"pending|clock|done"); break;
  case K_AUDIO_OUTPUT: valid=one_of(value,"hdmi|jack|usb"); break;
  case K_IPX: case K_NE2000: valid=one_of(value,"true|false"); break;
@@ -217,11 +218,18 @@ int cfg_set(int key, const char *value) {
  sync_cpu(); cfg_error[0]=0; return 1;
 }
 int cfg_profile(void) { return cpu_profile_find(values[K_CPU_TYPE],values[K_CPU_CORE],values[K_CPU_CYCLES]); }
+int cfg_cpu_default(void) {
+ const char *id=getenv("PIDOS_CPU_DEFAULT"); int i;
+ if(id) for(i=0;i<PROFILE_COUNT;++i)
+  if(*cpu_profile_recommendation(i) && same(id,cpu_profiles[i].id)) return i;
+ return cpu_profile_default();
+}
 int cfg_select_cpu(int profile) {
  const CpuProfile *p;
  if(profile<0 || profile>=PROFILE_COUNT) { strcpy(cfg_error,"Select a CPU profile first."); return 0; }
  p=&cpu_profiles[profile];
- return cfg_set(K_CPU_TYPE,p->type) && cfg_set(K_CPU_CORE,p->core) && cfg_set(K_CPU_CYCLES,p->cycles);
+ return cfg_set(K_CPU_TYPE,p->type) && cfg_set(K_CPU_CORE,p->core) && cfg_set(K_CPU_CYCLES,p->cycles) &&
+        cfg_set(K_CPU_DEFAULT,"done");
 }
 int cfg_card(void) {
  int gus=same(values[K_GUS],"true"), tandy=same(values[K_TANDY],"on") ||
@@ -258,7 +266,7 @@ void cfg_select_card(int card) {
 }
 void cfg_reset_page(int page) {
  int i;
- if(page==PAGE_CPU) { cfg_select_cpu(cpu_profile_default()); return; }
+ if(page==PAGE_CPU) { cfg_select_cpu(cfg_cpu_default()); return; }
  for(i=0;i<K_COUNT;++i) if(cfg_specs[i].page==page) cfg_set(i,cfg_specs[i].default_value);
  if(page==PAGE_SOUND) cfg_select_midi(DEFAULT_MIDI_PROFILE);
 }

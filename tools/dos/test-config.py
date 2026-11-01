@@ -2,6 +2,7 @@
 """Exercise the production config editor's preservation and recovery behavior."""
 import ctypes
 import re
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -138,6 +139,19 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
     assert editor.cfg_profile() == default_profile
     assert (get('K_CPU_TYPE'), get('K_CPU_CORE'), get('K_CPU_CYCLES')) == (
         b'pentium', b'dynamic_rec', b'fixed 64180')
+    # Board recommendations change Restore defaults, never an existing CPU.
+    for board_default, expected in (('486-66', 4), ('pentium-75', 6),
+                                    ('pentium-120', 8), ('invalid', 8)):
+        os.environ['PIDOS_CPU_DEFAULT'] = board_default
+        assert editor.cfg_load(encoded) and editor.cfg_profile() == default_profile
+        assert editor.cfg_cpu_default() == expected
+        editor.cfg_reset_page(0)
+        assert editor.cfg_profile() == expected
+    del os.environ['PIDOS_CPU_DEFAULT']
+    path.write_bytes(b'[pidos]\nfirst_boot=pending\ncpu_default=pending\n')
+    assert editor.cfg_load(encoded)
+    assert editor.cfg_save(encoded, default_profile)
+    assert b'cpu_default=done' in path.read_bytes().splitlines()
     before = (ROOT / 'configs/pi-dos.conf').read_bytes() + b'\n[pidos]\ntimezone=Europe/Madrid\n# keep\n'
     for card, sb, opl, gus, tandy in (
         (0,b'none',b'none',b'false',b'off'), (1,b'none',b'none',b'false',b'on'),

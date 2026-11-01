@@ -635,7 +635,8 @@ static void draw_page(int page,int focus,const char *path) {
   for(i=0;i<PROFILE_COUNT;++i) {
    unsigned char color=i==selected?(focus==0?SELECTED:BUTTON):NORMAL;
    fill(5,5+i,70,1,color); text(7,5+i,i==selected?"(*)":"( )",color,3);
-   sprintf(value,"%s%s",cpu_profiles[i].label,i==cpu_profile_default()?" (default)":"");
+   sprintf(value,"%s%s%s",cpu_profiles[i].label,cpu_profile_recommendation(i),
+           i==cfg_cpu_default()?" [recommended]":"");
    text(12,5+i,value,color,58);
   }
   text(4,18,selected<0?"Custom CPU settings; select a profile to replace them.":cpu_profiles[selected].description,PANEL,72);
@@ -852,6 +853,8 @@ static int first_boot(const char *path) {
     field_value(&fields[i],value); fill(5,6+i*2,70,1,color);
     text(7,6+i*2,fields[i].label,color,28); text(37,6+i*2,value,color,37);
    }
+   sprintf(value,"CPU: %s",cfg_profile()<0?"Custom settings":cpu_profiles[cfg_profile()].label);
+   text(7,15,value,DIM,65);
    text(4,18,focus<n?fields[focus].help:focus==n?"Save settings and reboot, then test the keyboard and review local time.":
     "Skip discards pending changes and keeps the saved defaults.",PANEL,72);
    text(4,19,"Keyboard, country and timezone can be selected independently.",DIM,72);

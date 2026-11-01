@@ -1092,12 +1092,16 @@ preserving other settings, and backs up the previous file as `PIDOS.BAK`.
 Run `REBOOT` after saving. See [the utility documentation](../src/doscfg/README.md)
 or `C:\DOCS\PIDOSCFG.TXT` for profiles, controls and command-line options.
 
-`Restore defaults` (F3) on the CPU page selects Pentium 120 MHz; Save is required to
+`Restore defaults` (F3) on the CPU page selects the detected board's preset:
+486DX2 66 MHz for Pi 3, Pentium 75 MHz for Pi 4, or Pentium 120 MHz for Pi 5. Save is required to
 persist it. The boot table shows Date above Time in the left column and the
 configured DOS CPU model directly above DOS video on the right, without cycles.
 Recognized profiles display their names without a prefix.
-Fresh images default to Pentium 120 MHz (`cputype=pentium`, `core=dynamic_rec`,
-`cycles=fixed 64180`), S3 Trio64 (`machine=svga_s3`), Sound Blaster
+Fresh images resolve `cpu_default=pending` before DOS starts, selecting the board
+CPU above and recording `cpu_default=done`. Pi 2/Zero 2/CM3 use Pi 3, Pi 400/CM4/4S
+use Pi 4, and Pi 500/CM5 use Pi 5; unknown models retain Pentium 120. Existing
+saved CPU settings are preserved. The Pi 3 preset still needs hardware performance
+confirmation. Other defaults are S3 Trio64 (`machine=svga_s3`), Sound Blaster
 Pro 2 (`sbtype=sbpro2`), and Roland SC-55 MIDI (`midi_profile=sc55`,
 `mpu401=intelligent`, `mididevice=synth`) using the supplied `SC55.SF2` bank. Existing installations retain their configuration until
 changed with setup or an editor.

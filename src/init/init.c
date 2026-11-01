@@ -29,6 +29,8 @@
 #include "dos_network.h"
 #include "timezone.h"
 #include "config.h"
+#include "cpu.h"
+#include "cpu_profiles.h"
 #include "audio.h"
 #include "video.h"
 #include "mixer.h"
@@ -274,6 +276,7 @@ static bool make_config(enum storage storage, const char *user_config)
     bool valid = !ferror(input);
     fclose(input);
     fputs("\n[autoexec]\n@ECHO OFF\n", output);
+    fprintf(output, "SET PIDOS_CPU_DEFAULT=%s\n", cpu_profiles[pi_dos_cpu_profile()].id);
     fputs("Z:\\SYSTEM\\PISYSTEM.COM\n", output);
     fputs("Z:\\SYSTEM\\PIFLOPPY.COM\n", output);
     fputs("Z:\\SYSTEM\\PICDROM.COM\n", output);
@@ -418,6 +421,8 @@ int main(void)
         seed_user_file(storage, source, destination);
     }
     const char *user_config = user_config_path(storage);
+    if (!pi_dos_cpu_defaults(user_config, pi_dos_cpu_profile(), storage == READ_WRITE))
+        dprintf(2, "Pi-DOS: could not initialize the board's CPU default; will retry next boot\n");
     /* Set the host process timezone before launching DOSBox and time services.
      * The kernel clock and hardware RTC remain in UTC. */
     pi_dos_timezone(user_config);
