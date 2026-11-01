@@ -2,6 +2,23 @@
 
 Base: `4f19017c5f565dc40d01fede0f1382892e7243d7` (`dosbox-x-v2026.08.31`).
 
+`0040-preserve-aliases-during-delete.patch` removes deleted regular files from
+the directory cache without rebuilding the other entries. Rebuilding renumbered
+generated `~N` aliases while wildcard searches still held their old names,
+leaving some long-named captures behind after `DEL.` or `DEL *.*`.
+
+`0041-reliable-capture-shortcut-and-numbering.patch` uses each SDL event's
+modifier snapshot. The shared shortcut helper recovers after a swallowed key
+release and treats Print Screen/SysRq releases as the same key.
+PID 1 disables the kernel keyboard SysRq filter after mounting `/proc`, so it
+cannot consume Alt+PrintScreen and reinject it after Ctrl has been released.
+Capture-number selection recognizes uppercase extensions, and Linux PNG
+creation is exclusive so an existing screenshot cannot be truncated. The ARM64 integration check
+`tools/image/test-capture-workflow.py --sdl-library-path <dummy-enabled-ARM64-SDL2>`
+runs the real shell, SDL event dispatch and PNG writer under user-mode QEMU.
+It covers long aliases, SFN/LFN modes, lost releases, repeat suppression and
+uppercase numbering, using only temporary files and synthetic events.
+
 `0038-preserve-sharing-search-pattern.patch` preserves the internal LFN search
 pattern, attributes and drive during sharing path lookups, alongside the saved
 DOS DTA and result. Without this, `DEL .` and `DEL *.*` stop after one file

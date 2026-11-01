@@ -103,6 +103,21 @@ static void delay_ms(long ms)
     while (nanosleep(&delay, &delay) && errno == EINTR) {}
 }
 
+static void disable_keyboard_sysrq(void)
+{
+    /* Alt+PrintScreen otherwise enters the kernel SysRq filter. Its delayed
+     * reinjected keypress can arrive after Ctrl is released, losing captures. */
+    int fd = open("/proc/sys/kernel/sysrq", O_WRONLY | O_CLOEXEC);
+    if (fd < 0) {
+        if (errno != ENOENT)
+            dprintf(2, "Pi-DOS: cannot disable keyboard SysRq: %s\n", strerror(errno));
+        return;
+    }
+    if (write(fd, "0\n", 2) != 2)
+        dprintf(2, "Pi-DOS: cannot disable keyboard SysRq: %s\n", strerror(errno));
+    close(fd);
+}
+
 static void make_dir(const char *path, mode_t mode)
 {
     if (mkdir(path, mode) && errno != EEXIST) {
@@ -368,6 +383,7 @@ int main(void)
         if (console > 2) close(console);
     }
     mount_required("proc", "/proc", "proc", MS_NOSUID | MS_NODEV | MS_NOEXEC, NULL);
+    disable_keyboard_sysrq();
     mount_required("sysfs", "/sys", "sysfs", MS_NOSUID | MS_NODEV | MS_NOEXEC, NULL);
     mount_required("tmpfs", "/run", "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755,size=16m");
     mount_required("tmpfs", "/tmp", "tmpfs", MS_NOSUID | MS_NODEV, "mode=1777,size=64m");

@@ -108,6 +108,16 @@ int main() {
     assert(pi_dos_reboot_shortcut(event,true,true) && screenshots==3);
     event.type=SDL_KEYUP;
     assert(pi_dos_reboot_shortcut(event,false,false));
+    setenv("PI_DOS_SHORTCUT_SCREENSHOT","12",1);
+    event.type=SDL_KEYDOWN; event.key.keysym.scancode=SDL_SCANCODE_PRINTSCREEN;
+    assert(pi_dos_reboot_shortcut(event,true,true) && screenshots==4);
+    // A fresh SDL press must recover when another event loop swallowed keyup.
+    assert(pi_dos_reboot_shortcut(event,true,true) && screenshots==5);
+    event.key.repeat=1;
+    assert(pi_dos_reboot_shortcut(event,true,true) && screenshots==5);
+    event.type=SDL_KEYUP; event.key.repeat=0; event.key.keysym.scancode=SDL_SCANCODE_SYSREQ;
+    assert(pi_dos_reboot_shortcut(event,false,false));
+    assert(!pi_dos_shortcut_held[SDL_SCANCODE_PRINTSCREEN]);
     parent=2; event.type=SDL_KEYDOWN;
     assert(!pi_dos_reboot_shortcut(event,true,true));
     assert(calls==4);

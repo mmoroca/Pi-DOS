@@ -32,7 +32,8 @@ static bool pi_dos_reboot_shortcut(const SDL_Event &event, bool ctrl, bool alt)
     const char *supervised=getenv("PI_DOS_SUPERVISED");
     if (!supervised || strcmp(supervised,"1") || getppid()!=1) return false;
     if (event.type!=SDL_KEYDOWN && event.type!=SDL_KEYUP) return false;
-    const SDL_Scancode key=event.key.keysym.scancode;
+    const SDL_Scancode key=event.key.keysym.scancode==SDL_SCANCODE_SYSREQ ?
+        SDL_SCANCODE_PRINTSCREEN : event.key.keysym.scancode;
     if (key<=SDL_SCANCODE_UNKNOWN || key>=SDL_NUM_SCANCODES) return false;
     if (event.type==SDL_KEYUP && pi_dos_shortcut_held[key]) {
         int action=pi_dos_shortcut_held[key]; pi_dos_shortcut_held[key]=0;
@@ -41,7 +42,11 @@ static bool pi_dos_reboot_shortcut(const SDL_Event &event, bool ctrl, bool alt)
         return true;
     }
     if (event.type!=SDL_KEYDOWN) return false;
-    if (pi_dos_shortcut_held[key]) return true;
+    if (pi_dos_shortcut_held[key]) {
+        if (event.key.repeat) return true;
+        /* A new physical press can follow a release consumed by another loop. */
+        pi_dos_shortcut_held[key]=0;
+    }
     /* Shift/GUI variants stay available to the guest. Caps/NumLock do not matter. */
     if (!ctrl || !alt || (event.key.keysym.mod & (KMOD_SHIFT|KMOD_GUI))) return false;
     /* Linux evdev also reports the Print Screen key as SysRq. */

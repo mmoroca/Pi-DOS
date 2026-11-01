@@ -734,6 +734,8 @@ flush or close. File creation, deletion, directory changes and moves sync their
 parent directories; moves also refresh both directory caches. Internal sharing
 lookups preserve wildcard searches, so `DEL .` and `DEL *.*` continue through
 all matching files. Read, write and commit failures propagate to DOS callers.
+Deleting a cached regular file preserves the remaining generated `~N` aliases,
+so long-named captures retain their names throughout a wildcard deletion.
 
 `MOUNT` lists drives and can release removable mappings. `IMGMOUNT` remains
 available for disk/CD images on a free letter. Automatic USB discovery skips
@@ -1068,8 +1070,13 @@ on key release so its event flushing cannot swallow the release; repeat the
 shortcut or Escape to resume. Disabled shortcuts return to normal DOS input.
 
 Screenshots capture the **DOS image before host LCD scaling/borders**. Names
-use the program and a sequence such as `doom_000.png`. Writable startup creates
-the capture directory; unavailable/read-only C: prevents capture rather than
+use the program and a sequence such as `doom_000.png`. Numbering continues after
+existing PNGs, including uppercase `.PNG` names. PNG creation does not overwrite
+existing files. Shortcuts use the SDL event's
+modifier snapshot and recover if another event loop consumed a key release.
+PID 1 disables keyboard Magic SysRq so Linux cannot intercept and delay the
+Alt+PrintScreen combination. Writable startup creates the capture directory;
+unavailable/read-only C: prevents capture rather than
 writing somewhere else. Host dispatch/configuration/image checks exist;
 physical Pi PNG capture and in-game switching remain open. Save states, rewind
 and integrated video recording are not supplied as Pi-DOS workflows.

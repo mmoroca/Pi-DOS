@@ -1,0 +1,83 @@
+Use SDL modifier snapshots for system shortcuts and preserve PNG sequences.
+
+Event-loop key state can be cleared by focus handling while Ctrl/Alt remain
+physically held. Use each key event's modifier snapshot. The shared shortcut
+header also recovers after swallowed releases and treats Print Screen/SysRq as
+one key. Match existing capture extensions without case sensitivity and create
+Linux PNGs exclusively so existing captures cannot be silently truncated.
+
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -6431,8 +6431,8 @@
+         case SDL_KEYUP:
+ #if defined(LINUX)
+             if (pi_dos_reboot_shortcut(event,
+-                    sdl.lctrlstate == SDL_KEYDOWN || sdl.rctrlstate == SDL_KEYDOWN,
+-                    sdl.laltstate == SDL_KEYDOWN || sdl.raltstate == SDL_KEYDOWN)) break;
++                    (event.key.keysym.mod & KMOD_CTRL) != 0,
++                    (event.key.keysym.mod & KMOD_ALT) != 0)) break;
+ #endif
+             if (sdl.desktop.type == SCREEN_GAMELINK) break;
+ #if defined (WIN32) || defined(MACOSX) || defined(C_SDL2)
+--- a/src/hardware/hardware.cpp
++++ b/src/hardware/hardware.cpp
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include <assert.h>
++#include <errno.h>
+ #include <string.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+@@ -563,10 +564,10 @@
+     char tempname[CROSS_LEN], sname[15];
+     bool testRead = read_directory_first(dir, tempname, sname, is_directory );
+     for ( ; testRead; testRead = read_directory_next(dir, tempname, sname, is_directory) ) {
+-		char * test=strstr(tempname,ext);
+-		if (!test || strlen(test)!=strlen(ext)) 
+-			continue;
+-		*test=0;
++        const size_t name_length = strlen(tempname), ext_length = strlen(ext);
++        if (is_directory || name_length < ext_length ||
++            strcasecmp(tempname + name_length - ext_length, ext)) continue;
++        tempname[name_length - ext_length] = 0;
+ 		if (strncasecmp(tempname,file_start,strlen(file_start))!=0) continue;
+ 		Bitu num=(Bitu)atoi(&tempname[strlen(file_start)]);
+ 		if (num>=last) last=num+1;
+@@ -618,10 +619,10 @@
+     char tempname[CROSS_LEN], sname[15];
+     bool testRead = read_directory_first(dir, tempname, sname, is_directory );
+     for ( ; testRead; testRead = read_directory_next(dir, tempname, sname, is_directory) ) {
+-		char * test=strstr(tempname,ext);
+-		if (!test || strlen(test)!=strlen(ext)) 
+-			continue;
+-		*test=0;
++        const size_t name_length = strlen(tempname), ext_length = strlen(ext);
++        if (is_directory || name_length < ext_length ||
++            strcasecmp(tempname + name_length - ext_length, ext)) continue;
++        tempname[name_length - ext_length] = 0;
+ 		if (strncasecmp(tempname,file_start,strlen(file_start))!=0) continue;
+ 		Bitu num=(Bitu)atoi(&tempname[strlen(file_start)]);
+ 		if (num>=last) last=num+1;
+@@ -630,7 +631,20 @@
+ 	char file_name[CROSS_LEN];
+ 	sprintf(file_name,"%s%c%s%03d%s",capturedir.c_str(),CROSS_FILESPLIT,file_start,(int)last,ext);
+ 	/* Open the actual file */
+-	FILE * handle=fopen(file_name,"wb");
++    FILE *handle;
++#if defined(LINUX)
++    const bool screenshot = !strcmp(type, "Screenshot") || !strcmp(type, "Raw Screenshot");
++    for (;;) {
++        handle = fopen(file_name, screenshot ? "wbx" : "wb");
++        if (handle || !screenshot || errno != EEXIST) break;
++        // A capture must never truncate an existing PNG, even after a race.
++        ++last;
++        snprintf(file_name, sizeof(file_name), "%s%c%s%03d%s", capturedir.c_str(),
++                 CROSS_FILESPLIT, file_start, (int)last, ext);
++    }
++#else
++    handle = fopen(file_name, "wb");
++#endif
+ 	if (handle) {
+         std::string path = file_name;
+ #if defined(WIN32)

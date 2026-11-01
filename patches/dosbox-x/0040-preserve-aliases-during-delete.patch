@@ -1,0 +1,37 @@
+Preserve generated DOS aliases when deleting a cached regular file.
+
+CacheOut rebuilt every remaining alias after each unlink. A wildcard search
+kept its original aliases and consequently skipped or addressed other files.
+Remove only the deleted cache entry; retain both other aliases and independent
+FindFirst/FindNext snapshots. Directory removal keeps its existing invalidation.
+
+--- a/src/dos/drive_cache.cpp
++++ b/src/dos/drive_cache.cpp
+@@ -321,6 +321,27 @@
+ }
+ 
+ void DOS_Drive_Cache::DeleteEntry(const char* path, bool ignoreLastDir) {
++    if (!ignoreLastDir) {
++        char expand[CROSS_LEN], name[CROSS_LEN];
++        const char *last = strrchr_dbcs((char *)path, CROSS_FILESPLIT);
++        CFileInfo *dir = FindDirInfo(path, expand);
++        if (last && dir) {
++            strcpy(name, last + 1);
++            const Bits index = GetLongName(dir, name);
++            if (index >= 0 && !dir->fileList[(size_t)index]->isDir) {
++                // Rebuilding the directory would renumber generated ~N aliases
++                // still held by FindFirst/FindNext snapshots and open files.
++                CFileInfo *removed = dir->fileList[(size_t)index];
++                dir->fileList.erase(dir->fileList.begin() + index);
++                dir->longNameList.erase(std::remove(dir->longNameList.begin(),
++                    dir->longNameList.end(), removed), dir->longNameList.end());
++                if (dir->nextEntry > (Bitu)index) --dir->nextEntry;
++                DeleteFileInfo(removed);
++                save_dir = nullptr;
++                return;
++            }
++        }
++    }
+     CacheOut(path,ignoreLastDir);
+     if (dirSearch[srchNr] && (dirSearch[srchNr]->nextEntry>0)) dirSearch[srchNr]->nextEntry--;
+ 
