@@ -1,0 +1,37 @@
+Pi-DOS: skip moving the hidden KMS/DRM hardware cursor
+
+When SDL_KMSDRM_HIDE_CURSOR is enabled, Pi-DOS renders the guest cursor in
+its framebuffer and leaves the hardware cursor plane detached. Avoid the
+DRM cursor move both in regular mouse movement and relative-mode warp, while
+still updating SDL's logical mouse position during warps. Retain upstream
+behavior when the hint is disabled. Applies after SDL patches 0001 and 0002.
+
+--- a/src/video/kmsdrm/SDL_kmsdrmmouse.c
++++ b/src/video/kmsdrm/SDL_kmsdrmmouse.c
+@@ -383,8 +383,13 @@
+         SDL_Window *window = mouse->focus;
+         SDL_DisplayData *dispdata = (SDL_DisplayData *)SDL_GetDisplayForWindow(window)->driverdata;
+ 
+-        /* Update internal mouse position. */
++        /* Preserve SDL's logical mouse position, including in relative mode. */
+         SDL_SendMouseMotion(mouse->focus, mouse->mouseID, 0, x, y);
++
++        /* Pi-DOS draws the DOS cursor itself and keeps the KMS cursor hidden. */
++        if (SDL_GetHintBoolean("SDL_KMSDRM_HIDE_CURSOR", SDL_FALSE)) {
++            return 0;
++        }
+ 
+         /* And now update the cursor graphic position on screen. */
+         if (dispdata->cursor_bo) {
+@@ -438,6 +443,11 @@
+     SDL_Mouse *mouse = SDL_GetMouse();
+     int ret = 0;
+ 
++    /* No hardware cursor motion is needed when Pi-DOS keeps it hidden. */
++    if (SDL_GetHintBoolean("SDL_KMSDRM_HIDE_CURSOR", SDL_FALSE)) {
++        return;
++    }
++
+     /* We must NOT call SDL_SendMouseMotion() here or we will enter recursivity!
+        That's why we move the cursor graphic ONLY. */
+     if (mouse && mouse->cur_cursor && mouse->focus) {
