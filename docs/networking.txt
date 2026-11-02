@@ -72,6 +72,8 @@ Windows for Workgroups 3.11 and real file sharing
 4. From Pi-DOS run WFWNET, then start Windows normally (for example
    C:\WINDOWS\WIN). WFWNET loads your IFSHLP.SYS with DEVICE.COM and runs
    your Windows NET START. Do not load the DOS packet or ODI driver first.
+   If C:\CONFIG.SYS already loads IFSHLP.SYS, use NET START directly instead
+   of WFWNET; do not load IFSHLP.SYS a second time.
    In Windows, use File Manager to connect a network drive or share a folder.
 
 Windows and TCP/IP-32 are not bundled or installed automatically. When booting

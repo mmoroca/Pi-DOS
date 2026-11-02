@@ -319,8 +319,12 @@ the native baseline. That evidence does not establish every command or driver.
 Default PATH:
 
 ```dos
-PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS
+PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL
 ```
+
+Networking also adds `Z:\NETWORK` and `Z:\NETWORK\MTCP`, giving a 94-character
+PATH. `Z:\DEBUG`, `Z:\PATCHING` and `Z:\4DOS` can be used through full paths.
+See [Windows 3.1 troubleshooting](windows31.md) for Setup and PATH limits.
 
 Writable boots set both TEMP and TMP to `C:\TEMP`. Startup creates a minimal
 AUTOEXEC template only if missing. Users can add variables, PATH entries or
@@ -366,11 +370,12 @@ The Pi-DOS product version and reported DOS compatibility version are separate.
 `VER` identifies Pi-DOS; `VER /R` also retains upstream runtime/build information.
 DOS version reporting remains configurable through the engine's facilities.
 
-AUTOEXEC behavior is explicitly integrated, while CONFIG.SYS compatibility is
-limited to what the internal DOS configuration and compatible driver-loading
-facilities implement. Copying a PC's CONFIG.SYS does not replace the Linux boot
-sequence. Booting a separately supplied DOS image changes the DOS-side startup
-rules and needs its own validation.
+Pi-DOS reads writable `C:\CONFIG.SYS` before `C:\AUTOEXEC.BAT`, preserving
+installer edits. C: is registered before configuration commands, and supported
+directives use the internal DOS settings and driver loader. See
+[CONFIG.SYS support](config-sys.md) for supported directives and limitations.
+Booting a separately supplied DOS image changes the DOS-side startup rules and
+needs its own validation.
 
 ## 6. Configuration and setup utility
 
@@ -1162,6 +1167,8 @@ stack. Supply/install Windows and any required Microsoft TCP/IP-32 package,
 configure the same adapter resources, select Windows startup in PIDOSCFG and
 run **WFWNET before WIN**. WFWNET loads the supplied installation's IFSHLP.SYS
 through DEVICE.COM and runs NET START; do not first load DOS packet/ODI stacks.
+If CONFIG.SYS already loads IFSHLP.SYS, use your own NET START command instead
+of WFWNET to avoid loading the driver twice.
 An externally booted DOS installation uses its own CONFIG.SYS/AUTOEXEC instead.
 
 Real LAN access does not add SMB2/3 to WfW. File sharing needs peer protocols

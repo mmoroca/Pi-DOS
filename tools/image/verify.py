@@ -44,7 +44,7 @@ def main():
         names = subprocess.check_output(['cpio', '-it', '--quiet'], stdin=stream, text=True).splitlines()
     names = {name.removeprefix('./') for name in names}
     for name in ('init', 'pi-dos/pi-dos', 'pi-dos/pi-dos.conf', 'pi-dos/PIDOS.CFG',
-                 'pi-dos/AUTOEXEC.BAT',
+                 'pi-dos/AUTOEXEC.BAT', 'pi-dos/CONFIG.SYS',
                  'pi-dos/network-dns', 'sbin/dhcpcd', 'usr/sbin/chronyd',
                  'etc/dhcpcd.conf', 'etc/chrony.conf', 'etc/resolv.conf', 'var/run',
                  'pi-dos/drivez/BIN/ARJ.EXE', 'pi-dos/drivez/BIN/PIDOSCFG.EXE', 'dev/console',
@@ -136,12 +136,17 @@ def main():
                     for i in range(0, len(packed_edid), 128)), 'Invalid packed CRT EDID')
     require(packed_edid[18] == 1 and packed_edid[19] >= 3 and packed_edid[20] & 0x80,
             'CRT EDID must be digital EDID 1.3+ for Linux HDMI/audio capability parsing')
-    default_path = r'C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS'
+    default_path = r'C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL'
     require(('SET PATH=' + default_path).encode() in packed_init, 'Default DOS PATH is incomplete')
+    require(len(default_path + r';Z:\NETWORK;Z:\NETWORK\MTCP;C:\WINDOWS') <= 127,
+            'Default PATH leaves no room for Windows 3.1 Setup')
     require(b'SET TEMP=C:\\TEMP\nSET TMP=C:\\TEMP\n' in packed_init,
             'PID 1 lacks the default DOS temporary directory')
     require(b'/dosdata/SYSTEM/PIDOS.CFG' in packed_init,
             'PID 1 does not load the editable DOSBox configuration')
+    require(b'[devices]\nRUN=Z:\\SYSTEM\\PISYSTEM.COM\n' in packed_init and
+            b'/run/pidos-dos.conf' in packed_init,
+            'PID 1 lacks early C: registration and writable CONFIG.SYS import')
     require(b'audio_output' in packed_init and b'bcm2835-audio' in packed_init,
             'PID 1 lacks the physical audio output selector; rebuild pi-dos-init')
     require(b'/dosdata/SYSTEM/DOSBOX.CFG' not in packed_init,
@@ -345,6 +350,10 @@ def main():
     # Existing user startup files are preserved, including intentionally empty ones.
     subprocess.check_call([str(mcopy), '-i', data_volume, '::AUTOEXEC.BAT', '-'],
                           stdout=subprocess.DEVNULL)
+    config_sys = (ROOT / 'br2-external/board/raspberrypi/dos/CONFIG.SYS').read_text().replace(
+        '\n', '\r\n').encode('ascii')
+    require(subprocess.check_output([str(mcopy), '-i', data_volume, '::CONFIG.SYS', '-']) == config_sys,
+            'Writable CONFIG.SYS template missing/stale in PI-DOS')
     editor = ROOT / 'br2-external/board/raspberrypi/dos/EDIT.COM'
     packed_editor = subprocess.check_output([
         str(mcopy), '-i', data_volume, '::PROGRAMS/TOOLS/EDIT.COM', '-'])
@@ -415,6 +424,10 @@ def main():
         packed_autoexec = subprocess.check_output([
             'cpio', '-i', '--to-stdout', '--quiet', 'pi-dos/AUTOEXEC.BAT'], stdin=stream)
     require(packed_autoexec == autoexec, 'AUTOEXEC.BAT template missing/stale in initramfs')
+    with (images / 'rootfs.cpio').open('rb') as stream:
+        packed_config_sys = subprocess.check_output([
+            'cpio', '-i', '--to-stdout', '--quiet', 'pi-dos/CONFIG.SYS'], stdin=stream)
+    require(packed_config_sys == config_sys, 'CONFIG.SYS template missing/stale in initramfs')
     arj = ROOT / 'br2-external/board/raspberrypi/dos/ARJ.EXE'
     require((target / 'pi-dos/drivez/BIN/ARJ.EXE').read_bytes() == arj.read_bytes(),
             'ARJ missing/stale in the Z: extension')

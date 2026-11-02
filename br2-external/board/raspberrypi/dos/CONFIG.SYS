@@ -1,0 +1,3 @@
+REM Pi-DOS reads supported settings and drivers here before AUTOEXEC.BAT.
+REM Changes take effect after REBOOT. Installers may edit this writable file.
+REM XMS and EMS are built in; HIMEM.SYS and EMM386.EXE are not loaded.

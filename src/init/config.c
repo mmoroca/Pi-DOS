@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "config.h"
 #include <ctype.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,6 +77,72 @@ bool pi_dos_runtime_config(const char *source, const char *destination)
     bool valid = !ferror(input) && !ferror(output);
     free(line);
     fclose(input);
+    if (fclose(output)) valid = false;
+    return valid;
+}
+
+/* Translate the writable DOS startup file into the runtime's native CONFIG
+ * section. Properties are applied before DOS initializes; DEVICE/INSTALL
+ * commands run in order before AUTOEXEC. Never modify the user's source file. */
+bool pi_dos_config_sys(const char *source, const char *destination)
+{
+    FILE *input = source ? fopen(source, "r") : NULL;
+    if (source && !input && errno != ENOENT) return false;
+    FILE *output = fopen(destination, "w");
+    if (!output) { if (input) fclose(input); return false; }
+    fputs("[config]\n", output);
+    char *line = NULL;
+    size_t capacity = 0;
+    unsigned number = 0;
+    bool in_section = false;
+    while (input && getline(&line, &capacity, input) >= 0) {
+        ++number;
+        char *eof = strchr(line, 0x1a);
+        if (eof) *eof = 0;
+        char *start = trim(line);
+        if (*start == '[') {
+            /* DOS boot menus require selection and INCLUDE processing. Do not
+             * accidentally load drivers from every alternative configuration. */
+            in_section = true;
+            dprintf(2, "Pi-DOS: CONFIG.SYS:%u: boot-menu sections are unsupported\n", number);
+        }
+        bool remark = !strncasecmp(start, "REM", 3) &&
+                      (!start[3] || isspace((unsigned char)start[3]));
+        if (!in_section && *start && *start != ';' && *start != '#' && !remark) {
+            char *equals = strchr(start, '=');
+            if (equals) *equals++ = 0;
+            char *key = trim(start), *value = equals ? trim(equals) : NULL;
+            for (char *at = key; *at; ++at) *at = (char)tolower((unsigned char)*at);
+            bool property = !strcmp(key,"files") || !strcmp(key,"fcbs") ||
+                !strcmp(key,"dos") || !strcmp(key,"lastdrive") ||
+                !strcmp(key,"break") || !strcmp(key,"numlock") || !strcmp(key,"country");
+            bool command = !strcmp(key,"device") || !strcmp(key,"devicehigh") ||
+                !strcmp(key,"install") || !strcmp(key,"installhigh") || !strncmp(key,"set ",4);
+            bool memory_manager = false;
+            if (value && (!strcmp(key,"device") || !strcmp(key,"devicehigh"))) {
+                /* XMS/EMS are provided by the internal DOS kernel. Loading a
+                 * second memory manager can disrupt protected-mode programs. */
+                char path[512];
+                snprintf(path, sizeof(path), "%s", value);
+                char *token = path + (path[0] == '"');
+                char *end = path[0] == '"' ? strchr(token, '"') : strpbrk(token, " \t");
+                if (end) *end = 0;
+                char *name = token;
+                for (char *at = token; *at; ++at)
+                    if (*at == '\\' || *at == '/' || *at == ':') name = at + 1;
+                memory_manager = !strcasecmp(name,"himem.sys") || !strcasecmp(name,"emm386.exe");
+            }
+            if (value && *value && (property || command) && !memory_manager)
+                fprintf(output, "%s=%s\n", key, value);
+            else
+                dprintf(2, "Pi-DOS: CONFIG.SYS:%u: skipping %s%s\n", number, key,
+                        memory_manager ? " (internal memory manager active)" : " (unsupported or empty directive)");
+        }
+        if (eof) break;
+    }
+    bool valid = (!input || !ferror(input)) && !ferror(output);
+    free(line);
+    if (input) fclose(input);
     if (fclose(output)) valid = false;
     return valid;
 }

@@ -1119,8 +1119,10 @@ boots. Existing `PIDOS.CFG` files are preserved.
 
 Long filename support remains enabled for applications that support it.
 The default DOS compatibility version stays unchanged.
-The original Z: files, folders and runtime commands remain available. No C:\CONFIG.SYS parser,
-managed runtime-launcher directory or PIBOOT.BAT is added. An optional `[autoexec]`
+The original Z: files, folders and runtime commands remain available. Writable
+`C:\CONFIG.SYS` is imported at boot for supported settings and compatible
+drivers; C: is registered before configuration commands. See
+[CONFIG.SYS support](config-sys.md). An optional `[autoexec]`
 section in PIDOS.CFG appends commands after system setup and `C:\AUTOEXEC.BAT`.
 
 ### User-selectable timezone
@@ -1287,8 +1289,12 @@ Sound Blaster Pro 2 and SC-55 MIDI defaults, and the saved physical output
 selected by SDL. Its default PATH is:
 
 ```dos
-PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS
+PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL
 ```
+
+Networking also adds `Z:\NETWORK` and `Z:\NETWORK\MTCP`, giving a 94-character
+PATH. `Z:\DEBUG`, `Z:\PATCHING` and `Z:\4DOS` can be used through full paths.
+See [Windows 3.1 troubleshooting](windows31.md) for Setup and PATH limits.
 
 `C:\PROGRAMS\TOOLS` selects writable utilities such as EDIT, followed by
 `C:\SYSTEM` for the Pi-DOS lifecycle commands and launchers. If

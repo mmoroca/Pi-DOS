@@ -554,7 +554,7 @@ TEMP and TMP normally point to `C:\TEMP` on writable boots. Leave a writable tem
 
 ### CONFIG.SYS and familiar MS-DOS advice
 
-Pi-DOS uses its internal DOS environment and native startup system. Copying a PC's CONFIG.SYS does not replace the Pi's boot process. Driver loading and CONFIG.SYS compatibility are limited to what the runtime implements.
+Pi-DOS reads writable `C:\CONFIG.SYS` before `C:\AUTOEXEC.BAT` and preserves installer edits. Supported DOS settings and compatible driver commands apply after reboot. See [CONFIG.SYS support](../config-sys.md) for the supported directives; `Z:\CONFIG.SYS` remains the internal read-only view.
 
 Do not copy memory-manager, disk-compression or startup recipes from MS-DOS 6 without checking that they apply. This guide does not prescribe HIMEM, EMM386, DoubleSpace or MS-DOS system utilities as Pi-DOS requirements.
 
@@ -1094,6 +1094,8 @@ Windows for Workgroups 3.11 is user-supplied. Its PCAP path uses its own NE2000 
 
 Match adapter resources, select Windows startup in PIDOSCFG, and run **WFWNET before WIN**. The helper loads the supplied installation's IFSHLP.SYS through DEVICE.COM and runs NET START. Do not first load DOS packet or ODI stacks for this path.
 
+If `C:\CONFIG.SYS` already loads IFSHLP.SYS, run your Windows `NET START` command directly instead of WFWNET to avoid loading the driver twice.
+
 A separately booted DOS installation instead uses its own CONFIG.SYS and AUTOEXEC.BAT. Direct LAN access does not add SMB2/3 or modern authentication to Windows for Workgroups. Physical LAN, native-IPX and WfW sharing acceptance remain open in this baseline.
 
 ## Chapter 11 Using the Supplied Tools
@@ -1449,8 +1451,12 @@ Earlier development defaults included Pentium 133, Automatic CPU and SB16. Those
 The standard search path is:
 
 ```dos
-PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL;Z:\DEBUG;Z:\PATCHING;Z:\4DOS
+PATH C:\PROGRAMS\TOOLS;C:\SYSTEM;Z:\;Z:\SYSTEM;Z:\DOS;Z:\BIN;Z:\TEXTUTIL
 ```
+
+Networking also adds `Z:\NETWORK` and `Z:\NETWORK\MTCP`, giving a 94-character
+PATH. `Z:\DEBUG`, `Z:\PATCHING` and `Z:\4DOS` can be used through full paths.
+See [Windows 3.1 troubleshooting](../windows31.md) for Setup and PATH limits.
 
 Writable startup sets TEMP and TMP to C:\TEMP. Extend the existing path in AUTOEXEC.BAT when adding your tools rather than inadvertently discarding the supplied locations.
 

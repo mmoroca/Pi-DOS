@@ -58,7 +58,7 @@ public:
     bool IsAudioOnly() const override { return player.audio_only.load(); }
     bool GetMediaTrayStatus(bool &present, bool &changed, bool &open) override
     {
-        run([&] { player.device.ready(); present = player.device.present;
+        run([&] { player.device.ready(false); present = player.device.present;
                   open = player.device.tray_open; return true; });
         const uint64_t epoch = MediaGeneration(); changed = epoch != reported_epoch; reported_epoch = epoch;
         return true;
@@ -122,7 +122,7 @@ public:
         if (sector > UINT32_MAX || count > UINT32_MAX - sector) return false;
         return run([&] {
             if (!count) return true;
-            if (!player.device.ready()) return false;
+            if (!player.device.ready(false)) return false;
             const uint64_t epoch = player.device.generation;
             auto *out = static_cast<uint8_t *>(buffer);
             for (unsigned long done = 0; done < count;) {

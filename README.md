@@ -13,6 +13,11 @@ The architecture is Buildroot, an embedded initramfs, a small C PID 1 supervisor
 native SDL2 KMS/DRM video, ALSA audio, USB input and persistent DOS storage. The
 runtime runs as root. Pi 5 supplied the first hardware validation baseline.
 
+For Windows setup, mouse capture and physical CD performance, see
+[Windows 3.1 troubleshooting](docs/windows31.md).
+Installers can use writable [C:\CONFIG.SYS](docs/config-sys.md) for supported
+DOS settings and compatible driver loading before AUTOEXEC.
+
 **Status: shared-image boot and keyboard operation are user-confirmed on Pi 3/Pi 5, and on Pi 4 after the firmware correction below. Earlier Pi 5 persistence, reboot and poweroff checks passed; broader hardware validation remains open.**
 The user confirmed boot/input on Pi 3 and Pi 5 with the shared image. On
 25 October 2026, replacing the Pi 4's matched `start4.elf`/`fixup4.dat` pair

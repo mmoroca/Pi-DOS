@@ -66,6 +66,7 @@ PY
 fi
 install -m 0644 "$TARGET_DIR/pi-dos/NETWORK.TXT" "$data/DOCS/NETWORK.TXT"
 install -m 0644 "$TARGET_DIR/pi-dos/AUTOEXEC.BAT" "$data/AUTOEXEC.BAT"
+install -m 0644 "$TARGET_DIR/pi-dos/CONFIG.SYS" "$data/CONFIG.SYS"
 mkdir -p "$data/PROGRAMS/DOSZIP"
 cp -a "$board/dos/doszip/." "$data/PROGRAMS/DOSZIP/"
 printf '@ECHO OFF\r\nC:\\PROGRAMS\\DOSZIP\\DZ.EXE /CC:\\PROGRAMS\\DOSZIP %%1 %%2 %%3 %%4 %%5 %%6 %%7 %%8 %%9\r\n' > "$data/SYSTEM/DZ.BAT"
@@ -87,6 +88,9 @@ printf '%s\r\n' \
     'Type BENCH for graphics and game benchmarks in C:\SYSTEM\BENCH.' \
     'Type DEMOS for demoscene productions in C:\DEMOS (guide: H in menu).' \
     '' 'Startup customization:' \
+    'Edit C:\CONFIG.SYS for supported DOS settings and compatible DEVICE drivers.' \
+    'It is read before AUTOEXEC.BAT. Existing files are preserved.' \
+    'XMS/EMS are built in; HIMEM.SYS and EMM386.EXE are skipped.' \
     'Edit C:\AUTOEXEC.BAT to set environment variables, extend PATH,' \
     'or start programs automatically. Pi-DOS calls it after standard setup.' \
     'Pi-DOS manages C: and Z:. Directory mounts and SUBST mappings are disabled.' \

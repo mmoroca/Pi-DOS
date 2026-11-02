@@ -65,12 +65,17 @@ class Device {
     int fd = -1;
     std::string sys, id, diskseq;
     std::chrono::steady_clock::time_point next_scan = {};
+    std::chrono::steady_clock::time_point next_check = {};
+    std::array<uint8_t, 32 * 2048> data_cache = {};
+    uint32_t cached_sector = 0, cached_count = 0;
     bool trace = false;
     enum class Result { ok, attention, absent, error };
 
     void invalidate()
     {
         ++generation; present = false; tracks.clear(); leadout = 0;
+        next_check = {};
+        cached_count = 0;
     }
     void disconnect()
     {
@@ -169,8 +174,13 @@ public:
     Device(const Device &) = delete;
     Device &operator=(const Device &) = delete;
 
-    bool ready()
+    bool ready(bool force = true)
     {
+        // Directory searches can call this once per entry, even on ISO cache
+        // hits. Both the media-change ioctl and TUR send physical USB commands.
+        // Cache only successful status checks, for at most 100 ms. Cache misses
+        // and raw/audio reads force a check before touching the medium.
+        if (!force && present && std::chrono::steady_clock::now() < next_check) return true;
         if (fd >= 0 && (identity(sys) != id || !candidate(sys) || line(sys + "/diskseq") != diskseq)) disconnect();
         if (fd < 0 && !discover()) return false;
         // The kernel's independent media-change latch also catches a swap when
@@ -197,6 +207,7 @@ public:
                                (unsigned long long)generation, tracks.size(), leadout);
         }
         diskseq = line(sys + "/diskseq");
+        next_check = std::chrono::steady_clock::now() + std::chrono::milliseconds(100);
         return true;
     }
     const Track *track(uint32_t sector) const
@@ -218,9 +229,26 @@ public:
     bool read(void *buffer, bool raw, uint32_t sector, uint32_t count, bool audio = false)
     {
         if (!count) return true;
-        if (!ready() || sector >= leadout || count > leadout - sector || count > 32 ||
+        if (!ready(false) || sector >= leadout || count > leadout - sector || count > 32 ||
             (audio && !audio_range(sector, count))) return false;
         const uint64_t epoch = generation;
+        const auto *entry = track(sector);
+        const bool cooked_data = !raw && !audio && entry && (entry->attr & 0x40);
+        if (cooked_data && cached_count && sector >= cached_sector &&
+            sector - cached_sector < cached_count && count <= cached_count - (sector - cached_sector)) {
+            memcpy(buffer, data_cache.data() + (sector - cached_sector) * 2048, count * 2048);
+            return true;
+        }
+        // Read-ahead serves the ISO driver's 2 KiB file reads in one transfer.
+        // Never prefetch into an audio track, or retain raw/CD-DA data here.
+        if (!ready() || generation != epoch) return false;
+        uint32_t transfer = count;
+        if (cooked_data) {
+            uint32_t end = leadout;
+            for (const auto &t : tracks) if (t.start > sector) { end = t.start; break; }
+            transfer = std::max(count, std::min(uint32_t(32), end - sector));
+            cached_count = 0;
+        }
         uint8_t cdb[12] = {};
         if (raw || audio) {
             cdb[0] = 0xbe; cdb[1] = audio ? 4 : 0; // READ CD, CD-DA or any sector type
@@ -228,10 +256,24 @@ public:
             const auto *entry = track(sector);
             cdb[9] = audio || (entry && !(entry->attr & 0x40)) ? 0x10 : 0xf8;
         } else {
-            cdb[0] = 0x28; put32(cdb + 2, sector); cdb[8] = count; // READ(10)
+            cdb[0] = 0x28; put32(cdb + 2, sector); cdb[8] = transfer; // READ(10)
         }
-        const unsigned bytes = count * (raw || audio ? 2352 : 2048);
-        return command(cdb, raw || audio ? 12 : 10, buffer, bytes) == Result::ok && epoch == generation;
+        const unsigned bytes = transfer * (raw || audio ? 2352 : 2048);
+        void *destination = cooked_data ? data_cache.data() : buffer;
+        const Result result = command(cdb, raw || audio ? 12 : 10, destination, bytes);
+        if (epoch != generation) return false;
+        if (result != Result::ok) {
+            // An unreadable speculative sector or a bridge transfer limit must
+            // not fail the requested sector. Never retry across a media change.
+            if (!cooked_data || transfer == count || result != Result::error || !present) return false;
+            transfer = count; cdb[8] = count;
+            if (command(cdb, 10, destination, count * 2048) != Result::ok || epoch != generation) return false;
+        }
+        if (cooked_data) {
+            cached_sector = sector; cached_count = transfer;
+            memcpy(buffer, data_cache.data(), count * 2048);
+        }
+        return true;
     }
     bool eject(bool unload)
     {

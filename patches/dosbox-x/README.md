@@ -42,6 +42,16 @@ success. It refreshes C:'s DOS directory cache so subsequent listings see new
 captures, logs write/close/sync failures, and closes files on PNG initialization
 failure. Standalone runs keep normal filesystem buffering.
 
+`0042-preserve-fullscreen-mouse-capture.patch` keeps SDL2 fullscreen mouse
+capture enabled across CRT/LCD video changes and makes startup capture
+idempotent. Windows 3.x needs captured relative PS/2 motion, unlike the DOS
+installer's INT 33h positioning.
+
+The USB CD backend also reuses successful status checks for up to 100 ms and
+prefetches up to 32 cooked sectors (64 KiB), bounded by track ends. Media changes
+clear the cache; raw/audio reads bypass it. Cache misses force a fresh status
+check. See [Windows/CD troubleshooting](../../docs/windows31.md).
+
 `0035-remove-unused-dos-utilities.patch` removes LS, TITLE, CAPMOUSE, INTRO,
 SHUTDOWN.COM, BUFFERS.COM, FDISK, CFGTOOL, DSXMENU, EDLIN, COMP, FILES,
 FCBS, LASTDRIV and FLAGSAVE from the bundled Z: drive. Standalone binary

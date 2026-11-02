@@ -33,7 +33,10 @@ using PhysPt = uint32_t;
 static std::atomic<bool> inserted{true}, attention{false}, changed{false}, audio_only{false};
 static std::atomic<bool> short_read{false}, broken_audio{false}, disconnected{false};
 static std::atomic<bool> read_attention{false};
+static std::atomic<bool> reject_prefetch{false};
 static std::atomic<unsigned> audio_reads{0}, opens{0}, closes{0};
+static std::atomic<unsigned> media_checks{0};
+static std::atomic<unsigned> data_reads{0}, data_sectors{0};
 static std::atomic<uint8_t> revision{0x31};
 static bool guest_if = true;
 static void (*audio_callback)(Bitu) = nullptr;
@@ -69,7 +72,7 @@ static int fake_ioctl(int fd, unsigned long command, int)
 {
     assert(fd == 901);
     if (disconnected) { errno = ENODEV; return -1; }
-    if (command == CDROM_MEDIA_CHANGED) return changed.exchange(false) ? 1 : 0;
+    if (command == CDROM_MEDIA_CHANGED) { ++media_checks; return changed.exchange(false) ? 1 : 0; }
     if (command == CDROM_DRIVE_STATUS) return inserted ? CDS_DISC_OK : CDS_TRAY_OPEN;
     if (command == CDROMEJECT || command == CDROMCLOSETRAY) {
         inserted = command == CDROMCLOSETRAY; changed = true; return 0;
@@ -108,6 +111,9 @@ static int fake_ioctl(int fd, unsigned long command, void *argument)
         io->resid = io->dxfer_len - size; return 0; // normal short TOC response
     }
     assert(cdb[0] == 0x28 || cdb[0] == 0xbe);
+    if (cdb[0] == 0x28 && cdb[8] > 1 && reject_prefetch) {
+        io->status = 2; io->sbp[0] = 0x70; io->sbp[2] = 5; return 0;
+    }
     if (cdb[0] == 0xbe && cdb[1] == 4) {
         assert(cdb[9] == 0x10);
         ++audio_reads;
@@ -117,6 +123,7 @@ static int fake_ioctl(int fd, unsigned long command, void *argument)
             data[i + 2] = 0x30; data[i + 3] = 0xf8; // right -2000
         }
     } else {
+        if (cdb[0] == 0x28) { ++data_reads; data_sectors += cdb[8]; }
         memset(data, revision, io->dxfer_len);
     }
     if (short_read) io->resid = 1;
@@ -180,6 +187,9 @@ static bool MSCDEX_GetVolumeName(int, char *label) { sprintf(label, "DISC%02X", 
 static void Set_Label(const char *source, char *destination, bool) { strcpy(destination, source); }
 #include "test-cdrom-media.h"
 
+static void media_poll_due()
+{ std::this_thread::sleep_for(std::chrono::milliseconds(110)); }
+
 int main(int argc, char **argv)
 {
     assert(argc == 2);
@@ -196,18 +206,33 @@ int main(int argc, char **argv)
         cd.GetMediaTrayStatus(present, change, tray);
         assert(present && change && !tray);
         const uint64_t epoch = cd.MediaGeneration();
+        const auto checks = media_checks.load();
+        for (unsigned i = 0; i < 50; ++i) {
+            cd.GetMediaTrayStatus(present, change, tray);
+            assert(present && !change);
+        }
+        assert(media_checks == checks); // cached directory/status queries do no USB I/O
+        media_poll_due();
         cd.GetMediaTrayStatus(present, change, tray);
-        assert(present && !change);
+        assert(media_checks > checks); // successful status expires even without reads
         int first, last; TMSF lead, begin; unsigned char attr;
         assert(cd.GetAudioTracks(first, last, lead) && first == 1 && last == 2);
         assert(lead.sec == 3 && lead.fr == 15); // LBA 90 + 150
         assert(cd.GetAudioTrackInfo(2, begin, attr) && !(attr & 0x40) && begin.sec == 2 && begin.fr == 40);
         assert(cd.ReadSectors(0, false, 16, 1) && memory[0] == 0x31);
+        const auto reads = data_reads.load(), sectors = data_sectors.load();
+        assert(sectors == 24); // prefetch stops before the audio track at LBA 40
+        for (unsigned sector = 17; sector < 40; ++sector)
+            assert(cd.ReadSectors(0, false, sector, 1) && memory[0] == 0x31);
+        assert(data_reads == reads); // sequential file reads reuse one physical transfer
         assert(cd.ReadSectors(0, true, 16, 1));
         short_read = true;
         std::fill(memory.begin(), memory.end(), 0);
-        assert(!cd.ReadSectors(0, false, 16, 1) && memory[0] == 0);
+        assert(!cd.ReadSectors(0, false, 0, 1) && memory[0] == 0);
         short_read = false;
+        reject_prefetch = true;
+        assert(cd.ReadSectors(0, false, 0, 1) && memory[0] == 0x31);
+        reject_prefetch = false;
         assert(!cd.ReadSectors(0, false, 89, 2));
         assert(cd.ReadSectors(0, false, 0, 0));
         assert(!cd.PlayAudioSector(0, 10)); // data tracks must never become noise
@@ -241,6 +266,7 @@ int main(int argc, char **argv)
         strcpy(dos_drive.curdir, "OLD_DIR");
         // Equal-length disc swap: unit attention, not the lead-out, changes identity.
         revision = 0x52; attention = true;
+        media_poll_due();
         cd.GetMediaTrayStatus(present, change, tray);
         assert(present && change && cd.MediaGeneration() != epoch);
         size = sizeof(data);
@@ -249,7 +275,8 @@ int main(int argc, char **argv)
         assert(dos_drive.sharing_media != sharing_media);
         isoFile new_file(&dos_drive); size = sizeof(data);
         assert(new_file.Read(data, &size) && data[0] == 0x52);
-        isoFile interrupted_file(&dos_drive); size = sizeof(data); read_attention = true;
+        isoFile interrupted_file(&dos_drive); interrupted_file.filePos = 0;
+        size = sizeof(data); read_attention = true;
         assert(!interrupted_file.Read(data, &size)); // media change during sector I/O
         assert(cd.PlayAudioSector(40, 16));
         assert(cd.ReadSectors(0, false, 16, 1) && memory[0] == 0x52);
@@ -271,6 +298,7 @@ int main(int argc, char **argv)
         assert(!playing); // unsupported READ CD fails cleanly, no drive-play fallback
         broken_audio = false;
         disconnected = true;
+        media_poll_due();
         cd.GetMediaTrayStatus(present, change, tray);
         assert(!present);
         disconnected = false;

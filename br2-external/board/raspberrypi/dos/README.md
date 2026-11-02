@@ -31,6 +31,11 @@ the system's environment defaults. The build packages a CRLF copy as
 `/pi-dos/AUTOEXEC.BAT`. Fresh images and writable boots create `C:\AUTOEXEC.BAT`
 only when missing, preserving existing files and customizations.
 
+`CONFIG.SYS` is also seeded as a writable file on C: only when missing. PID 1
+imports supported DOS directives on each boot, and the runtime registers C:
+before processing configuration commands. See [CONFIG.SYS support](../../../../docs/config-sys.md)
+for supported settings, driver loading and limitations.
+
 ## ARJ
 
 `ARJ.EXE` is the user's MS-DOS ARJ 2.41 binary, copied from

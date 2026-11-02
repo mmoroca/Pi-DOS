@@ -275,16 +275,19 @@ static bool make_config(enum storage storage, const char *user_config)
     while (fgets(buffer, sizeof(buffer), input)) fputs(buffer, output);
     bool valid = !ferror(input);
     fclose(input);
+    /* C: must exist while CONFIG drivers are loaded, before AUTOEXEC starts. */
+    fputs("\n[devices]\nRUN=Z:\\SYSTEM\\PISYSTEM.COM\n", output);
     fputs("\n[autoexec]\n@ECHO OFF\n", output);
     fprintf(output, "SET PIDOS_CPU_DEFAULT=%s\n", cpu_profiles[pi_dos_cpu_profile()].id);
-    fputs("Z:\\SYSTEM\\PISYSTEM.COM\n", output);
     fputs("Z:\\SYSTEM\\PIFLOPPY.COM\n", output);
     fputs("Z:\\SYSTEM\\PICDROM.COM\n", output);
     fputs("Z:\\SYSTEM\\PIUSB.COM\n", output);
     bool drive_c = storage != NO_STORAGE && !access("/dosdata", R_OK | X_OK);
     if (drive_c) {
         fputs("C:\n", output);
-        fputs("SET PATH=C:\\PROGRAMS\\TOOLS;C:\\SYSTEM;Z:\\;Z:\\SYSTEM;Z:\\DOS;Z:\\BIN;Z:\\TEXTUTIL;Z:\\DEBUG;Z:\\PATCHING;Z:\\4DOS\n", output);
+        /* Network startup adds 27 characters. Leave room below DOS Setup's
+         * 127-character limit for Windows and user-installed programs. */
+        fputs("SET PATH=C:\\PROGRAMS\\TOOLS;C:\\SYSTEM;Z:\\;Z:\\SYSTEM;Z:\\DOS;Z:\\BIN;Z:\\TEXTUTIL\n", output);
         struct stat temporary;
         if (storage == READ_WRITE && !stat("/dosdata/TEMP", &temporary) &&
             S_ISDIR(temporary.st_mode) && !access("/dosdata/TEMP", W_OK | X_OK))
@@ -411,6 +414,7 @@ int main(void)
     prepare_dos_folders(storage);
     seed_user_file(storage, "/pi-dos/PIDOS.CFG", USER_CONFIG_PATH);
     seed_user_file(storage, "/pi-dos/AUTOEXEC.BAT", "/dosdata/AUTOEXEC.BAT");
+    seed_user_file(storage, "/pi-dos/CONFIG.SYS", "/dosdata/CONFIG.SYS");
     seed_user_file(storage, "/pi-dos/NETWORK.TXT", "/dosdata/DOCS/NETWORK.TXT");
     const char *midi_assets[] = {"SC55.SF2", "GMROLAND.SF2", "MT32/MT32_CONTROL.ROM", "MT32/MT32_PCM.ROM",
                                 "CM32L/CM32L_CONTROL.ROM", "CM32L/CM32L_PCM.ROM"};
@@ -450,6 +454,7 @@ int main(void)
      * resolving MIDI and freezing its status into the boot table. */
     if ((user_config && (!pi_dos_runtime_config(user_config, "/run/pidos-user.conf") ||
                          !pi_dos_midi_prepare(user_config, "/run/pidos-user.conf", MIDI_ASSET_ROOT))) ||
+        !pi_dos_config_sys(storage == NO_STORAGE ? NULL : "/dosdata/CONFIG.SYS", "/run/pidos-dos.conf") ||
         !make_config(storage, user_config) ||
         !pi_dos_video_prepare(user_config, "/run/pidos-video.conf")) {
         dprintf(2, "Pi-DOS: runtime configuration failed\n");
@@ -482,7 +487,7 @@ int main(void)
             dprintf(2, "Pi-DOS: runtime directory unavailable: %s\n", strerror(errno));
             _exit(127);
         }
-        char *arguments[14] = {"pi-dos", "-defaultmapper", "-nopromptfolder",
+        char *arguments[16] = {"pi-dos", "-defaultmapper", "-nopromptfolder",
                               "-defaultdir", "/pi-dos", "-conf", "/run/pi-dos.conf"};
         size_t argc = 7;
         /* User hardware settings override defaults, and user [autoexec]
@@ -491,6 +496,9 @@ int main(void)
             arguments[argc++] = "-conf";
             arguments[argc++] = "/run/pidos-user.conf";
         }
+        /* The writable DOS startup file overrides supported [config] defaults. */
+        arguments[argc++] = "-conf";
+        arguments[argc++] = "/run/pidos-dos.conf";
         /* Managed monitor profiles take precedence over low-level display settings. */
         arguments[argc++] = "-conf";
         arguments[argc++] = "/run/pidos-video.conf";

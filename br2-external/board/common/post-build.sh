@@ -66,11 +66,12 @@ text = ('# Pi-DOS persistent configuration. Changes take effect after reboot.\n'
         + source.read_text())
 destination.write_bytes(text.replace('\n', '\r\n').encode('ascii'))
 PY
-python3 - "$project/br2-external/board/raspberrypi/dos/AUTOEXEC.BAT" "$target/pi-dos/AUTOEXEC.BAT" <<'PY'
+python3 - "$project/br2-external/board/raspberrypi/dos" "$target/pi-dos" <<'PY'
 from pathlib import Path
 import sys
 source, destination = map(Path, sys.argv[1:])
-destination.write_bytes(source.read_text().replace('\n', '\r\n').encode('ascii'))
+for name in ('AUTOEXEC.BAT', 'CONFIG.SYS'):
+    (destination / name).write_bytes((source / name).read_text().replace('\n', '\r\n').encode('ascii'))
 PY
 install -D -m 0644 "$project/br2-external/board/raspberrypi/dos/ARJ.EXE" \
     "$target/pi-dos/drivez/BIN/ARJ.EXE"
