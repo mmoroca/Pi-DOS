@@ -6,6 +6,7 @@ help:
 	@echo 'make image-diagnostic - build an image with boot/runtime/network/video logs on C:'
 	@echo 'make dos-config - rebuild PIDOSCFG.EXE (requires Open Watcom)'
 	@echo 'make windows-video DRIVERS=/path/to/DRIVERS - build the Win3.1 S3/ET4000 installer'
+	@echo 'make windows-drivers DRIVERS=/path/to/DRIVERS - build unified Win3.1 driver/configuration app'
 	@echo 'make demos - fetch and package the curated DOS demoscene pack with text menu'
 	@echo 'make fetch   - fetch and verify pinned Phase 0 sources'
 	@echo 'make sdl2    - build private native SDL2 with required backends'
@@ -41,7 +42,9 @@ smoke-keyboard:
 smoke-audio:
 	python3 tools/phase0/audio.py
 
-.PHONY: image-config image image-diagnostic dos-config demos windows-video
+.PHONY: image-config image image-diagnostic dos-config demos windows-video windows-drivers
+windows-drivers: windows-video
+
 windows-video:
 	bash tools/windows/build-video.sh "$(DRIVERS)"
 

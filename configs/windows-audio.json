@@ -1,0 +1,117 @@
+{
+  "drivers": [
+    {
+      "id": "SB2",
+      "card": 4,
+      "enabled": true,
+      "label": "Sound Blaster 2.0",
+      "release": "Creative Windows 3.1 drivers, 15 May 1992",
+      "archive": "SBW31.EXE",
+      "url": "https://files.mpoli.fi/hardware/SOUND/CLABS/SBW31.EXE",
+      "sha256": "e08e503ac172ccc401cc5b741324b569b62788f6061fa4a5f1bf464a25481938",
+      "method": "native",
+      "wave": "SB20SND.DRV",
+      "fm": "SBFM.DRV",
+      "aux": "",
+      "compatibility_sources": [
+        "https://ftp.zx.net.nz/pub/archive/ftp.microsoft.com/MISC/KB/en-us/124/944.HTM"
+      ],
+      "validation": "Original vendor Windows 3.1 driver for this card; new Pi-DOS installation path and playback require guest validation."
+    },
+    {
+      "id": "PRO2",
+      "card": 5,
+      "enabled": true,
+      "label": "Sound Blaster Pro 2",
+      "release": "Creative Windows 3.1 drivers, 15 May 1992",
+      "archive": "SBP2W31.EXE",
+      "url": "https://files.mpoli.fi/hardware/SOUND/CLABS/SBP2W31.EXE",
+      "sha256": "3fc28bc4c1afc2a6a967c0a465e25e02eb31322364660ea47bb95c5a41722928",
+      "method": "native",
+      "wave": "SBPSND.DRV",
+      "fm": "SBP2FM.DRV",
+      "aux": "SBPAUX.DRV",
+      "compatibility_sources": [
+        "https://ftp.zx.net.nz/pub/archive/ftp.microsoft.com/MISC/KB/en-us/124/944.HTM"
+      ],
+      "validation": "Original vendor Windows 3.1 driver for this card; new Pi-DOS installation path and playback require guest validation."
+    },
+    {
+      "id": "SB16",
+      "card": 6,
+      "enabled": true,
+      "label": "Sound Blaster 16",
+      "release": "Creative Windows 3.1 driver update, 1993",
+      "archive": "SB16WU.ZIP",
+      "url": "https://files.mpoli.fi/hardware/SOUND/CLABS/SB16WU.ZIP",
+      "sha256": "0aedb5c094ba2092a561958324db7d8b1af45ec8f2b9b6685897558bf445b96a",
+      "method": "native",
+      "wave": "SB16SND.DRV",
+      "fm": "SB16FM.DRV",
+      "aux": "SB16AUX.DRV",
+      "compatibility_sources": [
+        "https://ftp.zx.net.nz/pub/archive/ftp.microsoft.com/MISC/KB/en-us/124/944.HTM"
+      ],
+      "validation": "Original vendor Windows 3.1 driver for this card; new Pi-DOS installation path and playback require guest validation.",
+      "nested": "sb16wu.exe"
+    },
+    {
+      "id": "GUS",
+      "card": 7,
+      "enabled": true,
+      "label": "Gravis UltraSound Classic",
+      "release": "Gravis 4.11 / GF1 Windows driver 5.51",
+      "archive": "GUS411CD.ZIP",
+      "url": "https://gona.mactar.hu/GRAVIS/GF1/GUS411CD.ZIP",
+      "sha256": "7a7fc5a97956fbc628d7c2914bd6512e7775884dd32b4462b0752a4d9e9f95b7",
+      "method": "dos",
+      "wave": "",
+      "fm": "",
+      "aux": "",
+      "compatibility_sources": [
+        "https://www.infania.net/misc/gona/GRAVIS/index.html",
+        "https://github.com/dosbox-staging/dosbox-staging/wiki/Windows-3.1x#gravis-ultrasound"
+      ],
+      "validation": "Original vendor Windows 3.1 driver for this card; new Pi-DOS installation path and playback require guest validation."
+    },
+    {
+      "id": "SPEAKER",
+      "card": -1,
+      "enabled": true,
+      "label": "PC speaker",
+      "release": "Microsoft Windows 3.1 Driver Library, 1992",
+      "archive": "SPEAK.EXE",
+      "url": "https://www.infania.net/misc/win31files/files/speak.exe",
+      "sha256": "d1b8a357bc65b467b7a96e0edb76816e48705db1c62a0f7dd7eb744196e317e4",
+      "method": "native",
+      "wave": "SPEAKER.DRV",
+      "fm": "",
+      "aux": "",
+      "compatibility_sources": [
+        "https://www.betaarchive.com/wiki/index.php/Microsoft_KB_Archive/138857",
+        "https://www.dosbox.com/wiki/Sound"
+      ],
+      "validation": "Original vendor Windows 3.1 driver for this card; new Pi-DOS installation path and playback require guest validation."
+    }
+  ],
+  "builtin": [
+    {
+      "id": "ADLIB",
+      "card": 2,
+      "driver": "MSADLIB.DRV",
+      "source": "Windows 3.1 installation media",
+      "evidence": "https://www.betaarchive.com/wiki/index.php/Microsoft_KB_Archive/85659"
+    }
+  ],
+  "unavailable": [
+    {
+      "id": "CMS",
+      "reason": "No confirmed compatible Windows 3.x driver located."
+    },
+    {
+      "id": "TANDY",
+      "reason": "No confirmed compatible Windows 3.x driver located."
+    }
+  ],
+  "policy": "Package original Windows 3.1 drivers for each supported card when vendor documentation establishes support. Pin public archives. Distinguish vendor compatibility from Pi-DOS guest validation."
+}

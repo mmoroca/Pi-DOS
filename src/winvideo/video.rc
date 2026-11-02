@@ -4,8 +4,70 @@
 IDI_VIDEO ICON "video.ico"
 STRINGTABLE
 BEGIN
-    IDS_NAME "Pi-DOS Display"
-    IDS_INFO "S3 and ET4000 resolution, colours and fonts"
+    IDS_NAME "Pi-DOS Configuration"
+    IDS_INFO "Display, audio drivers and Pi-DOS settings"
+END
+
+IDD_CONTROL DIALOG 0, 0, 270, 174
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Pi-DOS Configuration"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT "Configure Windows drivers and Pi-DOS from one place.", -1, 10, 10, 250, 12
+    PUSHBUTTON "&Display...", IDC_DISPLAY, 10, 34, 86, 20
+    LTEXT "S3 / ET4000 resolution, colours and system fonts.", -1, 104, 37, 152, 20
+    PUSHBUTTON "&Audio and MIDI...", IDC_AUDIO, 10, 65, 86, 20
+    LTEXT "Existing Windows audio drivers and MIDI mapping.", -1, 104, 68, 152, 20
+    PUSHBUTTON "&Pi-DOS settings...", IDC_OPTIONS, 10, 96, 86, 20
+    LTEXT "CPU, memory, sound cards, mixer, input, network and system.", -1, 104, 96, 152, 26
+    PUSHBUTTON "Restore Windows &INIs...", IDC_RESTORE, 10, 139, 117, 14
+    DEFPUSHBUTTON "Close", IDCANCEL, 207, 139, 50, 14
+END
+
+IDD_OPTIONS DIALOG 0, 0, 300, 237
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Pi-DOS settings"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT "&Category:", -1, 10, 10, 50, 10
+    COMBOBOX IDC_PAGE, 65, 8, 223, 105, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LISTBOX IDC_FIELDS, 10, 33, 278, 110, LBS_NOTIFY | WS_VSCROLL | WS_TABSTOP | WS_BORDER
+    PUSHBUTTON "&Edit...", IDC_EDIT, 10, 149, 50, 14
+    PUSHBUTTON "&Defaults", IDC_DEFAULTS, 67, 149, 50, 14
+    LTEXT "", IDC_HELP, 10, 170, 278, 27
+    LTEXT "Save changes, exit Windows and reboot Pi-DOS to apply.", -1, 10, 199, 278, 10
+    DEFPUSHBUTTON "Save", IDOK, 181, 218, 50, 14
+    PUSHBUTTON "Close", IDCANCEL, 238, 218, 50, 14
+END
+
+IDD_VALUE DIALOG 0, 0, 280, 185
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Edit setting"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT "", IDC_HELP, 10, 8, 260, 27
+    COMBOBOX IDC_VALUES, 10, 40, 260, 105, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    EDITTEXT IDC_VALUE, 10, 65, 260, 14, ES_AUTOHSCROLL | WS_TABSTOP | WS_BORDER
+    LTEXT "", IDC_STATUS, 10, 91, 260, 55
+    DEFPUSHBUTTON "OK", IDOK, 163, 159, 50, 14
+    PUSHBUTTON "Cancel", IDCANCEL, 220, 159, 50, 14
+END
+
+IDD_AUDIO DIALOG 0, 0, 300, 256
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Audio and MIDI - Pi-DOS Configuration"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT "", IDC_AUDIO_INFO, 10, 10, 280, 58
+    LTEXT "Windows &driver:", -1, 10, 76, 70, 10
+    COMBOBOX IDC_AUDIO_CARD, 84, 74, 205, 100, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON "&Install selected driver...", IDC_INSTALL_AUDIO, 10, 101, 140, 17
+    PUSHBUTTON "&Configure installed audio...", IDC_CONFIG_AUDIO, 10, 125, 140, 17
+    PUSHBUTTON "Windows &MIDI Mapper...", IDC_MIDI_MAP, 10, 149, 140, 17
+    PUSHBUTTON "Windows &Drivers...", IDC_WINDOWS_DRIVERS, 158, 149, 131, 17
+    PUSHBUTTON "Pi-DOS sound &settings...", IDC_OPTIONS, 10, 173, 140, 17
+    LTEXT "SB2, SB Pro 2, SB16 and PC speaker install in Windows. Gravis runs its original installer after closing Windows.", -1, 10, 202, 280, 24
+    DEFPUSHBUTTON "Close", IDCANCEL, 239, 233, 50, 14
 END
 
 IDD_VIDEO DIALOG 0, 0, 270, 212

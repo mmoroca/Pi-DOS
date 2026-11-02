@@ -1,0 +1,14 @@
+#include <windows.h>
+#include "video.h"
+
+IDD_SETUP DIALOG 0, 0, 302, 128
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Pi-DOS Configuration Setup"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT "Install Pi-DOS Windows drivers and configuration controls in Control Panel?", -1, 12, 12, 278, 27
+    LTEXT "Install / Reinstall replaces previous Pi-DOS configuration applets. Existing driver settings and backups are kept.", -1, 12, 46, 278, 28
+    DEFPUSHBUTTON "&Install / Reinstall", IDOK, 12, 98, 106, 18
+    PUSHBUTTON "&Uninstall...", IDC_UNINSTALL, 127, 98, 87, 18
+    PUSHBUTTON "Close", IDCANCEL, 223, 98, 67, 18
+END

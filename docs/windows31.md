@@ -8,28 +8,129 @@ Windows installation media must be supplied by the user. These source changes
 require a rebuilt Pi-DOS image; physical CD timing and Windows mouse operation
 still need confirmation on the Pi.
 
-## Native S3 / ET4000 installer and Control Panel applet
+## Unified Windows driver and Pi-DOS configuration application
 
-The optional Pi-DOS Display package supplies a native 16-bit Windows installer
-and a `Pi-DOS Display` Control Panel applet for Windows 3.1/3.11 and Windows for
-Workgroups in 386 Enhanced Mode. It uses user-supplied vendor drivers; it does
-not implement a new graphics driver. No Win32s installation is needed.
+Pi-DOS Configuration supplies a native 16-bit Windows installer and one
+Control Panel entry for Windows 3.1/3.11 and Windows for Workgroups in 386
+Enhanced Mode. Its main window opens Display, Audio/MIDI, and Pi-DOS settings.
+No Win32s is needed. The applet is named `PIDOS.CPL`. Setup automatically
+removes the previous `PIVIDEO.CPL`, leaving one Control Panel entry.
 
-Build it with the existing Open Watcom toolchain and extracted driver folders
-named `S3` and `ET4`:
+Build with Open Watcom and extracted video folders named `S3` and `ET4`:
 
 ```sh
-make windows-video DRIVERS=/home/rtomas/Descargas/DOSBOX/DRIVERS
+python3 tools/windows/package-audio.py --fetch
+make windows-drivers DRIVERS=/home/rtomas/Descargas/DOSBOX/DRIVERS
 python3 tools/windows/check-video.py
+python3 tools/dos/test-config.py
 ```
 
-Output: `output/windows-video/PIDOSVID.ZIP`. Extract the complete `PIDOSVID`
-folder to the data partition, for example `C:\DRIVERS\PIDOSVID`. In Windows
-Program Manager, choose File → Run and enter
-`C:\DRIVERS\PIDOSVID\SETUP.EXE`. Select the matching adapter, resolution,
-colour depth and small/large fonts, then Apply. Save work, exit Windows
-completely and start it again. Close and reopen Control Panel to find the
-new applet. The source folder is no longer required after installation.
+Output: `output/windows-video/PIDOSDRV.ZIP`. `PIDOSVID.ZIP` is a compatibility
+copy and `make windows-video` remains an alias. Extract the full `PIDOSDRV`
+folder to `C:\DRIVERS\PIDOSDRV`, keeping `SETUP.EXE`, `PIDINST.DLL` and
+`PIDOS.CPL` together. Run `C:\DRIVERS\PIDOSDRV\SETUP.EXE` inside Windows and
+choose **Install / Reinstall**. The opening prompt reads: "Install Pi-DOS
+Windows drivers and configuration controls in Control Panel?"
+
+Setup replaces a previous `PIDOS.CPL` and removes `PIVIDEO.CPL` automatically.
+If an applet is loaded, close Control Panel and Pi-DOS Configuration, then
+click Retry. Reopen Control Panel after installation. The installer runs
+under the separate module name `PIDINST`, so Windows cannot return the older
+cached applet when Setup loads its installation code. Manual replacement
+from DOS is no longer required for an ordinary upgrade.
+
+Setup also offers **Uninstall** (`SETUP.EXE /UNINSTALL` on the command line).
+It removes both applet names while retaining installed vendor drivers,
+audio caches, Windows INIs, Pi-DOS settings and backups. Install / Reinstall
+can then add the controls again. Applet replacement uses a staged `PIDOS.NEW`
+and temporary `PIDOS.OLD` / `PIVIDEO.OLD` backups with rollback. Interrupted
+recovery files are retained and block another replacement until recovered.
+Host checks exercise fresh install, legacy migration, reinstall, uninstall
+and rollback after failures while moving the previous applets or installing
+the replacement. Actual Windows guest upgrade/uninstall still needs checking.
+
+### Shared Pi-DOS settings
+
+The native settings page reuses `src/doscfg/config.c` and the DOS form
+descriptions, covering CPU, Memory, Video, Sound, Mixer, Input, Network and
+System. Select a setting, Edit, then Save. The shared save engine preserves
+comments and unrelated edits, validates resources and keeps
+`C:\SYSTEM\PIDOS.BAK`. These changes require a Pi-DOS reboot. Mixer settings
+save boot levels without a live volume preview. External USB MIDI discovery
+remains in DOS PIDOSCFG; its saved destination identity can be retained/edited
+in the Windows MIDI settings page. Keyboard/country/timezone catalogs come
+from `Z:\BIN`.
+
+### Existing Windows audio drivers
+
+The shared Audio and MIDI page selects and installs existing Windows 3.1
+sound drivers. Public archives, hashes, vendor card mappings and source
+references are recorded in `configs/windows-audio.json`. No new audio driver
+is implemented. Original packages establish Windows support; the new
+Pi-DOS installation paths and playback still require guest validation.
+
+| Pi-DOS device | Windows installation from the shared application |
+| --- | --- |
+| Sound Blaster 2.0 | Native install of Creative SBW31 / SB20SND + SBFM |
+| Sound Blaster Pro 2 | Native install of Creative SBP2W31 / SBPSND + SBP2FM + SBPAUX |
+| Sound Blaster 16 | Native install of Creative SB16WU / SB16SND + SB16FM + SB16AUX |
+| Gravis UltraSound Classic / GF1 | Launch original Gravis 4.11 installer after closing Windows |
+| AdLib | Open Windows Drivers / Add / Ad Lib; Windows installation disks may be requested |
+| PC speaker | Native install of Microsoft's SPEAK / SPEAKER.DRV (wave playback) |
+| Game Blaster / CMS, Tandy | Explicitly unavailable: no confirmed compatible Windows 3.x package located |
+
+[Microsoft's card/driver table](https://ftp.zx.net.nz/pub/archive/ftp.microsoft.com/MISC/KB/en-us/124/944.HTM)
+identifies SBW31 for SB2 and SBP2W31 for the CT1600 Pro 2. Each Creative
+package also includes its original OEMSETUP.INF and installation README.
+[Gravis' archived support page](https://www.infania.net/misc/gona/GRAVIS/index.html)
+identifies 4.11 as GF1 Windows 3.1/3.11 software, including Windows driver
+5.51; [DOSBox Staging's guide](https://github.com/dosbox-staging/dosbox-staging/wiki/Windows-3.1x#gravis-ultrasound)
+documents installing it under emulation. The PnP/InterWave package is not used.
+Microsoft documents the PC speaker package in
+[KB138857](https://www.betaarchive.com/wiki/index.php/Microsoft_KB_Archive/138857).
+
+Setup caches all packages below `WINDOWS\PIDOSAUD`, so the extracted source
+folder can subsequently be removed. SB16WU uses the `SB16WU` cache folder,
+leaving an older full SB16 installer cache intact. In Pi-DOS settings choose
+the emulated card, save and reboot Pi-DOS first. Reopen Audio and MIDI, choose
+the corresponding Windows driver and click **Install selected driver**.
+The Creative and Gravis paths check the running BLASTER/ULTRASND resources
+against saved settings. SB Pro 2 uses BLASTER type 5, SB2 type 3 and SB16 type 6.
+
+Native installation copies the selected vendor drivers and supporting DLLs
+into Windows SYSTEM, applies the vendor-documented driver aliases and
+I/O/IRQ/DMA resource keys to staged INIs, and commits using the existing
+rollback transaction. SB Pro's mixer is also copied. Existing different
+binaries are never overwritten; use Windows Drivers / Add / Unlisted with
+the cached OEM disk for a vendor upgrade. VSBPD.386 is referenced in its
+card-specific cache folder. The installer replaces only legacy sound VxD
+entries and preserves repeated unrelated `device=` entries. Existing MIDI
+maps are preserved. Restart Windows after installation, then select or
+create the desired FM or external MIDI mapping using Windows MIDI Mapper.
+Windows' common Timer, MIDI Mapper, MCI Sound and MCI MIDI Sequencer files
+must already be installed; the Windows Drivers button provides their normal
+installation UI and can request the user's Windows disks.
+
+For Gravis, save work before continuing: `ExitWindowsExec` closes Windows,
+runs the original DOS installer and restarts Windows when it returns. Install
+into the displayed `ultradir`, use Custom Setup to update the displayed Windows
+directory, and use the shown I/O/IRQ/DMA settings. Do not install SBOS or
+Mega-Em emulation. After restart, choose the appropriate Ultra MIDI map
+(e.g. Ultra 1024K for the default 1 MB card). The DOS helper preserves root
+`AUTOEXEC.BAT` and `CONFIG.SYS`, since Pi-DOS already initializes DOS hardware.
+Windows and installed Gravis patch files are retained. Interrupted recovery
+state is kept and blocks another run.
+
+Focused checks cover package integrity, executable format, sound VxD
+preservation and staged INI rollback. The actual DOS helper was also exercised
+under the packaged ARM64 runtime using a harmless substitute installer:
+`python3 tools/windows/check-audio-run.py --sdl-library-path PATH`.
+This checks startup-file recovery, not the real Gravis installer or playback.
+
+### Windows display modes
+
+The existing Display page retains its mode and font controls. Apply, save
+work, exit Windows completely and start it again to use the selected mode.
 
 The build reads `dac-crt.bin`, validates its checksums and intersects its
 advertised sizes with the vendor OEM mode lists. The current intersection
@@ -48,9 +149,9 @@ runtime's default); video memory must also be sufficient for the chosen mode.
 These are driver mode choices, not guarantees of physical monitor timing.
 Host refresh selection and CRT/LCD configuration remain Pi-DOS settings.
 
-Change the emulated video card in PIDOSCFG and reboot Pi-DOS before selecting
-its Windows driver. The applet checks the saved machine selection when it is
-available and does not alter it. Existing localized Windows font files are
+Change the emulated video card in Pi-DOS settings or DOS PIDOSCFG and reboot
+Pi-DOS before selecting its Windows driver. The Display page checks the saved
+machine selection when it is available and does not alter it. Existing localized Windows font files are
 retained; missing fonts come from the supplied English packages. DBCS Windows
 is outside this package's scope.
 
@@ -71,14 +172,15 @@ The build manifest records source/payload hashes and the EDID hash.
 
 Host checks cover the catalogue, decompression, NE executable types and
 exports, and the actual C configuration transaction including a forced failure
-after the first file is committed. **Windows 3.1 UI, driver startup, mode
-switches, DOS sessions and physical Pi display validation remain pending.**
+after the first file is committed. The prior display applet and directory fix
+were user-confirmed working. **The shared Windows UI and real audio installation
+and playback still need Pi validation.**
 Use a copy of the Windows installation for the first guest validation. The
 [package instructions](../src/winvideo/README.TXT) include recovery and removal.
 
 If Apply reports `Could not create directory: C:\WINDOWS\PVIDBACK` with an
-older applet, update `WINDOWS\SYSTEM\PIVIDEO.CPL` from the rebuilt package
-while Windows is closed. The original directory check only accepted `EEXIST`;
+older applet, run the rebuilt `SETUP.EXE` and choose Install / Reinstall.
+Setup migrates `PIVIDEO.CPL` to `PIDOS.CPL`. The original directory check only accepted `EEXIST`;
 DOS can instead return error 5 (mapped to `EACCES`) for an existing directory.
 The updated check verifies directory attributes, rejects a conflicting regular
 file and includes DOS/runtime error codes on a genuine creation failure.

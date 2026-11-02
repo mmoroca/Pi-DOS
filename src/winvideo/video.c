@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include "video.h"
 #include "transaction.h"
+#include "applet.h"
 
 typedef struct { const char *file, *section, *key, *value; } PvOp;
 typedef struct {
@@ -34,6 +35,7 @@ typedef struct {
 static HINSTANCE module;
 static int busy;
 static char windir[144], sysdir[144], error_text[512];
+static char installer_source[144];
 static const char *ini_names[] = {"SYSTEM.INI", "WIN.INI", "PROGMAN.INI"};
 static char io_buffer[4096], compare_buffer[4096];
 static int selected_adapter, selected_width, selected_height, selected_depth, selected_dpi;
@@ -54,7 +56,7 @@ static int path_join(char *out, const char *directory, const char *file)
 
 static void report(HWND owner)
 {
-    MessageBox(owner, error_text, "Pi-DOS Display", MB_OK | MB_ICONSTOP);
+    MessageBox(owner, error_text, "Pi-DOS Configuration", MB_OK | MB_ICONSTOP);
 }
 
 static int exists(const char *path)
@@ -222,7 +224,7 @@ static int verify_payload(const char *adapter)
     }
     return 1;
 missing:
-    sprintf(error_text, "A required driver file is missing or has the wrong size:\n%s\nRun Pi-DOS Display SETUP.EXE again.", path);
+    sprintf(error_text, "A required driver file is missing or has the wrong size:\n%s\nRun Pi-DOS Windows driver SETUP.EXE again.", path);
     return 0;
 }
 
@@ -458,15 +460,7 @@ BOOL FAR PASCAL __export VideoDialog(HWND dialog, UINT message, WPARAM wparam, L
     if (message == WM_COMMAND) {
         if (wparam == IDCANCEL) { EndDialog(dialog, 0); return TRUE; }
         if (wparam == IDC_RESTORE) {
-            if (MessageBox(dialog, "Restore the INI files from before the last display change?\n"
-                           "This also restores other settings saved in those files at that time.",
-                           "Restore previous settings", MB_OKCANCEL | MB_ICONQUESTION) == IDOK) {
-                if (restore_snapshot("PVIDLAST")) {
-                    MessageBox(dialog, "Previous settings restored. Exit and start Windows again.",
-                               "Pi-DOS Display", MB_OK | MB_ICONINFORMATION);
-                    EndDialog(dialog, 0);
-                } else report(dialog);
-            }
+            if (pv_restore(dialog)) EndDialog(dialog, 0);
             return TRUE;
         }
         if (wparam == IDOK) {
@@ -503,30 +497,66 @@ static void show_dialog(HWND owner)
 {
     if (busy || !check_windows(owner)) return;
     busy = 1;
-    DialogBox(module, MAKEINTRESOURCE(IDD_VIDEO), owner, VideoDialog);
+    pv_control(owner);
     busy = 0;
 }
 
-void FAR PASCAL __export Install(HWND owner)
+/* Setup runs from PIDINST.DLL so Windows cannot reuse an older, loaded CPL
+ * with the same module name. Other applications must release the applets. */
+static int applets_closed(HWND owner)
+{
+    while (GetModuleHandle("PIVIDEO") || GetModuleHandle("PIDOS")) {
+        if (MessageBox(owner, "Close Control Panel and Pi-DOS Configuration, then click Retry.\n"
+                       "Setup can replace the previous applet once Windows releases it.",
+                       "Pi-DOS Configuration Setup", MB_RETRYCANCEL | MB_ICONEXCLAMATION) != IDRETRY) return 0;
+    }
+    return 1;
+}
+
+static int change_applet(HWND owner, const char *source, int uninstall)
+{
+    char stage[144];
+    int result;
+    if (!applets_closed(owner) || !path_join(stage, sysdir, "PIDOS.NEW")) return 0;
+    if (!uninstall && !copy_file(source, stage)) { report(owner); return 0; }
+    result = pv_applet_commit(sysdir, uninstall);
+    if (result != 1) {
+        strcpy(error_text, result == 0 ?
+               "Could not replace or remove the applet. Previous applets were kept.\n"
+               "Check write access and close Control Panel. If PIDOS.OLD or PIVIDEO.OLD\n"
+               "already exists in WINDOWS\\SYSTEM, recover that earlier installation first." :
+               "Applet recovery could not be completed. Exit Windows and restore\n"
+               "PIDOS.OLD to PIDOS.CPL and PIVIDEO.OLD to PIVIDEO.CPL in WINDOWS\\SYSTEM.");
+        report(owner); return 0;
+    }
+    return 1;
+}
+
+int FAR PASCAL __export Install(HWND owner)
 {
     char source_dir[144], adapter_dir[144], source[144], target[144];
     char *slash;
     unsigned i;
     FILE *file;
     long size;
-    if (busy || !check_windows(owner)) return;
-    if (MessageBox(owner, "Install the S3 Trio64 and Tseng ET4000 drivers and add\n"
-                   "Pi-DOS Display to Control Panel?\n\nExisting Windows font files will be kept.",
-                   "Pi-DOS Display Setup", MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return;
-    if (!GetModuleFileName(module, source_dir, sizeof(source_dir))) return;
-    slash = strrchr(source_dir, '\\');
-    if (!slash) return;
-    *slash = 0;
+    if (busy) {
+        MessageBox(owner, "Close Pi-DOS Configuration before running Setup again.",
+                   "Pi-DOS Configuration Setup", MB_OK | MB_ICONEXCLAMATION);
+        return 0;
+    }
+    if (!check_windows(owner) || !applets_closed(owner)) return 0;
+    if (*installer_source) strcpy(source_dir, installer_source);
+    else {
+        if (!GetModuleFileName(module, source_dir, sizeof(source_dir))) return 0;
+        slash = strrchr(source_dir, '\\');
+        if (!slash) return 0;
+        *slash = 0;
+    }
     /* Preflight every source and every existing non-font binary before copying. */
     for (i = 0; i < FILE_COUNT; ++i) {
         if (!path_join(adapter_dir, source_dir, payloads[i].adapter) ||
                 !path_join(source, adapter_dir, payloads[i].name) ||
-                !path_join(target, payloads[i].system ? sysdir : windir, payloads[i].name)) { report(owner); return; }
+                !path_join(target, payloads[i].system ? sysdir : windir, payloads[i].name)) { report(owner); return 0; }
         file = fopen(source, "rb");
         if (!file) goto missing;
         fseek(file, 0, SEEK_END); size = ftell(file); fclose(file);
@@ -535,30 +565,56 @@ void FAR PASCAL __export Install(HWND owner)
                 !strstr(payloads[i].name, ".INI") && !same_file(source, target)) {
             sprintf(error_text, "A different driver file already exists:\n%s\n"
                     "Install matching vendor drivers through Windows Setup before retrying.\n"
-                    "Pi-DOS Display will not overwrite a driver in use.", target);
-            report(owner); return;
+                    "Pi-DOS Setup will not overwrite a driver in use.", target);
+            report(owner); return 0;
         }
     }
-    if (!path_join(source, source_dir, "PIVIDEO.CPL") || !path_join(target, sysdir, "PIVIDEO.CPL")) { report(owner); return; }
-    if (exists(target) && !same_file(source, target)) {
-        strcpy(error_text, "A different PIVIDEO.CPL is already installed.\n"
-               "Close Control Panel and remove the old applet from DOS before installing this version.");
-        report(owner); return;
-    }
+    if (!path_join(source, source_dir, "PIDOS.CPL")) { report(owner); return 0; }
+    file = fopen(source, "rb");
+    if (!file) goto missing;
+    fclose(file);
+    if (!pv_stage_audio(owner, source_dir)) return 0;
     for (i = 0; i < FILE_COUNT; ++i) {
         path_join(adapter_dir, source_dir, payloads[i].adapter);
         path_join(source, adapter_dir, payloads[i].name);
         path_join(target, payloads[i].system ? sysdir : windir, payloads[i].name);
-        if (!exists(target) && !copy_file(source, target)) { report(owner); return; }
+        if (!exists(target) && !copy_file(source, target)) { report(owner); return 0; }
     }
-    path_join(source, source_dir, "PIVIDEO.CPL"); path_join(target, sysdir, "PIVIDEO.CPL");
-    if (!exists(target) && !copy_file(source, target)) { report(owner); return; }
-    show_dialog(owner);
-    return;
+    path_join(source, source_dir, "PIDOS.CPL");
+    if (!change_applet(owner, source, 0)) return 0;
+    MessageBox(owner, "Pi-DOS Windows drivers and configuration controls are installed.\n"
+               "Previous configuration applets have been replaced.\n"
+               "Open Control Panel and select Pi-DOS Configuration to configure drivers.",
+               "Pi-DOS Configuration Setup", MB_OK | MB_ICONINFORMATION);
+    return 1;
 missing:
     sprintf(error_text, "A driver file is missing or has the wrong size:\n%s\n"
-            "Extract the complete Pi-DOS Display package and retry.", source);
+            "Extract the complete Pi-DOS Windows driver package and retry.", source);
     report(owner);
+    return 0;
+}
+
+int FAR PASCAL __export InstallFrom(HWND owner, LPCSTR source)
+{
+    int result;
+    if (!source || strlen(source) >= sizeof(installer_source)) return 0;
+    strcpy(installer_source, source);
+    result = Install(owner);
+    installer_source[0] = 0;
+    return result;
+}
+
+int FAR PASCAL __export Uninstall(HWND owner)
+{
+    if (busy || !check_windows(owner)) return 0;
+    if (MessageBox(owner, "Remove Pi-DOS Configuration and the previous Pi-DOS Display applet\n"
+                   "from Control Panel?\n\nInstalled vendor drivers, driver caches, Windows settings,\n"
+                   "Pi-DOS settings and recovery backups will be kept.",
+                   "Uninstall Pi-DOS Configuration", MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return 0;
+    if (!change_applet(owner, NULL, 1)) return 0;
+    MessageBox(owner, "Pi-DOS configuration applets have been removed from Control Panel.\n"
+               "Run Setup again to reinstall them.", "Pi-DOS Configuration Setup", MB_OK | MB_ICONINFORMATION);
+    return 1;
 }
 
 LONG FAR PASCAL __export CPlApplet(HWND owner, UINT message, LONG param1, LONG param2)
@@ -579,8 +635,8 @@ LONG FAR PASCAL __export CPlApplet(HWND owner, UINT message, LONG param1, LONG p
         _fmemset(new_info, 0, sizeof(*new_info));
         new_info->dwSize = sizeof(*new_info);
         new_info->hIcon = LoadIcon(module, MAKEINTRESOURCE(IDI_VIDEO));
-        _fstrcpy(new_info->szName, "Pi-DOS Display");
-        _fstrcpy(new_info->szInfo, "S3 and ET4000 resolution, colours and fonts");
+        _fstrcpy(new_info->szName, "Pi-DOS Configuration");
+        _fstrcpy(new_info->szInfo, "Display, audio drivers and Pi-DOS settings");
         return 0;
     }
     return 0;
@@ -596,5 +652,28 @@ int FAR PASCAL LibMain(HINSTANCE instance, WORD data, WORD heap, LPSTR command)
 int FAR PASCAL WEP(int reason)
 {
     (void)reason;
+    return 1;
+}
+
+/* Shared services retain the established display backup/recovery locations. */
+HINSTANCE pv_instance(void) { return module; }
+const char *pv_windows(void) { return windir; }
+const char *pv_system(void) { return sysdir; }
+int pv_path(char *out, const char *directory, const char *file) { return path_join(out, directory, file); }
+int pv_copy(const char *from, const char *to) { return copy_file(from, to); }
+int pv_same(const char *from, const char *to) { return same_file(from, to); }
+int pv_directory(const char *path) { return ensure_directory(path); }
+void pv_report(HWND owner) { report(owner); }
+int pv_backup(void) { return snapshot("PVIDBACK", 1) && snapshot("PVIDLAST", 0) && write_recovery(); }
+void pv_display(HWND owner) { DialogBox(module, MAKEINTRESOURCE(IDD_VIDEO), owner, VideoDialog); }
+int pv_restore(HWND owner)
+{
+    if (MessageBox(owner, "Restore the Windows INI files from before the last driver change?\n"
+                   "This includes other Windows settings saved in those files.\n"
+                   "Pi-DOS hardware settings are kept in PIDOS.CFG and are not restored here.",
+                   "Restore previous Windows settings", MB_OKCANCEL | MB_ICONQUESTION) != IDOK) return 0;
+    if (!restore_snapshot("PVIDLAST")) { report(owner); return 0; }
+    MessageBox(owner, "Previous Windows settings restored. Exit and start Windows again.",
+               "Pi-DOS Configuration", MB_OK | MB_ICONINFORMATION);
     return 1;
 }
