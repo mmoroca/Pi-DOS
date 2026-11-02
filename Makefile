@@ -5,6 +5,7 @@ help:
 	@echo 'make image - build the Raspberry Pi ARM64 SD image (JOBS=4 by default)'
 	@echo 'make image-diagnostic - build an image with boot/runtime/network/video logs on C:'
 	@echo 'make dos-config - rebuild PIDOSCFG.EXE (requires Open Watcom)'
+	@echo 'make windows-video DRIVERS=/path/to/DRIVERS - build the Win3.1 S3/ET4000 installer'
 	@echo 'make demos - fetch and package the curated DOS demoscene pack with text menu'
 	@echo 'make fetch   - fetch and verify pinned Phase 0 sources'
 	@echo 'make sdl2    - build private native SDL2 with required backends'
@@ -40,7 +41,10 @@ smoke-keyboard:
 smoke-audio:
 	python3 tools/phase0/audio.py
 
-.PHONY: image-config image image-diagnostic dos-config demos
+.PHONY: image-config image image-diagnostic dos-config demos windows-video
+windows-video:
+	bash tools/windows/build-video.sh "$(DRIVERS)"
+
 demos:
 	python3 tools/dos/demo-assets.py --fetch --pack output/pi-dos-demos.zip
 

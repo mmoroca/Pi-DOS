@@ -1,0 +1,31 @@
+#include <windows.h>
+#include "video.h"
+
+IDI_VIDEO ICON "video.ico"
+STRINGTABLE
+BEGIN
+    IDS_NAME "Pi-DOS Display"
+    IDS_INFO "S3 and ET4000 resolution, colours and fonts"
+END
+
+IDD_VIDEO DIALOG 0, 0, 270, 212
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Pi-DOS Display"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT "", IDC_CURRENT, 10, 9, 250, 12
+    LTEXT "&Video card:", -1, 10, 30, 75, 10
+    COMBOBOX IDC_ADAPTER, 92, 28, 165, 48, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "&Resolution:", -1, 10, 53, 75, 10
+    COMBOBOX IDC_RESOLUTION, 92, 51, 165, 62, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "&Colours:", -1, 10, 76, 75, 10
+    COMBOBOX IDC_COLOURS, 92, 74, 165, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "System &fonts:", -1, 10, 99, 75, 10
+    COMBOBOX IDC_FONTS, 92, 97, 165, 48, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "", IDC_STATUS, 10, 121, 250, 24
+    LTEXT "Changes take effect the next time Windows starts.", -1, 10, 149, 250, 11
+    PUSHBUTTON "&Restore previous", IDC_RESTORE, 10, 171, 83, 14
+    DEFPUSHBUTTON "Apply", IDOK, 150, 171, 50, 14
+    PUSHBUTTON "Close", IDCANCEL, 207, 171, 50, 14
+    LTEXT "Only resolutions shared by the driver and Pi-DOS EDID.", -1, 10, 194, 250, 10
+END

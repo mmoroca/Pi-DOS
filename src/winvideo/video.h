@@ -1,0 +1,14 @@
+#ifndef PI_DOS_WINVIDEO_H
+#define PI_DOS_WINVIDEO_H
+#define IDD_VIDEO 100
+#define IDI_VIDEO 101
+#define IDS_NAME 102
+#define IDS_INFO 103
+#define IDC_ADAPTER 110
+#define IDC_RESOLUTION 111
+#define IDC_COLOURS 112
+#define IDC_FONTS 113
+#define IDC_CURRENT 114
+#define IDC_RESTORE 115
+#define IDC_STATUS 116
+#endif

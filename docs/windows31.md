@@ -8,6 +8,82 @@ Windows installation media must be supplied by the user. These source changes
 require a rebuilt Pi-DOS image; physical CD timing and Windows mouse operation
 still need confirmation on the Pi.
 
+## Native S3 / ET4000 installer and Control Panel applet
+
+The optional Pi-DOS Display package supplies a native 16-bit Windows installer
+and a `Pi-DOS Display` Control Panel applet for Windows 3.1/3.11 and Windows for
+Workgroups in 386 Enhanced Mode. It uses user-supplied vendor drivers; it does
+not implement a new graphics driver. No Win32s installation is needed.
+
+Build it with the existing Open Watcom toolchain and extracted driver folders
+named `S3` and `ET4`:
+
+```sh
+make windows-video DRIVERS=/home/rtomas/Descargas/DOSBOX/DRIVERS
+python3 tools/windows/check-video.py
+```
+
+Output: `output/windows-video/PIDOSVID.ZIP`. Extract the complete `PIDOSVID`
+folder to the data partition, for example `C:\DRIVERS\PIDOSVID`. In Windows
+Program Manager, choose File → Run and enter
+`C:\DRIVERS\PIDOSVID\SETUP.EXE`. Select the matching adapter, resolution,
+colour depth and small/large fonts, then Apply. Save work, exit Windows
+completely and start it again. Close and reopen Control Panel to find the
+new applet. The source folder is no longer required after installation.
+
+The build reads `dac-crt.bin`, validates its checksums and intersects its
+advertised sizes with the vendor OEM mode lists. The current intersection
+is **640×480, 800×600 and 1024×768**, giving 34 combinations including font
+sizes. It excludes 1152×864, 1280×1024 and 1600×1200. EDID sizes absent from
+the vendor drivers, such as 832×624 and the HD sizes, are also unavailable.
+The compiled catalogue supplies every choice; no arbitrary resolution entry
+is accepted. Rebuild after changing the EDID or vendor package.
+
+S3 offers 256, 32K and 64K colours at all three sizes, plus 16.7M colours
+(32-bit pixels) at 640×480 and 800×600. ET4000 offers 16, 256, 32K and 64K
+colours at 640×480 and 800×600, and 16/256 colours at 1024×768. Its 24-bit
+TrueColor entry is excluded because the emulator's ET4000 DAC implements
+15/16-bit high colour. High colour requires Sierra RAMDAC emulation (the
+runtime's default); video memory must also be sufficient for the chosen mode.
+These are driver mode choices, not guarantees of physical monitor timing.
+Host refresh selection and CRT/LCD configuration remain Pi-DOS settings.
+
+Change the emulated video card in PIDOSCFG and reboot Pi-DOS before selecting
+its Windows driver. The applet checks the saved machine selection when it is
+available and does not alter it. Existing localized Windows font files are
+retained; missing fonts come from the supplied English packages. DBCS Windows
+is outside this package's scope.
+
+Before the first change, `WINDOWS\PVIDBACK` receives the original INI files.
+Before every change, `WINDOWS\PVIDLAST` receives the previous files. The
+applet prepares the new INIs separately and uses the shared C rename
+transaction to install them, rolling back a failed commit. `Restore previous`
+restores the last full INI snapshot, including unrelated settings at that
+time. If Windows cannot start, run `PVRESTOR.BAT` from the Windows directory
+at the DOS prompt, then run `WIN`. There is no automatic timed rollback.
+
+The installer preflights all payloads and refuses to overwrite different
+existing driver binaries. It retains existing fonts and vendor INIs. Files
+are expanded by their SZDD signatures, including ET4 files which retain
+`.DRV`/`.FON` extensions despite being compressed. Vendor binaries are used
+only in the generated local package and are not added to the repository.
+The build manifest records source/payload hashes and the EDID hash.
+
+Host checks cover the catalogue, decompression, NE executable types and
+exports, and the actual C configuration transaction including a forced failure
+after the first file is committed. **Windows 3.1 UI, driver startup, mode
+switches, DOS sessions and physical Pi display validation remain pending.**
+Use a copy of the Windows installation for the first guest validation. The
+[package instructions](../src/winvideo/README.TXT) include recovery and removal.
+
+If Apply reports `Could not create directory: C:\WINDOWS\PVIDBACK` with an
+older applet, update `WINDOWS\SYSTEM\PIVIDEO.CPL` from the rebuilt package
+while Windows is closed. The original directory check only accepted `EEXIST`;
+DOS can instead return error 5 (mapped to `EACCES`) for an existing directory.
+The updated check verifies directory attributes, rejects a conflicting regular
+file and includes DOS/runtime error codes on a genuine creation failure.
+Existing backups and vendor drivers can be retained.
+
 ## Black screen when formatting a floppy in File Manager
 
 The diagnostic log confirmed `E_Exit: Unhandled Dos 21 call 53`. Windows 3.11
