@@ -1,0 +1,73 @@
+Implement INT 21h AH=53h for FAT12/FAT16 disk layouts.
+
+Windows 3.11 File Manager calls this after writing the floppy boot sector.
+The upstream fatal stub terminated the runtime and left a black display.
+Preserve caller-owned DPB linkage and device fields; validate the complete
+layout before writing anything. DOS 3.x and DOS 4+ have different DPB offsets.
+
+--- a/src/dos/dos.cpp
++++ b/src/dos/dos.cpp
+@@ -2462,6 +2462,62 @@
+         case 0x53:                  /* Translate BIOS parameter block to drive parameter block */
+-            E_Exit("Unhandled Dos 21 call %02X",reg_ah);
++        {
++            const PhysPt bpb = SegPhys(ds) + reg_si;
++            const PhysPt dpb = SegPhys(es) + reg_bp;
++            const bool modern = dos.version.major >= 4;
++            /* Read every input before writing: the caller may reuse a buffer.
++             * These are partition-relative counts, not absolute disk LBAs. */
++            const uint32_t bytes = mem_readw(bpb);
++            const uint32_t cluster = mem_readb(bpb + 2);
++            const uint32_t reserved = mem_readw(bpb + 3);
++            const uint32_t fats = mem_readb(bpb + 5);
++            const uint32_t roots = mem_readw(bpb + 6);
++            uint32_t total = mem_readw(bpb + 8);
++            const uint8_t media = mem_readb(bpb + 0x0a);
++            const uint32_t fat_size = mem_readw(bpb + 0x0b);
++            if (!total && modern) total = mem_readd(bpb + 0x15);
++            /* A zero cluster size hung real DOS. Reject invalid/unsupported
++             * BPBs (including FAT32) without touching the destination. */
++            if (bytes < 32 || (bytes & (bytes - 1)) ||
++                !cluster || (cluster & (cluster - 1)) ||
++                !reserved || !fats || !roots || !fat_size ||
++                (!modern && fat_size > 0xff)) {
++                DOS_SetError(DOSERR_DATA_INVALID);
++                reg_ax = DOSERR_DATA_INVALID;
++                CALLBACK_SCF(true);
++                break;
++            }
++            const uint32_t first_root = reserved + fats * fat_size;
++            const uint32_t first_data = first_root + (roots * 32 + bytes - 1) / bytes;
++            const uint32_t clusters = total > first_data ? (total - first_data) / cluster : 0;
++            if (first_data > 0xffff || !clusters || clusters >= 65525) {
++                DOS_SetError(DOSERR_DATA_INVALID);
++                reg_ax = DOSERR_DATA_INVALID;
++                CALLBACK_SCF(true);
++                break;
++            }
++            uint8_t shift = 0;
++            for (uint32_t n = cluster; n > 1; n >>= 1) ++shift;
++            /* Keep drive/unit, device-header pointer, access flag and next
++             * DPB pointer: AH=53h only translates the supplied media layout. */
++            mem_writew(dpb + 2, static_cast<uint16_t>(bytes));
++            mem_writeb(dpb + 4, static_cast<uint8_t>(cluster - 1));
++            mem_writeb(dpb + 5, shift);
++            mem_writew(dpb + 6, static_cast<uint16_t>(reserved));
++            mem_writeb(dpb + 8, static_cast<uint8_t>(fats));
++            mem_writew(dpb + 9, static_cast<uint16_t>(roots));
++            mem_writew(dpb + 0x0b, static_cast<uint16_t>(first_data));
++            mem_writew(dpb + 0x0d, static_cast<uint16_t>(clusters + 1));
++            if (modern) mem_writew(dpb + 0x0f, static_cast<uint16_t>(fat_size));
++            else mem_writeb(dpb + 0x0f, static_cast<uint8_t>(fat_size));
++            mem_writew(dpb + (modern ? 0x11 : 0x10), static_cast<uint16_t>(first_root));
++            mem_writeb(dpb + (modern ? 0x17 : 0x16), media);
++            /* DOS 2.x has a current-directory cluster here; DOS 3+ instead
++             * reset the allocation search and mark the free count unknown. */
++            mem_writew(dpb + (modern ? 0x1d : 0x1c), 0);
++            if (dos.version.major >= 3) mem_writew(dpb + (modern ? 0x1f : 0x1e), 0xffff);
++            CALLBACK_SCF(false);
+             break;
++        }
+         case 0x54:                  /* Get verify flag */
+             reg_al=dos.verify?1:0;
+             break;

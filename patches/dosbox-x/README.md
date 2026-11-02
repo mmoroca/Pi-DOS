@@ -47,6 +47,13 @@ capture enabled across CRT/LCD video changes and makes startup capture
 idempotent. Windows 3.x needs captured relative PS/2 motion, unlike the DOS
 installer's INT 33h positioning.
 
+`0043-dos-bpb-to-dpb.patch` implements INT 21h AH=53h, used by Windows 3.11
+File Manager during floppy formatting. It converts FAT12/FAT16 BPBs into
+DOS 3.x or DOS 4+ DPBs without changing caller-owned device/linkage fields.
+Invalid or unsupported layouts return DOS error 13 without partially updating
+the destination or terminating the emulator. The focused regression is
+`python3 tools/image/test-bpb-to-dpb.py`.
+
 The USB CD backend also reuses successful status checks for up to 100 ms and
 prefetches up to 32 cooked sectors (64 KiB), bounded by track ends. Media changes
 clear the cache; raw/audio reads bypass it. Cache misses force a fresh status

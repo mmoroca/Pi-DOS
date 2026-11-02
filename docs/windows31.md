@@ -8,6 +8,26 @@ Windows installation media must be supplied by the user. These source changes
 require a rebuilt Pi-DOS image; physical CD timing and Windows mouse operation
 still need confirmation on the Pi.
 
+## Black screen when formatting a floppy in File Manager
+
+The diagnostic log confirmed `E_Exit: Unhandled Dos 21 call 53`. Windows 3.11
+File Manager requests INT 21h AH=53h after writing the boot sector. The runtime
+previously terminated at that unimplemented service, closing the display and
+leaving Pi-DOS without a running emulator.
+
+Patch `0043-dos-bpb-to-dpb.patch` implements the FAT12/FAT16 BIOS parameter
+block to DOS drive parameter block conversion. It supports the DOS 3.x and
+DOS 4+ layouts, preserves caller-owned linkage/device fields, and rejects
+invalid or unsupported layouts with DOS error 13 instead of exiting. The
+conversion only updates the caller's memory; it does not access the disk.
+
+The focused check is `python3 tools/image/test-bpb-to-dpb.py`. Actual formatting
+in Windows with a physical USB floppy still needs Pi validation. An aborted
+format may already have changed the floppy's boot sector; format that disk
+again after updating. To update an existing SD card, replace BOOT's `Image`
+with the rebuilt `output/buildroot-arm64/images/Image` while the Pi is off.
+The Windows installation on the PI-DOS data partition can be kept.
+
 ## Slow installation scan and file reads
 
 Windows Setup searches for an existing installation. Pi-DOS previously sent
