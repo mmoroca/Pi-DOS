@@ -8,7 +8,7 @@ typedef struct {
     const char *label, *choices, *catalog, *help;
 } Field;
 extern const char *page_names[PAGE_COUNT];
-#define FORM_MAX_FIELDS 16
+#define FORM_MAX_FIELDS 20
 #define FORM_VISIBLE_FIELDS 11
 #define MEMORY_COUNT 8
 extern const char *memory_sizes[MEMORY_COUNT];

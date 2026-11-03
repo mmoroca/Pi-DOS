@@ -77,6 +77,7 @@ int form_fields(int page, Field *fields)
    ADD(K_LCD_MODE,FIELD_CHOICE,"LCD resolution","640x480|800x600|832x624|1024x768=1024x768 (default)|1280x720|1920x1080",0,"Fixed output resolution from the supplied EDID; reboot to apply.");
    ADD(K_LCD_ASPECT,FIELD_CHOICE,"LCD aspect ratio","4:3=4:3 (default)|original=Original pixels",0,"4:3 corrects DOS geometry. Original pixels preserves the source raster ratio.");
    ADD(K_LCD_LINEAR,FIELD_CHECKBOX,"Linear filtering",0,0,"Smooth LCD scaling with SDL2; off by default. Reboot to apply.");
+   ADD(K_LCD_HUD,FIELD_CHECKBOX,"CPU and temperature overlay",0,0,"Show host core load and SoC temperature; reboot to apply. Default off.");
   }
   ADD(K_KEYBOARD,FIELD_CHOICE,"Keyboard layout",0,"KEYBOARD.LST","Keyboard translation is independent of country and timezone.");
   ADD(K_COUNTRY,FIELD_CHOICE,"DOS country",0,"COUNTRY.LST","Country controls DOS date, number and currency formatting.");

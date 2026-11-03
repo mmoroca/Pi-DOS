@@ -15,6 +15,8 @@ LCD keeps a fixed output: 640x480, 800x600, 832x624, 1024x768 (default),
 the picture fits the screen with black borders as needed. Original pixels
 preserves the DOS raster ratio, for example 320x200 is 8:5.
 Linear filtering smooths LCD scaling using SDL2; disabled by default.
+CPU and temperature overlay shows host core load and CPU/SoC temperature.
+It is LCD-only, off by default, independent of logs, and takes effect on reboot.
 LCD options are hidden in CRT mode and retained when switching back.
 CRT follows DOS resolutions and refresh rates without software effects.
 Existing files without a monitor setting keep their previous display setup.

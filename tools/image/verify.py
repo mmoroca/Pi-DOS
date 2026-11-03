@@ -399,7 +399,8 @@ def main():
             and b'midiconfig=/dosdata/SYSTEM/MIDI/SC55.SF2\r\n' in packed_config,
             'Missing enabled SC-55 SoundFont profile/volume defaults')
     require(b'monitor=crt\r\nlcd_mode=1024x768\r\nlcd_aspect=4:3\r\n'
-            in packed_config and b'lcd_linear=false\r\n' in packed_config,
+            in packed_config and b'lcd_linear=false\r\n' in packed_config and
+            b'lcd_hud=false\r\n' in packed_config,
             'Missing fresh-install CRT monitor / disabled filtering defaults')
     assets = json.loads((ROOT / 'configs/midi-assets.json').read_text())['files']
     for asset in assets:

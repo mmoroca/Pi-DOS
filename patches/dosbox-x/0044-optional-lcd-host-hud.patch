@@ -1,0 +1,103 @@
+Pi-DOS: present an opt-in host CPU/temperature overlay on LCD surfaces.
+
+--- a/src/output/output_surface.cpp
++++ b/src/output/output_surface.cpp
+@@ -10,6 +10,10 @@
+ #include "vga.h"
+ #if defined(C_SDL2)
+ #include "pidos_lcd_video.h"
++#if defined(__linux__)
++#include "pidos_hud.h"
++#include <new>
++#endif
+ #endif
+ 
+ #include <output/output_tools.h>
+@@ -58,8 +62,29 @@
+ static SDL_Surface *pidos_lcd_surface = nullptr;
+ static SDL_Surface *pidos_lcd_linear_surface = nullptr;
+ static bool pidos_lcd_linear = false;
++#if defined(__linux__)
++/* The SDL owner manages the overlay; the monitor only reads Linux files. */
++static PidosHud *pidos_hud = nullptr;
++static bool pidos_hud_presented = false;
++static void pidos_hud_stop() { delete pidos_hud; pidos_hud=nullptr; pidos_hud_presented=false; }
++static void pidos_hud_start() {
++    const char *enabled=getenv("PI_DOS_LCD_HUD");
++    if (!enabled || strcmp(enabled,"true")) return;
++    pidos_hud=new (std::nothrow) PidosHud();
++    if (pidos_hud && !pidos_hud->start()) pidos_hud_stop();
++}
++void OUTPUT_SURFACE_PiDosHudPump() {
++    if (pidos_hud && pidos_hud_presented && !sdl.updating && pidos_lcd_surface &&
++        sdl.window && sdl.surface && pidos_hud->pulse_due()) {
++        if (pidos_hud->draw(sdl.surface)) SDL_UpdateWindowSurface(sdl.window);
++    }
++}
++#endif
+ Bitu OUTPUT_SURFACE_SetSize()
+ {
++#if defined(__linux__)
++    pidos_hud_stop();
++#endif
+     SDL_FreeSurface(pidos_lcd_surface);
+     pidos_lcd_surface = nullptr;
+     SDL_FreeSurface(pidos_lcd_linear_surface);
+@@ -97,6 +122,9 @@
+         sdl.deferred_resize = false;
+         sdl.must_redraw_all = true;
+         SDL_FillRect(sdl.surface, nullptr, SDL_MapRGB(sdl.surface->format, 0, 0, 0));
++#if defined(__linux__)
++        pidos_hud_start();
++#endif
+         GFX_CaptureMouse(true);
+         return GFX_CAN_32;
+     }
+@@ -713,8 +741,14 @@
+             } else {
+                 status = SDL_BlitScaled(pidos_lcd_surface, nullptr, sdl.surface, &destination);
+             }
++#if defined(__linux__)
++            if (status == 0 && pidos_hud) pidos_hud->draw(sdl.surface);
++#endif
+             if (status != 0 || SDL_UpdateWindowSurface(sdl.window) != 0)
+                 E_Exit("Pi-DOS LCD presentation: %s", SDL_GetError());
++#if defined(__linux__)
++            if (changedLines[0] != sdl.draw.height) pidos_hud_presented=true;
++#endif
+         }
+         return;
+     }
+@@ -856,5 +890,7 @@
+ 
+ void OUTPUT_SURFACE_Shutdown()
+ {
+-    // nothing to shutdown (yet?)
++#if defined(C_SDL2) && defined(__linux__)
++    pidos_hud_stop();
++#endif
+ }
+--- a/src/output/output_surface.h
++++ b/src/output/output_surface.h
+@@ -11,5 +11,8 @@
+ bool OUTPUT_SURFACE_StartUpdate(uint8_t* &pixels, Bitu &pitch);
+ void OUTPUT_SURFACE_EndUpdate(const uint16_t *changedLines);
+ void OUTPUT_SURFACE_Shutdown();
++#if defined(C_SDL2) && defined(__linux__)
++void OUTPUT_SURFACE_PiDosHudPump();
++#endif
+ 
+ #endif /*DOSBOX_OUTPUT_SURFACE_H*/
+\ No newline at end of file
+--- a/src/gui/sdlmain.cpp
++++ b/src/gui/sdlmain.cpp
+@@ -6040,6 +6040,9 @@
+ #endif
+ 
+ void GFX_Events() {
++#if defined(C_SDL2) && defined(__linux__)
++    if (sdl.desktop.type == SCREEN_SURFACE) OUTPUT_SURFACE_PiDosHudPump();
++#endif
+     CheckMapperKeyboardLayout();
+ #if defined(C_SDL2) /* SDL 2.x---------------------------------- */
+     //Don't poll too often. This can be heavy on the OS, especially Macs.

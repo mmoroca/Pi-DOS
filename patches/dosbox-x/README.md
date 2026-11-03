@@ -383,3 +383,12 @@ PIDOSCFG exposes Linear filtering with the LCD controls in System, off by defaul
 matches; otherwise an RGB888 staging surface is converted into the window after
 scaling. CRT mode ignores this preference. Physical Pi performance and display
 validation are still required.
+
+`0044-optional-lcd-host-hud.patch` integrates the opt-in LCD host overlay.
+`src/runtime/host_hud.h` samples per-core `/proc/stat` and a recognized SoC/CPU
+thermal zone on a monitor thread; the SDL owner composites the cached image and
+presents idle updates only after a real frame. PID 1 passes `lcd_hud` through
+`PI_DOS_LCD_HUD`; default is off, and CRT/unmanaged output is unaffected. It
+creates no diagnostics logs and does not alter the DOS framebuffer.
+`tools/image/test-hud.sh` checks native SDL-dummy behavior; real Pi/KMS remains
+necessary for the standalone implementation.

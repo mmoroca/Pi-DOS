@@ -37,6 +37,7 @@ define PI_DOS_RUNTIME_APPLY_PATCHES
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/controllers.h $(@D)/src/gui/pidos_controllers.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/reboot_shortcut.h $(@D)/src/gui/pidos_reboot_shortcut.h
 	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/common/lcd_video.h $(@D)/include/pidos_lcd_video.h
+	$(INSTALL) -m 0644 $(BR2_EXTERNAL_PI_DOS_PATH)/../src/runtime/host_hud.h $(@D)/src/output/pidos_hud.h
 	$(APPLY_PATCHES) $(@D) $(BR2_EXTERNAL_PI_DOS_PATH)/../patches/dosbox-x '*.patch'
 	printf '#define PI_DOS_VERSION "%s"\n' \
 		"$(shell cat $(BR2_EXTERNAL_PI_DOS_PATH)/../VERSION)" > $(@D)/include/pi_dos_version.h

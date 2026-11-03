@@ -54,6 +54,7 @@ PidosViewport fit(int w, int h, int sw, int sh, int correct) {
     assert libc.getenv(b'PI_DOS_LCD_MODE') is None
     assert libc.getenv(b'PI_DOS_LCD_ASPECT') is None
     assert libc.getenv(b'PI_DOS_LCD_LINEAR') is None
+    assert libc.getenv(b'PI_DOS_LCD_HUD') is None
 
     # Every offered LCD mode is present in the checked-in EDID report.
     modes = ('640x480', '800x600', '832x624', '1024x768', '1280x720', '1920x1080')
@@ -78,12 +79,21 @@ PidosViewport fit(int w, int h, int sw, int sh, int correct) {
                            (b'false', b'false'), (b'broken', b'false')):
         prepare(b'[pidos]\nmonitor=lcd\nlcd_linear='+value+b'\n')
         assert libc.getenv(b'PI_DOS_LCD_LINEAR') == enabled
+    for value, enabled in ((b'true', b'true'), (b'TRUE', b'true'),
+                           (b'false', b'false'), (b'broken', b'false')):
+        prepare(b'[pidos]\nmonitor=lcd\nlcd_hud='+value+b'\n')
+        assert libc.getenv(b'PI_DOS_LCD_HUD') == enabled
+    prepare(b'[pidos]\nmonitor=lcd\nlcd_hud=true\n')
+    assert libc.getenv(b'PI_DOS_LCD_HUD') == b'true'
+    prepare(b'[pidos]\nmonitor=crt\nlcd_hud=true\n')
+    assert libc.getenv(b'PI_DOS_LCD_HUD') is None
     prepare(b'[pidos]\nmonitor=lcd\nlcd_linear=true\n')
     crt = prepare(b'[pidos]\nmonitor=crt\nlcd_mode=1280x720\nlcd_linear=true\n')
     assert crt['sdl']['fullresolution'] == 'original'
     assert crt['render']['modeswitch'] == 'true' and crt['render']['doublescan'] == 'true'
     assert crt['render']['scaler'] == 'none' and libc.getenv(b'PI_DOS_LCD_MODE') is None
     assert libc.getenv(b'PI_DOS_LCD_LINEAR') is None
+    assert libc.getenv(b'PI_DOS_LCD_HUD') is None
     prepare(b'[pidos]\nmonitor=lcd\nlcd_linear=true\n')
     prepare(b'[render]\naspect=true\nscaler=normal3x\n')
     assert libc.getenv(b'PI_DOS_LCD_LINEAR') is None

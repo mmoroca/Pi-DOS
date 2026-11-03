@@ -102,7 +102,8 @@ Other defaults are S3 Trio64 video, Sound Blaster Pro 2 and the Roland
 SC-55 SoundFont MIDI profile.
 PIDOSCFG's System page selects CRT (the default) or LCD output.
 CRT follows DOS video modes. LCD offers manual resolutions (1024x768 by default),
-4:3 or Original pixels aspect, and optional SDL2 linear filtering (off by default).
+4:3 or Original pixels aspect, optional SDL2 linear filtering, and an optional host
+CPU/temperature overlay (both off by default). The overlay is independent of logs.
 Save and reboot to apply. Existing configurations keep their display behavior
 until a monitor type is selected. See the [monitor controls](src/doscfg/README.md#monitor-output).
 PIDOSCFG's Network tab configures IPX-over-UDP multiplayer, NE2000 with SLIRP

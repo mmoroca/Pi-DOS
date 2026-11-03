@@ -45,6 +45,15 @@ black borders as needed. Guests larger than the output are reduced to fit.
 disabled by default, using nearest-neighbor scaling. These controls are shown
 only for LCD, and their preferences survive switching to CRT. There is no integer scaling or refresh selector.
 
+**CPU and temperature overlay** is an optional LCD-only overlay, disabled by
+default. It shows total Linux host usage per core (all processes, not just the
+emulator) and, if identifiable, the SoC/CPU thermal-zone temperature. `--`
+means a value is not yet available. The overlay hides a small part of the
+image and adds some monitoring/presentation overhead. It does not create
+logs, depend on diagnostic logging, or speed up emulation. Save and reboot
+to apply; the corresponding setting is `[pidos] lcd_hud=true/false`.
+Screenshots capture the DOS framebuffer without this host overlay.
+
 CRT retains native DOS raster/refresh switching, with no aspect correction or
 software scaler. Existing configurations without `[pidos] monitor` keep their
 previous advanced display settings until a monitor type is explicitly selected.

@@ -46,7 +46,7 @@ const CfgSpec cfg_specs[K_COUNT] = {
  S("pidos","monitor","crt",PAGE_SYSTEM),
  S("pidos","lcd_mode","1024x768",PAGE_SYSTEM),
  S("pidos","lcd_aspect","4:3",PAGE_SYSTEM),
- S("pidos","lcd_linear","false",PAGE_SYSTEM),
+ S("pidos","lcd_linear","false",PAGE_SYSTEM), S("pidos","lcd_hud","false",PAGE_SYSTEM),
  S("joystick","joysticktype","2axis",PAGE_INPUT),
  S("pidos","controller_layout","auto",PAGE_INPUT),
  S("pidos","controller_direction","both",PAGE_INPUT),
@@ -154,7 +154,7 @@ int cfg_set(int key, const char *value) {
   valid=value[0]=='0' && (!value[1] || (value[1]=='.' && value[2]));
   for(i=2;valid && value[1] && value[i];++i) if(!isdigit((unsigned char)value[i])) valid=0;
   break;
- case K_CONTROLLER_SWAP: case K_JOY_TIMED: case K_JOY_AUTOFIRE: case K_LCD_LINEAR:
+ case K_CONTROLLER_SWAP: case K_JOY_TIMED: case K_JOY_AUTOFIRE: case K_LCD_LINEAR: case K_LCD_HUD:
   valid=one_of(value,"true|false"); break;
  case K_SHORTCUT_REBOOT: case K_SHORTCUT_POWEROFF: case K_SHORTCUT_PAUSE:
  case K_SHORTCUT_SCREENSHOT: case K_SHORTCUT_NEXT_CD: case K_SHORTCUT_NEXT_FLOPPY:

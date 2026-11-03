@@ -221,21 +221,40 @@ with tempfile.TemporaryDirectory(prefix='pidoscfg-config.') as temporary:
                        ('K_LCD_ASPECT',b'original'),('K_LCD_LINEAR',b'true')):
         assert set_value(key,value)
     fields = ctypes.create_string_buffer(16 * 128)
-    assert editor.form_fields(7, fields) == 15  # LCD, audio, region, diagnostics and shortcuts
+    assert editor.form_fields(7, fields) == 16  # LCD, overlay, audio, region, diagnostics and shortcuts
+    # Check exact field identity, type and an untouched guard after the array.
+    class Field(ctypes.Structure):
+        _fields_ = [('key',ctypes.c_int),('type',ctypes.c_int)] + [
+            (name,ctypes.c_char_p) for name in ('label','choices','catalog','help')]
+    class GuardedFields(ctypes.Structure):
+        _fields_ = [('items',Field * 20),('guard',ctypes.c_uint64)]
+    guarded=GuardedFields(); guarded.guard=0x123456789ABCDEF0
+    assert editor.form_fields(7, guarded.items) == 16
+    assert guarded.guard == 0x123456789ABCDEF0
+    hud=[f for f in guarded.items if f.key == keys['K_LCD_HUD']]
+    assert len(hud)==1 and hud[0].type==2 and hud[0].label==b'CPU and temperature overlay'
     assert editor.cfg_save_changes(encoded)
     assert editor.cfg_load(encoded) and get('K_MONITOR') == b'lcd'
     assert get('K_LCD_MODE') == b'1280x720' and get('K_LCD_ASPECT') == b'original'
     assert get('K_LCD_LINEAR') == b'true'
+    assert get('K_LCD_HUD') == b'false'
+    assert not set_value('K_LCD_HUD',b'yes')
+    assert set_value('K_LCD_HUD',b'true')
+    assert editor.cfg_save_changes(encoded)
+    assert b'lcd_hud=true' in path.read_bytes()
+    assert editor.cfg_load(encoded) and get('K_LCD_HUD') == b'true'
     assert set_value('K_MONITOR',b'crt')
     assert editor.form_fields(7, fields) == 12
     assert get('K_LCD_MODE') == b'1280x720'  # switching keeps LCD preferences
     assert get('K_LCD_LINEAR') == b'true'
+    assert get('K_LCD_HUD') == b'true'  # switching preserves the hidden option
     for key, value in (('K_MONITOR',b'auto'),('K_LCD_MODE',b'9999x9999'),
                        ('K_LCD_ASPECT',b'stretch'),('K_LCD_LINEAR',b'yes')):
         assert not set_value(key,value)
     editor.cfg_reset_page(7)
     assert get('K_MONITOR') == b'crt' and get('K_LCD_MODE') == b'1024x768'
     assert get('K_LCD_ASPECT') == b'4:3' and get('K_LCD_LINEAR') == b'false'
+    assert get('K_LCD_HUD') == b'false'
     assert editor.cfg_save_changes(encoded)
 
     # Physical audio output is independent of the emulated sound card.

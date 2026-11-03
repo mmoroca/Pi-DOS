@@ -8,10 +8,11 @@
 
 bool pi_dos_video_prepare(const char *source, const char *runtime)
 {
-    char monitor[32], mode[32], aspect[32], linear[32];
+    char monitor[32], mode[32], aspect[32], linear[32], hud[32];
     unsetenv("PI_DOS_LCD_MODE");
     unsetenv("PI_DOS_LCD_ASPECT");
     unsetenv("PI_DOS_LCD_LINEAR");
+    unsetenv("PI_DOS_LCD_HUD");
     FILE *out = fopen(runtime, "w");
     if (!out) return false;
     /* A missing profile in an existing installation leaves advanced settings intact. */
@@ -25,6 +26,8 @@ bool pi_dos_video_prepare(const char *source, const char *runtime)
                         !strcasecmp(aspect, "original");
         bool filtering = pi_dos_config_value(source, "pidos", "lcd_linear", linear, sizeof(linear)) &&
                          !strcasecmp(linear, "true");
+        bool overlay = pi_dos_config_value(source, "pidos", "lcd_hud", hud, sizeof(hud)) &&
+                       !strcasecmp(hud, "true");
         /* Separate source pixels from the fixed host surface. Aspect fitting happens once,
          * during final presentation; the emulated VGA clock is unchanged. */
         fprintf(out, "[sdl]\nfullscreen=true\noutput=surface\nfullresolution=%s\n"
@@ -32,7 +35,8 @@ bool pi_dos_video_prepare(const char *source, const char *runtime)
                 resolution);
         if (setenv("PI_DOS_LCD_MODE", resolution, 1) ||
             setenv("PI_DOS_LCD_ASPECT", original ? "original" : "4:3", 1) ||
-            setenv("PI_DOS_LCD_LINEAR", filtering ? "true" : "false", 1)) {
+            setenv("PI_DOS_LCD_LINEAR", filtering ? "true" : "false", 1) ||
+            setenv("PI_DOS_LCD_HUD", overlay ? "true" : "false", 1)) {
             fclose(out); return false;
         }
     } else {
